@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "peshbeen"
+  site-url: "https://mustafaslanCoto.github.io/peshbeen"
+  description: ""
+  repo-branch: main
+  repo-url: "https://github.com/mustafaslanCoto/peshbeen"

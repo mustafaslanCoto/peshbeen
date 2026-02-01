@@ -1,0 +1,7 @@
+website:
+  sidebar:
+    contents:
+      - text: "Home"
+        file: index.ipynb
+      # - 01_metrics.ipynb
+      # - 00_core.ipynb
