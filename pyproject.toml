@@ -27,6 +27,7 @@ dependencies = [
     "statsmodels",
     "nbdev",
     "fastcore",
+    "setuptools>=68",
     "xgboost",
     "lightgbm",
     "catboost",
