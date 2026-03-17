@@ -27,7 +27,7 @@ dependencies = [
     "statsmodels",
     "nbdev",
     "fastcore",
-    "setuptools>=68",
+    "setuptools>=68,<82",
     "importlib-metadata",
     "xgboost",
     "lightgbm",
@@ -43,7 +43,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-"setuptools>=68",
+"setuptools>=68,<82",
 "xgboost",
 "lightgbm",
 "catboost",
@@ -57,7 +57,7 @@ dev = [
 ]
 
 tuning = [
-"setuptools>=68",
+"setuptools>=68,<82",
 "importlib-metadata",
 "hyperopt",
 "optuna",
