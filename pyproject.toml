@@ -28,6 +28,7 @@ dependencies = [
     "nbdev",
     "fastcore",
     "setuptools>=68",
+    "importlib-metadata",
     "xgboost",
     "lightgbm",
     "catboost",
@@ -57,6 +58,7 @@ dev = [
 
 tuning = [
 "setuptools>=68",
+"importlib-metadata",
 "hyperopt",
 "optuna",
 ]
