@@ -29,6 +29,7 @@ dependencies = [
     "fastcore",
     "setuptools>=68,<82",
     "importlib-metadata",
+    "openpyxl",
     "xgboost",
     "lightgbm",
     "catboost",
