@@ -14,11 +14,17 @@
     commonmark: default
 
   website:
-    title: "peshbeen"
-    # navbar: 
+    favicon: images/favicon_64.png
+    # navbar:
+    #   title: false
+    #   logo: images/logo_transparent.png
     #   left:
-    #     - text: "Examples"
+    #     - href: index.ipynb
+    #       text: Home
+    #     - href: install_guide.ipynb
+    #       text: Install
     sidebar:
+      logo: images/logo_transparent.png
       style: docked
       search: true
       contents:

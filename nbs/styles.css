@@ -37,7 +37,7 @@ div.description {
 }
 
 .navbar {
-  background-color:	#20808D !important; /* Replace with your preferred color */
+  background-color:	#FBFAF4 !important; /* Replace with your preferred color */
 }
 
 body {
@@ -86,4 +86,14 @@ nav[role="doc-toc"],
 /* Optional: If there is still a white gap on the very far right margin */
 .quarto-margin-content {
     background-color: #FBFAF4 !important;
+}
+
+.navbar-brand img {
+  max-height: 50px !important;
+  height: 50px;
+}
+
+.sidebar-logo img {
+  max-width: 100% !important;
+  width: 100% !important;
 }
