@@ -1,0 +1,26 @@
+website:
+  sidebar:
+    contents:
+      - index.ipynb
+      - 99_examp_core.ipynb
+      - api.ipynb
+      - install_guide.ipynb
+      - section: modules
+        contents:
+          - modules/01_metrics.ipynb
+          - modules/03_model_selection.ipynb
+          - modules/04_prob_forecast.ipynb
+          - modules/05_transformations.ipynb
+          - modules/06_stattools.ipynb
+          - modules/07_statplots.ipynb
+          - modules/08_formatting.ipynb
+          - modules/99_datasets.ipynb
+          - section: models
+            contents:
+              - modules/models/01_ml_forecast.ipynb
+              - modules/models/02_ms_arr.ipynb
+              - modules/models/03_ml_mv_forecast.ipynb
+              - modules/models/04_var.ipynb
+              - modules/models/05_ms_var.ipynb
+              - modules/models/06_arima.ipynb
+            href: modules/models/00_index.ipynb
