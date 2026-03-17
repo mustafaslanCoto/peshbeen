@@ -432,7 +432,7 @@ class ms_arr:
     # FIT (EM training)
     # ─────────────────────────────────────────────────────────────────────────
 
-    def fit_em(self,
+    def fit(self,
                df: pd.DataFrame
                ) -> float:
         """
@@ -473,52 +473,52 @@ class ms_arr:
                 break
             self.log_likelihoods.append(self.LL)
             prev_ll = self.LL
-
+        self.is_fitted = True
         return self.LL
 
     # ─────────────────────────────────────────────────────────────────────────
     # FIT (refit on new data)
     # ─────────────────────────────────────────────────────────────────────────
 
-    def fit(self,
-            df: pd.DataFrame,
-            n_iter: int = 1
-            ) -> float:
+    # def fit(self,
+    #         df: pd.DataFrame,
+    #         n_iter: int = 1
+    #         ) -> float:
         
-        """
-        Refit the model on new data using EM, starting from current parameters. This can be used for incremental training or fine-tuning on new datasets without reinitialising the model.
+    #     """
+    #     Refit the model on new data using EM, starting from current parameters. This can be used for incremental training or fine-tuning on new datasets without reinitialising the model.
         
-        Parameters
-        ----------
-        df : pd.DataFrame
-            New training DataFrame containing the target and any feature columns.
-        n_iter : int, default=1
-            Number of additional EM iterations to run on the new data.
+    #     Parameters
+    #     ----------
+    #     df : pd.DataFrame
+    #         New training DataFrame containing the target and any feature columns.
+    #     n_iter : int, default=1
+    #         Number of additional EM iterations to run on the new data.
             
-        Returns
-        -------
-        float
-            Final log-likelihood after the additional EM iterations.
-        """
+    #     Returns
+    #     -------
+    #     float
+    #         Final log-likelihood after the additional EM iterations.
+    #     """
 
-        if n_iter < 1:
-            raise ValueError("n_iter must be at least 1.")
+    #     if n_iter < 1:
+    #         raise ValueError("n_iter must be at least 1.")
 
-        self.data_prep(df)
+    #     self.data_prep(df)
 
-        if n_iter > 1:
-            prev_ll = self.LL
-            for it in range(n_iter):
-                self.EM()
-                if self.verb:
-                    print(f"Iter {it}: loglik={self.LL:.4f}")
-                if abs(self.LL - prev_ll) < self.tol:
-                    break
-                prev_ll = self.LL
-        else:
-            self.EM()
+    #     if n_iter > 1:
+    #         prev_ll = self.LL
+    #         for it in range(n_iter):
+    #             self.EM()
+    #             if self.verb:
+    #                 print(f"Iter {it}: loglik={self.LL:.4f}")
+    #             if abs(self.LL - prev_ll) < self.tol:
+    #                 break
+    #             prev_ll = self.LL
+    #     else:
+    #         self.EM()
 
-        return self.LL
+    #     return self.LL
 
     # ─────────────────────────────────────────────────────────────────────────
     # STATE INFERENCE
@@ -734,6 +734,11 @@ class ms_arr:
             DataFrame containing the average score for each metric across all splits. If h_split_point is provided, also includes separate scores for the two parts of the test set. If cv_df is True, returns a tuple of (overall_performance_df, cv_predictions_df)
         """
 
+        if not self.is_fitted:
+            self.fit(df)
+        
+        self.iter = n_iter
+
         cv_df_ = pd.DataFrame()
         tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
         metrics_dict = {m.__name__: [] for m in metrics}
@@ -745,7 +750,7 @@ class ms_arr:
             x_test = test.drop(columns=[self.target_col])
             y_test = np.array(test[self.target_col])
 
-            self.fit(train, n_iter=n_iter)
+            self.fit(train)
 
             # Forecast using the model
             bb_forecast = self.forecast(test_size, x_test)

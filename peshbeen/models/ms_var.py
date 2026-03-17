@@ -478,7 +478,7 @@ class ms_var:
     # FIT (EM training)
     # ─────────────────────────────────────────────────────────────────────────
 
-    def fit_em(self,
+    def fit(self,
                df: pd.DataFrame
                ) -> float:
         
@@ -522,51 +522,53 @@ class ms_var:
             self.log_likelihoods.append(self.LL)
             prev_ll = self.LL
 
+
+        self.is_fitted = True
         return self.LL
 
     # ─────────────────────────────────────────────────────────────────────────
     # FIT (refit on new data)
     # ─────────────────────────────────────────────────────────────────────────
 
-    def fit(self,
-            df: pd.DataFrame,
-            n_iter: int = 1
-            ) -> float:
+    # def fit(self,
+    #         df: pd.DataFrame,
+    #         n_iter: int = 1
+    #         ) -> float:
         
-        """
-        Refit the model on new data using additional EM iterations.
+    #     """
+    #     Refit the model on new data using additional EM iterations.
 
-        Parameters
-        ----------
-        df : pd.DataFrame
-            New training DataFrame containing all target and feature columns. Must include the columns specified in `target_cols` and any columns needed as regressors (e.g., categorical variables).
-        n_iter : int, default=1
-            Number of additional EM iterations to run after refitting on the new data. Must be at least 1.
+    #     Parameters
+    #     ----------
+    #     df : pd.DataFrame
+    #         New training DataFrame containing all target and feature columns. Must include the columns specified in `target_cols` and any columns needed as regressors (e.g., categorical variables).
+    #     n_iter : int, default=1
+    #         Number of additional EM iterations to run after refitting on the new data. Must be at least 1.
         
-        Returns
-        -------
-        float
-            Final log-likelihood after the additional EM iterations.
-        """
+    #     Returns
+    #     -------
+    #     float
+    #         Final log-likelihood after the additional EM iterations.
+    #     """
 
-        if n_iter < 1:
-            raise ValueError("n_iter must be at least 1.")
+    #     if n_iter < 1:
+    #         raise ValueError("n_iter must be at least 1.")
 
-        self.data_prep(df)
+    #     self.data_prep(df)
 
-        if n_iter > 1:
-            prev_ll = self.LL
-            for it in range(n_iter):
-                self.EM()
-                if self.verb:
-                    print(f"Iter {it}: loglik={self.LL:.4f}")
-                if abs(self.LL - prev_ll) < self.tol:
-                    break
-                prev_ll = self.LL
-        else:
-            self.EM()
+    #     if n_iter > 1:
+    #         prev_ll = self.LL
+    #         for it in range(n_iter):
+    #             self.EM()
+    #             if self.verb:
+    #                 print(f"Iter {it}: loglik={self.LL:.4f}")
+    #             if abs(self.LL - prev_ll) < self.tol:
+    #                 break
+    #             prev_ll = self.LL
+    #     else:
+    #         self.EM()
 
-        return self.LL
+    #     return self.LL
 
     # ─────────────────────────────────────────────────────────────────────────
     # STATE INFERENCE
@@ -953,6 +955,11 @@ class ms_var:
             DataFrame with averaged cross-validation metric scores.
         """
 
+        if not self.is_fitted:
+            self.fit(df)
+        
+        self.iter = n_iter
+
         cv_df_ = pd.DataFrame()
         tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
         metrics_dict = {m.__name__: [] for m in metrics}
@@ -963,7 +970,7 @@ class ms_var:
         for idx, (train_index, test_index) in enumerate(tscv.split(df)):
             train, test = df.iloc[train_index], df.iloc[test_index]
             x_test, y_test = test.drop(columns=self.target_cols), np.array(test[target_col])
-            self.fit(train, n_iter)
+            self.fit(train)
             forecasts = self.forecast(test_size, x_test)[target_col]
 
             for m in metrics:

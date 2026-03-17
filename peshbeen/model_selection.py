@@ -1216,6 +1216,11 @@ def ms_arr_forward_feature_selection(
     # ── Local working copy — caller's model NEVER touched ─────────────────────
     local_model = model.copy()
 
+    if not local_model.is_fitted:
+        local_model.fit(df)
+    
+    # local_model.iter = iterations
+
     # ── Candidate pools ───────────────────────────────────────────────────────
     if lags_to_consider is not None:
         _all = (list(range(1, lags_to_consider + 1))
@@ -1276,7 +1281,7 @@ def ms_arr_forward_feature_selection(
         """Full EM fit — resets coeffs so data_prep reinitialises for new feature set."""
         m.coeffs = None  # shape changes with each candidate — must reinitialise
         m.iter = iterations
-        m.fit_em(df_test)
+        m.fit(df_test)
         return m
 
     def _validate(m, df_test):
@@ -1465,6 +1470,9 @@ def ms_arr_backward_feature_selection(
     # ── Local working copy ────────────────────────────────────────────────────
     local_model = model.copy()
 
+    if not local_model.is_fitted:
+        local_model.fit(df)
+
     # ── Initial feature sets ──────────────────────────────────────────────────
     if lags_to_consider is not None:
         current_lags = (list(range(1, lags_to_consider + 1))
@@ -1508,7 +1516,7 @@ def ms_arr_backward_feature_selection(
         """Full EM fit — resets coeffs so data_prep reinitialises for new feature set."""
         m.coeffs = None  # shape changes with each candidate — must reinitialise
         m.iter = iterations
-        m.fit_em(df_test)
+        m.fit(df_test)
         return m
 
     def _validate(m, df_test):

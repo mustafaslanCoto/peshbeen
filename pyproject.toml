@@ -8,15 +8,73 @@ dynamic = ["version"]
 description = ""
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "Apache-2.0"}
-authors = [{name = "Mustafa Aslan", email = "mustafaslan63@gmail.com"}]
-keywords = ['nbdev']
+license = { text = "Apache-2.0" }
+authors = [{ name = "Mustafa Aslan", email = "mustafaslan63@gmail.com" }]
+keywords = ["nbdev"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
-dependencies = ["xgboost", "lightgbm", "catboost", "pandas", "numpy", "scikit-learn","datetime", "hyperopt","statsmodels", "seaborn", "statsforecast",
-                          "matplotlib", "window_ops", "cubist", "scipy", "numba", "great_tables", "openpyxl"]
+dependencies = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "scikit-learn",
+    "statsmodels",
+    "nbdev",
+    "fastcore",
+]
+
+[project.optional-dependencies]
+tuning = [
+    "hyperopt",
+    "optuna",
+]
+
+forecast = [
+    "statsforecast",
+    "window_ops",
+    "numba",
+]
+
+plotting = [
+    "matplotlib",
+    "seaborn",
+]
+
+tables = [
+    "great_tables",
+]
+
+ml = [
+    "xgboost",
+    "lightgbm",
+    "catboost",
+    "cubist",
+]
+
+io = [
+    "openpyxl",
+]
+
+all = [
+    "hyperopt",
+    "statsforecast",
+    "window_ops",
+    "numba",
+    "matplotlib",
+    "seaborn",
+    "great_tables",
+    "xgboost",
+    "lightgbm",
+    "catboost",
+    "cubist",
+    "openpyxl",
+]
 
 [project.urls]
 Repository = "https://github.com/mustafaslanCoto/peshbeen"
@@ -26,13 +84,16 @@ Documentation = "https://mustafaslanCoto.github.io/peshbeen/"
 peshbeen = "peshbeen._modidx:d"
 
 [tool.setuptools.dynamic]
-version = {attr = "peshbeen.__version__"}
+version = { attr = "peshbeen.__version__" }
 
 [tool.setuptools.packages.find]
 include = ["peshbeen"]
 
 [tool.nbdev]
 lib_name = "peshbeen"
+repo = "peshbeen"
+title = "peshbeen"
+description = "Time series forecasting library"
 user = "mustafaslanCoto"
 branch = "main"
 nbs_path = "nbs"
