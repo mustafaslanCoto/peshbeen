@@ -1,0 +1,99 @@
+.cell {
+  margin-bottom: 1rem;
+}
+
+.cell > .sourceCode {
+  margin-bottom: 0;
+}
+
+.cell-output > pre {
+  margin-bottom: 0;
+}
+
+.cell-output > pre, .cell-output > .sourceCode > pre, .cell-output-stdout > pre {
+  margin-left: 0.8rem;
+  margin-top: 0;
+  background: none;
+  border-left: 2px solid lightsalmon;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.cell-output > .sourceCode {
+  border: none;
+}
+
+.cell-output > .sourceCode {
+  background: none;
+  margin-top: 0;
+}
+
+div.description {
+  padding-left: 2px;
+  padding-top: 5px;
+  font-style: italic;
+  font-size: 135%;
+  opacity: 70%;
+}
+
+.navbar {
+  background-color:	#FBFAF4 !important; /* Replace with your preferred color */
+}
+
+body {
+  background-color: #FBFAF4 /* Example: a light grey. Change to any color you like */
+}
+
+
+/* .nav-footer {
+    background-color: #FBFAF4 !important;
+} */
+
+.sidebar {
+    background-color: #f4f4f4;
+}
+
+/* 1. Targets the main sidebar background */
+.quarto-sidebar, 
+#quarto-sidebar-sidebar {
+    background-color: #FBFAF4 !important;
+}
+
+/* 2. Targets the container inside the sidebar */
+.sidebar-navigation,
+.sidebar-item-container {
+    background-color: #FBFAF4 !important;
+}
+
+/* 3. Ensures the 'Welcome' or 'Peshbeen' header area matches */
+.sidebar-header {
+    background-color: #FBFAF4 !important;
+}
+
+/* Targets the right sidebar (Table of Contents) */
+#quarto-margin-sidebar,
+.toc-actions,
+.sidebar-margin-content {
+    background-color: #FBFAF4 !important;
+}
+
+/* Ensure the 'On this page' nav element itself is also styled */
+nav[role="doc-toc"],
+.nav.toc-active {
+    background-color: #FBFAF4 !important;
+}
+
+/* Optional: If there is still a white gap on the very far right margin */
+.quarto-margin-content {
+    background-color: #FBFAF4 !important;
+}
+
+.navbar-brand img {
+  max-height: 50px !important;
+  height: 50px;
+}
+
+.sidebar-logo img {
+  max-width: 100% !important;
+  width: 100% !important;
+}
