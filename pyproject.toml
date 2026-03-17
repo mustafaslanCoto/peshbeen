@@ -41,21 +41,23 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "xgboost",
-    "lightgbm",
-    "catboost",
-    "cubist",
-    "statsforecast",
-    "numba",
-    "hyperopt",
-    "optuna",
-    "matplotlib",
-    "great_tables",
+"setuptools>=68",
+"xgboost",
+"lightgbm",
+"catboost",
+"cubist",
+"statsforecast",
+"numba",
+"hyperopt",
+"optuna",
+"matplotlib",
+"great_tables",
 ]
 
 tuning = [
-    "hyperopt",
-    "optuna",
+"setuptools>=68",
+"hyperopt",
+"optuna",
 ]
 
 forecast = [
