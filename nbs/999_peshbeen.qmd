@@ -8,12 +8,56 @@ Peshbeen is a easy-to-use Python library designed for time series forecasting. I
 
 ## Installation Guide
 
-To install Peshbeen, you can use pip. Open your terminal or command prompt and run the following command:
+To install Peshbeen, you can use pip and conda package managers.
+
+For pip, run the following command in your terminal:
 
 ```bash
 pip install peshbeen
 ```
-For the latest development version, you can install it directly from the GitHub repository:
+
+For conda, you can use:
+
 ```bash
-pip install https://github.com/mustafaslanCoto/peshbeen_dev.git
+conda install -c conda-forge peshbeen
 ```
+
+
+
+<!-- # Probabilistic forecasting wrapper for any point-forecasting model.
+
+- Wraps ``arima``, ``ets``, ``ml_forecaster``, ``naive_forecaster``, and any other model that exposes ``.fit(df)`` and ``.forecast(H, exog)`` methods.
+
+- Provides four methods for producing prediction intervals or full predictive distributions:
+
+1. **Conformal prediction** (``calibrate`` → ``predict_intervals`` ``conformal_quantiles``): distribution-free, theoretically guaranteed coverage using split-conformal scores.
+
+2. **Empirical bootstrap** (``sample(method="empirical")``): residuals are resampled with replacement; each draw is added to the point forecast to produce a sample path.
+
+3. **KDE bootstrap** (``sample(method="kde")``): a kernel-density estimate is fitted to each horizon's residuals; samples are drawn from the KDE for a smooth approximation of the predictive distribution.
+
+4. **Correlated bootstrap** (``sample(method="correlated")``): a multivariate normal is fitted to the full (H-dimensional) residual vectors, preserving the correlation structure across forecast horizons. Samples are drawn jointly.
+
+All sampling methods populate ``self.sample_paths`` (shape
+``(n_samples, H)``) and ``self.point_forecast``, so
+``sample_quantiles`` works identically regardless of the method used.
+
+# Draw sample paths from the predictive distribution.
+
+# Three methods are available:
+
+# * ``"empirical"`` — residuals are resampled with replacement
+#     independently at each horizon.
+# * ``"kde"`` — a Gaussian KDE is fitted to each horizon's residuals;
+#     samples are drawn from the smoothed distribution.
+# * ``"correlated"`` — a multivariate normal is fitted to the full
+#     ``H``-dimensional residual vectors, preserving cross-horizon
+#     correlation.  Samples are drawn jointly.
+
+# Results are stored on ``self``:
+
+# * ``self.sample_paths`` — ``(n_samples, H)`` array of sampled
+#     trajectories centred on the point forecast.
+# * ``self.point_forecast`` — ``(H,)`` point forecast array.
+# * ``self.sample_paths_df`` — the same data as a DataFrame with
+#     columns ``h_1, …, h_H`` -->

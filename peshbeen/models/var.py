@@ -12,10 +12,10 @@ import pandas as pd
 import copy
 import statsmodels.api as sm
 from sklearn.ensemble import RandomForestRegressor, AdaBoostRegressor, HistGradientBoostingRegressor
-from ..transformations import (box_cox_transform, back_box_cox_transform, undiff_ts, seasonal_diff,
-                        invert_seasonal_diff, kfold_target_encoder, target_encoder_for_test,
-                        rolling_quantile, rolling_mean, rolling_std,
+from ..transformations import (box_cox_transform, back_box_cox_transform,
+                                      rolling_quantile, rolling_mean, rolling_std,
                         expanding_mean, expanding_std, expanding_quantile)
+from ..helpers import seasonal_diff, undiff_ts, invert_seasonal_diff
 from ..model_selection import SplitTimeSeries
 from ..statstools import lr_trend_model, forecast_trend
 from ..formatting import make_main_gt, gt_mini, inject_header_table_groups, cov_table, make_var_gt_regimes
@@ -174,6 +174,7 @@ class var:
         if not all(col in dfc.columns for col in self.target_cols):
             return dfc.dropna()
 
+        self.orig_target = dfc[self.target_cols].values # store for generating in sample residuals later
         # ── Box-Cox ───────────────────────────────────────────────────────────
         if self.box_cox is not None:
             self.is_zeros: Dict[str, bool] = {}
@@ -317,6 +318,19 @@ class var:
             Predicted values for each target.
         """
         return np.dot(self.coeffs.T, np.array(X).T)
+    
+    # def predict_in_sample(self) -> np.ndarray:
+    #     """
+    #     Generate in-sample predictions and residuals for the training data. This can be useful for diagnostic purposes, such as checking for patterns in the residuals or calculating in-sample performance metrics.
+
+    #     Returns
+    #     -------
+    #     np.ndarray
+    #         In-sample fitted values and residuals for the training data.
+    #     """
+    #     self.fitted_values = self.predict(self.X)
+    #     # make sure the fitted values are in the same order as the original data (in case of any reordering during data prep)
+    #     self.in_samp_resids = self.orig_target[-len(self.fitted_values.T):].T - self.fitted_values
 
     # ─────────────────────────────────────────────────────────────────────────
     # INFORMATION CRITERIA

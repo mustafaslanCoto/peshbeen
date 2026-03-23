@@ -28,18 +28,20 @@
       style: docked
       search: true
       contents:
-        - text: "Home"
+        - text: "Quick Start"
           file: index.ipynb
-        - text: "Installation Guide"
-          file: install_guide.ipynb
         - section: "API Reference"
           contents:
             - section: "models"
               contents:
-                - text: "ml_forecaster"
-                  file: modules/02_models/01_ml_forecast.ipynb
+                - text: "naive"
+                  file: modules/02_models/08_naive.ipynb
+                - text: "ets"
+                  file: modules/02_models/07_ets.ipynb
                 - text: "arima"
                   file: modules/02_models/06_arima.ipynb
+                - text: "ml_forecaster"
+                  file: modules/02_models/01_ml_forecast.ipynb
                 - text: "MsHmmRegression"
                   file: modules/02_models/02_ms_arr.ipynb
                 - text: "ml_bidirect_forecaster"
@@ -52,10 +54,16 @@
               # contents:
             - text: "model_selection"
               file: modules/03_model_selection.ipynb
-            # - section: "utils"
-            #   contents:
+            - text: "probabilistic_forecasting"
+              file: modules/04_prob_forecast.ipynb
+            - text: "transformations"
+              file: modules/05_transformations.ipynb
             - text: "metrics"
               file: modules/01_metrics.ipynb
+
+      tools: 
+        - icon: github
+          href: https://github.com/mustafaslanCoto/peshbeen
       
     page-footer:
       center: 

@@ -10,3 +10,5 @@ from .ms_arr import ms_arr
 from .ml_mv_forecaster import ml_mv_forecaster
 from .ms_var import ms_var
 from .arima import arima
+from .naive import naive
+from .ets import ets
