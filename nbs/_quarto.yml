@@ -14,7 +14,7 @@
     commonmark: default
 
   website:
-    favicon: images/favicon_64.png
+    favicon: images/peshbeen_favicon_64.png
     # navbar:
     #   title: false
     #   logo: images/logo_transparent.png
@@ -24,7 +24,7 @@
     #     - href: install_guide.ipynb
     #       text: Install
     sidebar:
-      logo: images/logo_transparent.png
+      logo: images/peshbeen_logo_transparent.png
       style: docked
       search: true
       contents:

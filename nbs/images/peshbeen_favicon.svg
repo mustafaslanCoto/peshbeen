@@ -1,0 +1,33 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="inside-iris">
+      <circle cx="32" cy="32" r="16"/>
+    </clipPath>
+  </defs>
+
+  <!-- Eye almond centered at (32, 32) -->
+  <path d="M 4,32 C 14,8 50,8 60,32 C 50,56 14,56 4,32 Z"
+        fill="none" stroke="#20808D" stroke-width="2.2"/>
+
+  <!-- Eye tip dots -->
+  <circle cx="4"  cy="32" r="2.2" fill="#20808D"/>
+  <circle cx="60" cy="32" r="2.2" fill="#20808D"/>
+
+  <!-- Iris ring -->
+  <circle cx="32" cy="32" r="16" fill="none" stroke="#20808D" stroke-width="1.4"/>
+
+  <!-- Bell curve: base vertical line at x=32 (center), peak extends right -->
+  <!-- Bottom of base at (32,48), top of base at (32,16), peak at x~48 -->
+  <g clip-path="url(#inside-iris)">
+    <path d="M 32,48 C 32,42 48,38 48,32 C 48,26 32,22 32,16"
+          fill="none" stroke="#20808D" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M 32,48 C 32,42 48,38 48,32 C 48,26 32,22 32,16 Z"
+          fill="#20808D" fill-opacity="0.12"/>
+    <!-- Mean line from center rightward -->
+    <line x1="32" y1="32" x2="46" y2="32"
+          stroke="#20808D" stroke-width="0.8" opacity="0.5" stroke-dasharray="2 2"/>
+  </g>
+
+  <!-- Pupil -->
+  <circle cx="32" cy="32" r="2.8" fill="#20808D"/>
+</svg>
