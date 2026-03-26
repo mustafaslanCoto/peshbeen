@@ -22,39 +22,21 @@ def _sm_dataset(name: str) -> pd.DataFrame:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def admission_ts():
-    """Daily hospital admissions in Wales, UK"""
-
-    base_path = Path(peshbeen.__file__).parent.parent
-    file_path = base_path / 'data' / 'wales_admissions.xlsx'
-    
-    # Optional: Fallback for initial local development before 'pip install -e .'
-    if not file_path.exists():
-        file_path = Path('..') / 'data' / 'wales_admissions.xlsx'
-        
+    file_path = Path(peshbeen.__file__).parent / "data" / "wales_admissions.xlsx"
     if not file_path.exists():
         raise FileNotFoundError(f"Could not find dataset at: {file_path}")
-        
-    return pd.read_excel(file_path)
+    return pd.read_excel(file_path).set_index("Date")
 
 def calls_ts():
-    """Daily emergency calls in Wales, UK"""
-
-    base_path = Path(peshbeen.__file__).parent.parent
-    file_path = base_path / 'data' / 'nhs_calls.xlsx'
-    
-    # Optional: Fallback for initial local development before 'pip install -e .'
-    if not file_path.exists():
-        file_path = Path('..') / 'data' / 'nhs_calls.xlsx'
-        
+    file_path = Path(peshbeen.__file__).parent / "data" / "nhs_calls.xlsx"
     if not file_path.exists():
         raise FileNotFoundError(f"Could not find dataset at: {file_path}")
-        
-    return pd.read_excel(file_path)
+    return pd.read_excel(file_path).set_index("Date")
 
 def admission_calls_ts() -> pd.DataFrame:
     """Combined dataset of daily hospital admissions and emergency calls in Wales, UK"""
-    admissions = admission_ts().set_index('Date')
-    calls = calls_ts().set_index('Date')
+    admissions = admission_ts()
+    calls = calls_ts()
     return admissions.join(calls, how='inner')
 
 
@@ -515,10 +497,10 @@ load_elnino = load_elnino_ts()
 load_livestock = load_livestock_ts()
 
 # %% ../nbs/modules/99_datasets.ipynb #de0d3bca
-load_wales_admissions = admission_ts().set_index('Date')
+load_wales_admissions = admission_ts()
 
 # %% ../nbs/modules/99_datasets.ipynb #9b5da161
-load_wales_calls = calls_ts().set_index('Date')
+load_wales_calls = calls_ts()
 
 # %% ../nbs/modules/99_datasets.ipynb #8aab60b8
 load_admission_calls = admission_calls_ts()
