@@ -118,6 +118,9 @@ version = { attr = "peshbeen.__version__" }
 [tool.setuptools.packages.find]
 include = ["peshbeen", "peshbeen.*"]
 
+[tool.setuptools.package-data]
+peshbeen = ["data/*.xlsx"]
+
 [tool.nbdev]
 repo = "peshbeen"
 lib_name = "peshbeen"
