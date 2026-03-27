@@ -30,6 +30,8 @@
       contents:
         - text: "Quick Start"
           file: index.ipynb
+        - text: "User Guide"
+          file: user_guide.ipynb
         - section: "API Reference"
           contents:
             - section: "models"

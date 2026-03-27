@@ -69,8 +69,8 @@ class ms_arr:
         ) -> None:
         
         """
-        Initialize the ml_forecaster with the specified model and preprocessing options.
-
+        Initialize the MS-ARR model with the specified parameters.
+        
         Parameters
         ----------
         n_components : int

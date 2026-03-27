@@ -3,8 +3,7 @@ website:
     contents:
       - index.ipynb
       - 99_examp_core.ipynb
-      - api.ipynb
-      - install_guide.ipynb
+      - user_guide.ipynb
       - section: modules
         contents:
           - modules/01_metrics.ipynb
