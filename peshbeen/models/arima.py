@@ -47,8 +47,7 @@ class arima:
         pol_degree: int = 1,
         ets_params: Optional[tuple] = None,
         change_points: Optional[List[int]] = None,
-        box_cox: bool = False,
-        box_cox_lmda: Optional[float] = None,
+        box_cox: Union[bool, float, int] = False,
         box_cox_biasadj: bool = False,
         cat_variables: Optional[List[str]] = None,
         target_encode: bool = False) -> None:
@@ -76,10 +75,8 @@ class arima:
             Tuple of (model_params_dict, fit_params_dict) to specify the parameters for the ExponentialSmoothing model when using 'ets' or 'feature_ets' trend strategy. The first element should be a dictionary of parameters to pass to the ExponentialSmoothing constructor, and the second element should be a dictionary of parameters to pass to the fit() method. Default is None (use default ETS parameters).
         change_points : list of int, optional
             List of indices in the time series where change points occur for piecewise linear trend fitting. Only used when trend strategy is 'linear' or 'feature_lr'. Default is None (no change points, fit a single linear trend).
-        box_cox : bool, optional
-            Whether to apply Box-Cox transformation to the target variable before modeling. Default is False.
-        box_cox_lmda : float, optional
-            Lambda parameter for Box-Cox transformation. If None, lambda will be estimated from the data. Default is None.
+        box_cox : bool or float or int, optional
+            Whether to apply Box-Cox transformation to the target variable. If a float or int value is provided, it will be used as the lambda parameter for the Box-Cox transformation. If True, the lambda parameter will be estimated from the data.
         box_cox_biasadj : bool, optional
             Whether to apply bias adjustment when inverting the Box-Cox transformation on forecasts. Default is False.
         cat_variables : list of str, optional
@@ -97,8 +94,12 @@ class arima:
         self.target_encode = target_encode
         self.cps = change_points
         self.pol = pol_degree
-        self.box_cox = box_cox
-        self.lamda = box_cox_lmda
+        if isinstance(box_cox, (float, int)):
+            self.box_cox = True
+            self.lamda = box_cox
+        else:
+            self.box_cox = box_cox  # True or False
+            self.lamda = None
         self.biasadj = box_cox_biasadj
         self.order = order
         self.seasonal_order = seasonal_order
@@ -155,14 +156,15 @@ class arima:
 
         if self.target_col not in dfc.columns:
             return dfc.dropna()
-
+        
+        self.orig_target = dfc[self.target_col].values # store for generating in sample residuals later
         # ── Box-Cox ───────────────────────────────────────────────────────────
         if self.box_cox:
             self.is_zero = np.any(np.array(dfc[self.target_col]) < 1)
-            trans_data, self.lamda = box_cox_transform(
+            self.trans_data, self.lamda = box_cox_transform(
                 x=dfc[self.target_col], shift=self.is_zero, box_cox_lmda=self.lamda
             )
-            dfc[self.target_col] = trans_data
+            dfc[self.target_col] = self.trans_data
 
         # ── Trend removal ─────────────────────────────────────────────────────
         if self.trend is not None:
@@ -252,6 +254,39 @@ class arima:
             self.model.fit(self.y, self.X)
         else:
             self.model.fit(self.y)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # predict_in_sample
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def predict_in_sample(self) -> np.ndarray:
+        """
+        Generate in-sample predictions and residuals for the training data. This can be useful for diagnostic purposes, such as checking for patterns in the residuals or calculating in-sample performance metrics.
+
+        Returns
+        -------
+        np.ndarray
+            In-sample fitted values and residuals for the training data.
+        """
+
+        # if .fit has not been called yet, error out
+        if not hasattr(self, "model"):
+            raise ValueError("Model has not been fitted yet. Call .fit() before predict_in_sample().")
+
+        fitted_values = self.model.predict_in_sample()["fitted"]
+        fit_len = len(fitted_values)
+        self.in_samp_resids = self.y - fitted_values
+        if not self.box_cox:
+            self.fitted_values = self.orig_target[-fit_len:] + self.in_samp_resids # start with original target values and add residuals to get fitted values in original scale (after all transformations are inverted in the correct order below)
+            
+        else:
+            bc_fitted= self.trans_data[-fit_len:] + self.in_samp_resids
+            self.fitted_values = back_box_cox_transform(
+                y_pred=bc_fitted, lmda=self.lamda,
+                shift=self.is_zero)
+            self.in_samp_resids = self.orig_target[-fit_len:] - self.fitted_values
+        # add NaNs for the initial periods where fitted values are not available due to lag features        if fit_len < len(self.orig_target):
+        self.fitted_values = np.concatenate([np.repeat(np.nan, len(self.orig_target) - fit_len), self.fitted_values])
 
     # ─────────────────────────────────────────────────────────────────────────
     # INFORMATION CRITERIA

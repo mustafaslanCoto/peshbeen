@@ -4,32 +4,26 @@
 # from nbdev.showdoc import *
 from __future__ import annotations
 from typing import List, Dict, Optional, Callable, Tuple, Any, Union
-from sklearn.base import clone
-from tabnanny import verbose
 import numpy as np
 import pandas as pd
 import copy
 import statsmodels.api as sm
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from ..transformations import (box_cox_transform, back_box_cox_transform,
-                                      rolling_quantile, rolling_mean, rolling_std,
-                        expanding_mean, expanding_std, expanding_quantile)
+                                      rolling_quantile, expanding_mean, expanding_std, expanding_quantile)
 from ..helpers import seasonal_diff, undiff_ts, invert_seasonal_diff
 from ..model_selection import SplitTimeSeries
 from ..statstools import lr_trend_model, forecast_trend
 from ..formatting import make_main_gt, gt_mini, inject_header_table_groups, cov_table, make_var_gt_regimes
-from catboost import CatBoostRegressor
-from cubist import Cubist
 # dot not show warnings
 import warnings
 warnings.filterwarnings("ignore")
 import copy
 import statsmodels.api as sm
-from scipy.stats import norm, multivariate_normal
-from sklearn.linear_model import LinearRegression
 from scipy.special import logsumexp
-from scipy.stats import t
+from scipy.stats import t, norm
 import re
+
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -48,8 +42,7 @@ class ms_arr:
         pol_degree: int = 1,
         ets_params: Optional[tuple] = None,
         change_points: Optional[List[int]] = None,
-        box_cox: bool = False,
-        box_cox_lmda: Optional[float] = None,
+        box_cox: Union[bool, float, int] = False,
         box_cox_biasadj: bool = False,
         add_constant: bool = True,
         cat_variables: Optional[List[str]] = None,
@@ -93,10 +86,8 @@ class ms_arr:
             Tuple of (model_params_dict, fit_params_dict) for ExponentialSmoothing. Example: ({'trend': 'add', 'seasonal': 'add', 'seasonal_periods': 12}, {'optimized': True, 'use_boxcox': True}).
         change_points : Optional[List[int]]
             Change points for piecewise linear trend. List of indices where the trend slope can change.
-        box_cox : bool
-            Whether to apply Box-Cox transformation to the target variable (default: False).
-        box_cox_lmda : Optional[float]
-            Lambda for Box-Cox transformation. If None, it will be estimated from the data.
+        box_cox : bool or float or int, optional
+            Whether to apply Box-Cox transformation to the target variable. If a float or int value is provided, it will be used as the lambda parameter for the Box-Cox transformation. If True, the lambda parameter will be estimated from the data.
         box_cox_biasadj : bool
             Whether to apply bias adjustment when inverting Box-Cox transformation (default: False).
         add_constant : bool
@@ -149,8 +140,12 @@ class ms_arr:
         self.stds = stds
         self.cps = change_points
         self.pol = pol_degree
-        self.box_cox = box_cox
-        self.lamda = box_cox_lmda
+        if isinstance(box_cox, (float, int)):
+            self.box_cox = True
+            self.lamda = box_cox
+        else:
+            self.box_cox = box_cox  # True or False
+            self.lamda = None
         self.biasadj = box_cox_biasadj
         self.lag_transform = lag_transform
 
@@ -160,8 +155,8 @@ class ms_arr:
             self.ets_model = ets_params[0]
             self.ets_fit = ets_params[1]
         else:
-            self.ets_model = None
-            self.ets_fit = None
+            self.ets_model = {}
+            self.ets_fit = {}
 
         # ── lags ──────────────────────────────────────────────────────────────
         if lags is None:
@@ -215,14 +210,16 @@ class ms_arr:
 
         if self.target_col not in dfc.columns:
             return dfc.dropna()
+        
+        self.orig_target = dfc[self.target_col].values # store for generating in sample residuals later
 
         # ── Box-Cox ───────────────────────────────────────────────────────────
         if self.box_cox:
             self.is_zero = np.any(np.array(dfc[self.target_col]) < 1)
-            trans_data, self.lamda = box_cox_transform(
+            self.trans_data, self.lamda = box_cox_transform(
                 x=dfc[self.target_col], shift=self.is_zero, box_cox_lmda=self.lamda
             )
-            dfc[self.target_col] = trans_data
+            dfc[self.target_col] = self.trans_data
 
         # ── Trend removal ─────────────────────────────────────────────────────
         if self.trend is not None:
@@ -231,26 +228,26 @@ class ms_arr:
 
             if self.trend == "linear":
                 if self.cps is not None:
-                    trend_vals, self.lr_model, _ = lr_trend_model(
+                    self.trend_vals, self.lr_model, _ = lr_trend_model(
                         self.target_orig, degree=self.pol,
                         breakpoints=self.cps, type='piecewise'
                     )
                 else:
-                    trend_vals, self.lr_model, _ = lr_trend_model(
+                    self.trend_vals, self.lr_model, _ = lr_trend_model(
                         self.target_orig, degree=self.pol
                     )
-                dfc[self.target_col] = dfc[self.target_col] - trend_vals
 
             elif self.trend == "ets":
                 self.ets_model_fit = ExponentialSmoothing(
                     self.target_orig, **self.ets_model
                 ).fit(**self.ets_fit)
-                dfc[self.target_col] = dfc[self.target_col] - self.ets_model_fit.fittedvalues.values
+                self.trend_vals = self.ets_model_fit.fittedvalues
 
             else:
                 raise ValueError(
                     f"Unknown trend type '{self.trend}'. Use 'linear' or 'ets'."
                 )
+            dfc[self.target_col] = dfc[self.target_col] - self.trend_vals
 
         # ── Ordinary differencing ─────────────────────────────────────────────
         if self.diff is not None or self.season_diff is not None:
@@ -477,49 +474,33 @@ class ms_arr:
         return self.LL
 
     # ─────────────────────────────────────────────────────────────────────────
-    # FIT (refit on new data)
+    # predict_in_sample
     # ─────────────────────────────────────────────────────────────────────────
 
-    # def fit(self,
-    #         df: pd.DataFrame,
-    #         n_iter: int = 1
-    #         ) -> float:
-        
-    #     """
-    #     Refit the model on new data using EM, starting from current parameters. This can be used for incremental training or fine-tuning on new datasets without reinitialising the model.
-        
-    #     Parameters
-    #     ----------
-    #     df : pd.DataFrame
-    #         New training DataFrame containing the target and any feature columns.
-    #     n_iter : int, default=1
-    #         Number of additional EM iterations to run on the new data.
+    def predict_in_sample(self) -> np.ndarray:
+        """
+        Generate in-sample predictions and residuals for the training data. This can be useful for diagnostic purposes, such as checking for patterns in the residuals or calculating in-sample performance metrics.
+
+        Returns
+        -------
+        np.ndarray
+            In-sample fitted values and residuals for the training data.
+        """
+
+        fitted_values = np.sum(np.dot(self.coeffs, self.X.T) * self.posterior, axis=0)
+        fit_len = len(fitted_values)
+        self.in_samp_resids = self.y - fitted_values
+        if not self.box_cox:
+            self.fitted_values = self.orig_target[-fit_len:] + self.in_samp_resids # start with original target values and add residuals to get fitted values in original scale (after all transformations are inverted in the correct order below)
             
-    #     Returns
-    #     -------
-    #     float
-    #         Final log-likelihood after the additional EM iterations.
-    #     """
-
-    #     if n_iter < 1:
-    #         raise ValueError("n_iter must be at least 1.")
-
-    #     self.data_prep(df)
-
-    #     if n_iter > 1:
-    #         prev_ll = self.LL
-    #         for it in range(n_iter):
-    #             self.EM()
-    #             if self.verb:
-    #                 print(f"Iter {it}: loglik={self.LL:.4f}")
-    #             if abs(self.LL - prev_ll) < self.tol:
-    #                 break
-    #             prev_ll = self.LL
-    #     else:
-    #         self.EM()
-
-    #     return self.LL
-
+        else:
+            bc_fitted= self.trans_data[-fit_len:] + self.in_samp_resids
+            self.fitted_values = back_box_cox_transform(
+                y_pred=bc_fitted, lmda=self.lamda,
+                shift=self.is_zero)
+            self.in_samp_resids = self.orig_target[-fit_len:] - self.fitted_values
+        # add NaNs for the initial periods where fitted values are not available due to lag features        if fit_len < len(self.orig_target):
+        self.fitted_values = np.concatenate([np.repeat(np.nan, len(self.orig_target) - fit_len), self.fitted_values])
     # ─────────────────────────────────────────────────────────────────────────
     # STATE INFERENCE
     # ─────────────────────────────────────────────────────────────────────────

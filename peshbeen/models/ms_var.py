@@ -50,8 +50,7 @@ class ms_var:
         pol_degree: Optional[Union[int, Dict[str, int]]] = 1,
         ets_params: Optional[Dict[str, tuple]] = None,
         change_points: Optional[Dict[str, List[int]]] = None,
-        box_cox: Optional[Dict[str, bool]] = None,
-        box_cox_lmda: Optional[Dict[str, float]] = None,
+        box_cox: Optional[Dict[str, Union[bool, float, int]]] = None,
         box_cox_biasadj: Optional[Dict[str, bool]] = None,
         add_constant: bool = True,
         cat_variables: Optional[List[str]] = None,
@@ -94,10 +93,8 @@ class ms_var:
             Dictionary specifying ETS model parameters for trend removal. The keys are target column names, and the values are tuples containing the arguments for ExponentialSmoothing (first element) and its fit method (second element).
         change_points : Optional[Dict[str, List[int]]], default=None
             Dictionary specifying change points for piecewise linear trend removal. The keys are target column names, and the values are lists of integer indices where the trend slope changes.
-        box_cox : Optional[Dict[str, bool]], default=None
-            Dictionary specifying whether to apply Box-Cox transformation to each target variable. The keys are target column names, and the values are booleans indicating whether to apply the transformation.
-        box_cox_lmda : Optional[Dict[str, float]], default=None
-            Dictionary specifying the lambda parameter for Box-Cox transformation for each target variable. The keys are target column names, and the values are floats indicating the lambda to use (if None, it will be estimated from the data).
+        box_cox : Optional[Dict[str, Union[bool, float, int]]], default=None
+            Dictionary specifying whether to apply Box-Cox transformation to each target variable. Values can be a boolean (True to apply, False to skip), a float (lambda parameter for Box-Cox transformation), or an integer (seasonal period for seasonal Box-Cox transformation). If True, lambda will be estimated from the data.
         box_cox_biasadj : Optional[Dict[str, bool]], default=None
             Dictionary specifying whether to apply bias adjustment when inverting the Box-Cox transformation for each target variable. The keys are target column names, and the values are booleans indicating whether to apply bias adjustment.
         add_constant : bool, default=True
@@ -186,22 +183,40 @@ class ms_var:
             raise ValueError("pol_degree must be an int or a dict.")
 
         # ── box-cox ───────────────────────────────────────────────────────────
-        self.box_cox = box_cox
-        if box_cox is not None and not isinstance(box_cox, dict):
-            raise TypeError("box_cox must be a dict keyed by target column name.")
-
-        self.lamdas = {col: None for col in target_cols}
-        if box_cox_lmda is not None:
-            if not isinstance(box_cox_lmda, dict):
-                raise TypeError("box_cox_lmda must be a dict keyed by target column name.")
-            self.lamdas.update(box_cox_lmda)
-
-        self.biasadj = {col: False for col in target_cols}
-        if box_cox_biasadj is not None:
-            if not isinstance(box_cox_biasadj, dict):
-                raise TypeError("box_cox_biasadj must be a dict keyed by target column name.")
-            self.biasadj.update(box_cox_biasadj)
-
+        if box_cox is not None:
+            self.box_cox: Dict[str, bool] = {}
+            self.lamdas: Dict[str, Optional[float]] = {col: None for col in target_cols}
+            if isinstance(box_cox, bool):
+                self.box_cox = {col: box_cox for col in target_cols}
+            elif isinstance(box_cox, (float, int)):
+                self.box_cox = {col: True for col in target_cols}
+                self.lamdas = {col: box_cox for col in target_cols}  # use provided lambda for all targets
+            elif isinstance(box_cox, dict):
+                for col, val in box_cox.items():
+                    if isinstance(val, (float, int)):
+                        self.box_cox[col] = True
+                        self.lamdas[col] = val   # use provided lambda
+                    elif isinstance(val, bool):
+                        self.box_cox[col] = val
+                        self.lamdas[col] = None  # estimate from data
+                    else:
+                        raise ValueError(f"Invalid value for box_cox for column '{col}': must be bool or float.")
+            else:
+                raise TypeError("box_cox must be a bool, a float, or a dict keyed by target column name.")
+                    
+            # ── box-cox bias adjustment ───────────────────────────────────────────
+            if isinstance(box_cox_biasadj, bool):
+                self.biasadj = {col: box_cox_biasadj for col in target_cols}
+            elif isinstance(box_cox_biasadj, dict):
+                self.biasadj = {col: box_cox_biasadj.get(col, False) for col in target_cols}
+            elif box_cox_biasadj is None:
+                self.biasadj = {col: False for col in target_cols}
+            else:
+                raise TypeError("box_cox_biasadj must be a bool or a dict keyed by target column name.")
+            
+        else:
+            self.box_cox = box_cox  # None if box_cox is None, otherwise a dict with bool values
+            
         # ── HMM initialisation ────────────────────────────────────────────────
         self.rng = np.random.default_rng(random_state)
 
@@ -240,16 +255,20 @@ class ms_var:
         if not all(col in dfc.columns for col in self.target_cols):
             return dfc.dropna()
 
+        self.orig_target = dfc[self.target_cols].values # store for generating in sample residuals later
+
         # ── Box-Cox ───────────────────────────────────────────────────────────
         if self.box_cox is not None:
-            self.is_zeros: Dict[str, bool] = {}
-            for col, apply_bc in self.box_cox.items():
-                self.is_zeros[col] = (dfc[col] < 1).any()
-                trans_data, self.lamdas[col] = box_cox_transform(
-                    x=dfc[col], shift=self.is_zeros[col], box_cox_lmda=self.lamdas[col]
-                )
-                if apply_bc:
+            self.is_zeros: Dict[str, bool] = {} # track if shift was applied for each target
+            self.trans_data: Dict[str, np.ndarray] = {} # store transformed data for in-sample residual calculations
+            for col in self.target_cols:
+                if self.box_cox.get(col, False): # only apply if box_cox is True for this target
+                    self.is_zeros[col] = (dfc[col] < 1).any()
+                    trans_data, self.lamdas[col] = box_cox_transform(
+                        x=dfc[col], shift=self.is_zeros[col], box_cox_lmda=self.lamdas[col]
+                    ) # returns transformed data and lambda. If lambda is not provided, it is estimated from the data.
                     dfc[col] = trans_data
+                    self.trans_data[col] = trans_data
 
         # ── Trend removal ─────────────────────────────────────────────────────
         if self.trend is not None:
@@ -525,6 +544,33 @@ class ms_var:
 
         self.is_fitted = True
         return self.LL
+    
+    def predict_in_sample(self) -> np.ndarray:
+        """
+        Generate in-sample predictions and residuals for the training data. This can be useful for diagnostic purposes, such as checking for patterns in the residuals or calculating in-sample performance metrics.
+
+        Returns
+        -------
+        np.ndarray
+            In-sample fitted values and residuals for the training data.
+        """
+
+        # state_fitted shape: (n_states, n_obs, n_targets)
+        fit_len = self.X.shape[0]
+        state_fitted = np.einsum('tp,spk->stk', self.X, self.coeffs) # shape: (n_states, n_obs, n_targets)
+        self.weighted_fitted = (state_fitted * self.posterior[:, :, None]).sum(axis=0) # shape: (n_obs, n_targets)
+        self.in_samp_resids = {col: self.y[:, i] - self.weighted_fitted[:, i] for i, col in enumerate(self.target_cols)} # store in-sample residuals for each target variable in a dict keyed by target column name
+        
+        self.fitted_values = {col: self.orig_target[-fit_len:, i] + self.in_samp_resids[col] for i, col in enumerate(self.target_cols)} # start with original target values and add residuals to get fitted values in original scale (after all transformations are inverted in the correct order below)
+        if self.box_cox is not None:
+            for i, col in enumerate(self.target_cols):
+                if self.box_cox.get(col, False):
+                    bc_fitted = self.trans_data[col][-fit_len:] + self.in_samp_resids[col]
+                    self.fitted_values[col] = back_box_cox_transform(
+                        y_pred=bc_fitted, lmda=self.lamdas[col],
+                        shift=self.is_zeros.get(col, False), box_cox_biasadj=self.biasadj[col]
+                    )
+                    self.in_samp_resids[col] = self.orig_target[-fit_len:, i] - self.fitted_values[col]
 
     # ─────────────────────────────────────────────────────────────────────────
     # FIT (refit on new data)
@@ -744,14 +790,14 @@ class ms_var:
 
         # Invert Box-Cox
         if self.box_cox is not None:
-            for col, apply_bc in self.box_cox.items():
-                if apply_bc:
+            for col in self.target_cols:
+                if self.box_cox.get(col, False):
                     forecasts[col] = back_box_cox_transform(
                         y_pred=forecasts[col],
                         lmda=self.lamdas[col],
-                        shift=self.is_zeros[col],
+                        shift=self.is_zeros.get(col, False),
                         box_cox_biasadj=self.biasadj[col]
-                    )
+                )
 
         return forecasts
 

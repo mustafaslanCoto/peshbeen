@@ -21,8 +21,8 @@ class prob_forecasts:
     def __init__(
         self,
         model,
-        n_calibration: int,
         H: int,
+        n_calibration: Union[int, None] = None,
         step_size: int = 1,
         random_state: int = 42,
         n_iter: Union[int, None] = None,
@@ -36,10 +36,10 @@ class prob_forecasts:
         ----------
         model : fitted-model-like
             Any model with ``.target_col``, ``.fit(df)``, and ``.forecast(H, exog)`` attributes.
-        n_calibration : int
-            Number of calibration windows for cross-validated residual estimation.
         H : int
             Forecast horizon.
+        n_calibration : int or None, default None
+            Number of calibration windows for cross-validated residual estimation. If None, in sample residuals are used without cross-validation (Horizon-specific uncalibrated intervals may be too narrow in this case. This is recommended when data size is small as the model may not have enough data to fit well in each calibration fold).
         step_size : int, default 1
             Step size between consecutive calibration windows.
         random_state : int, default 42
@@ -52,6 +52,8 @@ class prob_forecasts:
         
         self.model         = model
         self.n_calib       = n_calibration
+        if self.n_calib is not None and self.n_calib < 1:
+            raise ValueError("n_calibration must be a positive integer or None.")
         self.H             = H
         self.step_size = step_size
         self.verbose       = verbose
@@ -85,31 +87,36 @@ class prob_forecasts:
                 self.model.iter = self.n_iter
             else:
                 self.model.iter = self.n_iter  # Temporarily set n_iter for calibration
-            
-        tscv = SplitTimeSeries(
-            n_splits=self.n_calib, test_size=self.H,
-            step_size=self.step_size,
-        )
-        c_actuals, c_forecasts = [], []
- 
-        for fold, (train_idx, test_idx) in enumerate(tscv.split(df)):
-            train, test = df.iloc[train_idx], df.iloc[test_idx]
-            x_test = test.drop(columns=[self.model.target_col])
-            y_test = np.array(test[self.model.target_col])
 
-            self.model.fit(train)
-            y_hat = self.model.forecast(self.H, x_test) if x_test is not None else self.model.forecast(self.H)
-            # print(y_hat)
+        if self.n_calib is not None:
+            tscv = SplitTimeSeries(
+                n_splits=self.n_calib, test_size=self.H,
+                step_size=self.step_size,
+            )
+            c_actuals, c_forecasts = [], []
+    
+            for fold, (train_idx, test_idx) in enumerate(tscv.split(df)):
+                train, test = df.iloc[train_idx], df.iloc[test_idx]
+                x_test = test.drop(columns=[self.model.target_col])
+                y_test = np.array(test[self.model.target_col])
 
-            c_actuals.append(y_test)
-            c_forecasts.append(y_hat)
- 
-            if self.verbose:
-                print(f"Calibration fold {fold + 1}/{self.n_calib} complete.")
- 
-        self.c_actuals   = np.column_stack(c_actuals)    # H × n_calib
-        self.c_forecasts = np.column_stack(c_forecasts)  # H × n_calib
-        self.resid       = self.c_actuals - self.c_forecasts
+                self.model.fit(train)
+                y_hat = self.model.forecast(self.H, x_test) if x_test is not None else self.model.forecast(self.H)
+
+                c_actuals.append(y_test)
+                c_forecasts.append(y_hat)
+    
+                if self.verbose:
+                    print(f"Calibration fold {fold + 1}/{self.n_calib} complete.")
+    
+            self.c_actuals   = np.column_stack(c_actuals)    # H × n_calib
+            self.c_forecasts = np.column_stack(c_forecasts)  # H × n_calib
+            self.resid       = self.c_actuals - self.c_forecasts
+        
+        else:
+            self.model.fit(df)
+            self.model.predict_in_sample()
+            self.resid = self.model.in_samp_resids
         self.non_conform = np.abs(self.resid)
  
     def _require_residuals(self, df: pd.DataFrame) -> None:
@@ -169,59 +176,63 @@ class prob_forecasts:
         q_hat = np.empty((self.H, len(deltas)))
         for i in range(self.H):
             for j, d in enumerate(deltas):
-                q_which = np.ceil(d * (self.n_calib + 1)) / self.n_calib
+                if self.n_calib is not None: # If using cross-validated residuals, use n_calib for quantile calculation; otherwise, use the number of in-sample residuals
+                    q_which = np.ceil(d * (self.n_calib + 1)) / self.n_calib
+                else:
+                    q_which = np.ceil(d * (self.resid.shape[0] + 1)) / self.resid.shape[0]
                 q_hat[i, j] = np.quantile(
                     self.non_conform[i], q_which, method="higher"
                 )
         self.q_hat = q_hat   # (H, len(deltas))
         return self
  
-    def predict_intervals(
-        self,
-        df: pd.DataFrame,
-        future_exog: Union[pd.DataFrame, None] = None,
-    ) -> pd.DataFrame:
-        """
-        Generate prediction intervals for the forecast horizon at the calibrated delta levels without sampling from the errors generated for each horizon.
-        Requires ``calibrate`` to have been called first.
+    # def predict_intervals(
+    #     self,
+    #     df: pd.DataFrame,
+    #     quantiles: Union[float, List[float]],
+    #     future_exog: Union[pd.DataFrame, None] = None,
+    # ) -> pd.DataFrame:
+    #     """
+    #     Generate prediction intervals for the forecast horizon at the calibrated delta levels without sampling from the errors generated for each horizon.
+    #     Requires ``calibrate`` to have been called first.
  
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Training data for the final model fit.
-        future_exog : pd.DataFrame or None, default None
-            Future exogenous variables.
+    #     Parameters
+    #     ----------
+    #     df : pd.DataFrame
+    #         Training data for the final model fit.
+    #     quantiles : float or list of float
+    #         Desired quantile levels (e.g. ``[0.1, 0.5, 0.9]``).
+    #     future_exog : pd.DataFrame or None, default None
+    #         Future exogenous variables.
  
-        Returns
-        -------
-        pd.DataFrame
-            Columns: ``point_forecast``, ``lower_<d>``, ``upper_<d>`` for every delta level.  Also stores ``self.dist`` — a ``(n_calib × H)`` DataFrame of residual-shifted distributions, one column per forecast horizon.
-        """
-        self._require_calibration()
+    #     Returns
+    #     -------
+    #     pd.DataFrame
+    #         Columns: ``point_forecast``, ``lower_<d>``, ``upper_<d>`` for every delta level.  Also stores ``self.dist`` — a ``(n_calib × H)`` DataFrame of residual-shifted distributions, one column per forecast horizon.
+    #     """
+    #     self._require_calibration()
  
-        self.model.fit(df)
-        y_hat = np.array(
-            self.model.forecast(self.H, future_exog)
-            if future_exog is not None
-            else self.model.forecast(self.H)
-        )
+    #     self.model.fit(df)
+    #     y_hat = np.array(
+    #         self.model.forecast(self.H, future_exog)
+    #         if future_exog is not None
+    #         else self.model.forecast(self.H)
+    #     )
  
-        deltas = [self.delta] if isinstance(self.delta, float) else self.delta
+    #     result_cols = {"point_forecast": y_hat}
+    #     for j, d in enumerate(quantiles):
+    #         q = self.q_hat[:, j]
+    #         result_cols[f"lower_{int(d * 100)}"] = y_hat - q
+    #         result_cols[f"upper_{int(d * 100)}"] = y_hat + q
  
-        result_cols = {"point_forecast": y_hat}
-        for j, d in enumerate(deltas):
-            q = self.q_hat[:, j]
-            result_cols[f"lower_{int(d * 100)}"] = y_hat - q
-            result_cols[f"upper_{int(d * 100)}"] = y_hat + q
+    #     # Residual-shifted empirical distribution (H × n_calib), clipped ≥ 0
+    #     dist = y_hat[:, None] + self.resid             # H × n_calib
+    #     self.dist = pd.DataFrame(
+    #         dist.T,
+    #         columns=[f"h_{i + 1}" for i in range(self.H)],
+    #     ).clip(lower=0)
  
-        # Residual-shifted empirical distribution (H × n_calib), clipped ≥ 0
-        dist = y_hat[:, None] + self.resid             # H × n_calib
-        self.dist = pd.DataFrame(
-            dist.T,
-            columns=[f"h_{i + 1}" for i in range(self.H)],
-        ).clip(lower=0)
- 
-        return pd.DataFrame(result_cols)
+    #     return pd.DataFrame(result_cols)
  
     def conformal_quantiles(
         self,
@@ -256,7 +267,11 @@ class prob_forecasts:
             if future_exog is not None
             else self.model.forecast(self.H)
         )
-        return get_conformal_quantiles(self.non_conform, self.n_calib,
+        if self.n_calib is not None:
+            return get_conformal_quantiles(self.non_conform, self.n_calib,
+                                       quantiles, y_hat)
+        else:
+            return get_conformal_quantiles(self.non_conform, self.resid.shape[0],
                                        quantiles, y_hat)
  
     # ── public: sampling methods ──────────────────────────────────────────────
@@ -318,27 +333,46 @@ class prob_forecasts:
  
         # ── sample residuals according to chosen method ───────────────────────
         if method == "empirical":
-            # shape: (n_samples, H)  — independent resampling per horizon
-            draws = np.column_stack([
-                self._rng.choice(self.resid[h], size=n_samples, replace=True)
-                for h in range(self.H)
-            ])
+            
+            if self.n_calib is not None:
+                # shape: (n_samples, H)  — independent resampling per horizon
+                draws = np.column_stack([
+                    self._rng.choice(self.resid[h], size=n_samples, replace=True)
+                    for h in range(self.H)
+                ])
+            else:
+                draws = np.column_stack([
+                    self._rng.choice(self.resid, size=n_samples, replace=True)
+                    for _ in range(self.H)
+                ])
  
         elif method == "kde":
-            # shape: (n_samples, H)  — KDE per horizon
-            draws = np.column_stack([
-                gaussian_kde(self.resid[h]).resample(
-                    size=n_samples,
-                    seed=self._random_state,
-                )[0]
-                for h in range(self.H)
-            ])
+            if self.n_calib is not None:
+                # shape: (n_samples, H)  — KDE per horizon
+                draws = np.column_stack([
+                    gaussian_kde(self.resid[h]).resample(
+                        size=n_samples,
+                        seed=self._random_state,
+                    )[0]
+                    for h in range(self.H)
+                ])
+            else:
+                draws = np.column_stack([
+                    gaussian_kde(self.resid).resample(
+                        size=n_samples,
+                        seed=self._random_state,
+                    )[0]
+                    for _ in range(self.H)
+                ])
  
         else:  # "correlated"
-            mu    = self.resid.mean(axis=1)          # (H,)
-            sigma = np.cov(self.resid, rowvar=True)  # (H, H)
-            # draws shape: (n_samples, H)
-            draws = self._rng.multivariate_normal(mu, sigma, size=n_samples)
+            if self.n_calib is not None:
+                # shape: (n_samples, H)  — multivariate normal on H-dimensional residual vectors
+                mu    = self.resid.mean(axis=1)          # (H,)
+                self.sigma = np.cov(self.resid)              # (H, H)
+                draws = self._rng.multivariate_normal(mu, self.sigma, size=n_samples)
+            else: # error if trying to use correlated sampling without cross-validated residuals, since we won't have H-dimensional residual vectors
+                raise ValueError("Correlated sampling requires n_calibration to be set to a positive integer to compute cross-validated residuals.")
 
          # ✅ Create a deep copy so that we don’t overwrite self
         new_instance = copy.deepcopy(self)
@@ -372,12 +406,20 @@ class prob_forecasts:
             Columns: ``point_forecast``, ``q_<level>`` for each level.
         """
         self._require_sample_paths()
-        return get_bootstrap_quantiles(
-            self.sample_paths,   # (n_samples, H) — rows are samples
-            self.n_calib,
-            quantiles,
-            self.point_forecast,
-        )
+        if self.n_calib is not None:
+            return get_bootstrap_quantiles(
+                self.sample_paths,   # (n_samples, H) — rows are samples
+                self.n_calib,
+                quantiles,
+                self.point_forecast,
+            )
+        else:
+            return get_bootstrap_quantiles(
+                self.sample_paths,   # (n_samples, H) — rows are samples
+                self.resid.shape[0],
+                quantiles,
+                self.point_forecast,
+            )
  
     def copy(self):
         return copy.deepcopy(self)
@@ -391,8 +433,8 @@ class mv_prob_forecasts:
         self,
         model,
         target_col: str,
-        n_calibration: int,
         H: int,
+        n_calibration: Union[int, None] = None,
         step_size: int = 1,
         random_state: int = 42,
         n_iter: Union[int, None] = None,
@@ -408,10 +450,10 @@ class mv_prob_forecasts:
             Any model with ``.target_col``, ``.fit(df)``, and ``.forecast(H, exog)`` attributes.
         target_col : str
             Name of the target variable column in the input DataFrames.
-        n_calibration : int
-            Number of calibration windows for cross-validated residual estimation.
         H : int
             Forecast horizon.
+        n_calibration : int or None, default None
+            Number of calibration windows for cross-validated residual estimation. If None, in sample residuals are used without cross-validation (Horizon-specific uncalibrated intervals may be too narrow in this case. This is recommended when data size is small as the model may not have enough data to fit well in each calibration fold).
         step_size : int, default 1
             Step size between consecutive calibration windows.
         random_state : int, default 42
@@ -425,6 +467,8 @@ class mv_prob_forecasts:
         self.model         = model
         self.target_col    = target_col
         self.n_calib       = n_calibration
+        if self.n_calib is not None and self.n_calib < 1:
+            raise ValueError("n_calibration must be a positive integer or None.")
         self.H             = H
         self.step_size = step_size
         self.verbose       = verbose
@@ -452,36 +496,41 @@ class mv_prob_forecasts:
             Full dataset used for rolling-window cross-validation.
         """
 
-        # if hasattr(self.model, "N") and hasattr(self.model, "iter"):
-        #     if not self.model.is_fitted:
-        #         self.model.fit(df)
-        #         self.model.iter = self.n_iter
-        #     else:
-        #         self.model.iter = self.n_iter  # Temporarily set n_iter for calibration
-            
-        tscv = SplitTimeSeries(
-            n_splits=self.n_calib, test_size=self.H,
-            step_size=self.step_size,
-        )
-        c_actuals, c_forecasts = [], []
- 
-        for fold, (train_idx, test_idx) in enumerate(tscv.split(df)):
-            train, test = df.iloc[train_idx], df.iloc[test_idx]
-            x_test = test.drop(columns=self.model.target_cols)
-            y_test = np.array(test[self.target_col])
+        if hasattr(self.model, "N") and hasattr(self.model, "iter"):
+            if not self.model.is_fitted:
+                self.model.fit(df)
+                self.model.iter = self.n_iter
+            else:
+                self.model.iter = self.n_iter  # Temporarily set n_iter for calibration
 
-            self.model.fit(train)
-            y_hat = self.model.forecast(self.H, exog=x_test)[self.target_col] if x_test is not None else self.model.forecast(self.H)[self.target_col]
+        if self.n_calib is not None:    
+            tscv = SplitTimeSeries(
+                n_splits=self.n_calib, test_size=self.H,
+                step_size=self.step_size,
+            )
+            c_actuals, c_forecasts = [], []
+    
+            for fold, (train_idx, test_idx) in enumerate(tscv.split(df)):
+                train, test = df.iloc[train_idx], df.iloc[test_idx]
+                x_test = test.drop(columns=self.model.target_cols)
+                y_test = np.array(test[self.target_col])
 
-            c_actuals.append(y_test)
-            c_forecasts.append(y_hat)
- 
-            if self.verbose:
-                print(f"Calibration fold {fold + 1}/{self.n_calib} complete.")
- 
-        self.c_actuals   = np.column_stack(c_actuals)    # H × n_calib
-        self.c_forecasts = np.column_stack(c_forecasts)  # H × n_calib
-        self.resid       = self.c_actuals - self.c_forecasts
+                self.model.fit(train)
+                y_hat = self.model.forecast(self.H, exog=x_test)[self.target_col] if x_test is not None else self.model.forecast(self.H)[self.target_col]
+
+                c_actuals.append(y_test)
+                c_forecasts.append(y_hat)
+    
+                if self.verbose:
+                    print(f"Calibration fold {fold + 1}/{self.n_calib} complete.")
+    
+            self.c_actuals   = np.column_stack(c_actuals)    # H × n_calib
+            self.c_forecasts = np.column_stack(c_forecasts)  # H × n_calib
+            self.resid       = self.c_actuals - self.c_forecasts
+        else:
+            self.model.fit(df)
+            self.model.predict_in_sample()
+            self.resid = self.model.in_samp_resids[self.target_col]
         self.non_conform = np.abs(self.resid)
  
     def _require_residuals(self, df: pd.DataFrame) -> None:
@@ -541,59 +590,62 @@ class mv_prob_forecasts:
         q_hat = np.empty((self.H, len(deltas)))
         for i in range(self.H):
             for j, d in enumerate(deltas):
-                q_which = np.ceil(d * (self.n_calib + 1)) / self.n_calib
+                if self.n_calib is not None: # If using cross-validated residuals, use n_calib for quantile calculation; otherwise, use the number of in-sample residuals
+                    q_which = np.ceil(d * (self.n_calib + 1)) / self.n_calib
+                else:
+                    q_which = np.ceil(d * (self.resid.shape[0] + 1)) / self.resid.shape[0]
                 q_hat[i, j] = np.quantile(
                     self.non_conform[i], q_which, method="higher"
                 )
         self.q_hat = q_hat   # (H, len(deltas))
         return self
  
-    def predict_intervals(
-        self,
-        df: pd.DataFrame,
-        future_exog: Union[pd.DataFrame, None] = None,
-    ) -> pd.DataFrame:
-        """
-        Generate prediction intervals for the forecast horizon at the calibrated delta levels without sampling from the errors generated for each horizon.
-        Requires ``calibrate`` to have been called first.
+    # def predict_intervals(
+    #     self,
+    #     df: pd.DataFrame,
+    #     future_exog: Union[pd.DataFrame, None] = None,
+    # ) -> pd.DataFrame:
+    #     """
+    #     Generate prediction intervals for the forecast horizon at the calibrated delta levels without sampling from the errors generated for each horizon.
+    #     Requires ``calibrate`` to have been called first.
  
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Training data for the final model fit.
-        future_exog : pd.DataFrame or None, default None
-            Future exogenous variables.
+    #     Parameters
+    #     ----------
+    #     df : pd.DataFrame
+    #         Training data for the final model fit.
+    #     future_exog : pd.DataFrame or None, default None
+    #         Future exogenous variables.
  
-        Returns
-        -------
-        pd.DataFrame
-            Columns: ``point_forecast``, ``lower_<d>``, ``upper_<d>`` for every delta level.  Also stores ``self.dist`` — a ``(n_calib × H)`` DataFrame of residual-shifted distributions, one column per forecast horizon.
-        """
-        self._require_calibration()
+    #     Returns
+    #     -------
+    #     pd.DataFrame
+    #         Columns: ``point_forecast``, ``lower_<d>``, ``upper_<d>`` for every delta level.  Also stores ``self.dist`` — a ``(n_calib × H)`` DataFrame of residual-shifted distributions, one column per forecast horizon.
+    #     """
+    #     self._require_calibration()
  
-        self.model.fit(df)
-        y_hat = np.array(
-            self.model.forecast(self.H, future_exog)[self.target_col]
-            if future_exog is not None
-            else self.model.forecast(self.H)[self.target_col]
-        )
+    #     self.model.fit(df)
+    #     y_hat = np.array(
+    #         self.model.forecast(self.H, future_exog)[self.target_col]
+    #         if future_exog is not None
+    #         else self.model.forecast(self.H)[self.target_col]
+    #     )
  
-        deltas = [self.delta] if isinstance(self.delta, float) else self.delta
+    #     deltas = [self.delta] if isinstance(self.delta, float) else self.delta
  
-        result_cols = {"point_forecast": y_hat}
-        for j, d in enumerate(deltas):
-            q = self.q_hat[:, j]
-            result_cols[f"lower_{int(d * 100)}"] = y_hat - q
-            result_cols[f"upper_{int(d * 100)}"] = y_hat + q
+    #     result_cols = {"point_forecast": y_hat}
+    #     for j, d in enumerate(deltas):
+    #         q = self.q_hat[:, j]
+    #         result_cols[f"lower_{int(d * 100)}"] = y_hat - q
+    #         result_cols[f"upper_{int(d * 100)}"] = y_hat + q
  
-        # Residual-shifted empirical distribution (H × n_calib), clipped ≥ 0
-        dist = y_hat[:, None] + self.resid             # H × n_calib
-        self.dist = pd.DataFrame(
-            dist.T,
-            columns=[f"h_{i + 1}" for i in range(self.H)],
-        ).clip(lower=0)
+    #     # Residual-shifted empirical distribution (H × n_calib), clipped ≥ 0
+    #     dist = y_hat[:, None] + self.resid             # H × n_calib
+    #     self.dist = pd.DataFrame(
+    #         dist.T,
+    #         columns=[f"h_{i + 1}" for i in range(self.H)],
+    #     ).clip(lower=0)
  
-        return pd.DataFrame(result_cols)
+    #     return pd.DataFrame(result_cols)
  
     def conformal_quantiles(
         self,
@@ -628,8 +680,12 @@ class mv_prob_forecasts:
             if future_exog is not None
             else self.model.forecast(self.H)[self.target_col]
         )
-        return get_conformal_quantiles(self.non_conform, self.n_calib,
-                                       quantiles, y_hat)
+        if self.n_calib is not None:
+            return get_conformal_quantiles(self.non_conform, self.n_calib,
+                                        quantiles, y_hat)
+        else:
+            return get_conformal_quantiles(self.non_conform, self.resid.shape[0],
+                                        quantiles, y_hat)
  
     # ── public: sampling methods ──────────────────────────────────────────────
  
@@ -694,27 +750,45 @@ class mv_prob_forecasts:
  
         # ── sample residuals according to chosen method ───────────────────────
         if method == "empirical":
-            # shape: (n_samples, H)  — independent resampling per horizon
-            draws = np.column_stack([
-                self._rng.choice(self.resid[h], size=n_samples, replace=True)
-                for h in range(self.H)
-            ])
+            if self.n_calib is not None:
+                # shape: (n_samples, H)  — independent resampling per horizon
+                draws = np.column_stack([
+                    self._rng.choice(self.resid[h], size=n_samples, replace=True)
+                    for h in range(self.H)
+                ])
+            else:
+                draws = np.column_stack([
+                    self._rng.choice(self.resid, size=n_samples, replace=True)
+                    for _ in range(self.H)
+                ])
  
         elif method == "kde":
-            # shape: (n_samples, H)  — KDE per horizon
-            draws = np.column_stack([
-                gaussian_kde(self.resid[h]).resample(
-                    size=n_samples,
-                    seed=self._random_state,
-                )[0]
-                for h in range(self.H)
-            ])
+            if self.n_calib is not None:
+                # shape: (n_samples, H)  — KDE per horizon
+                draws = np.column_stack([
+                    gaussian_kde(self.resid[h]).resample(
+                        size=n_samples,
+                        seed=self._random_state,
+                    )[0]
+                    for h in range(self.H)
+                ])
+            else:
+                draws = np.column_stack([
+                    gaussian_kde(self.resid).resample(
+                        size=n_samples,
+                        seed=self._random_state,
+                    )[0]
+                    for _ in range(self.H)
+                ])
  
         else:  # "correlated"
-            mu    = self.resid.mean(axis=1)          # (H,)
-            sigma = np.cov(self.resid, rowvar=True)  # (H, H)
-            # draws shape: (n_samples, H)
-            draws = self._rng.multivariate_normal(mu, sigma, size=n_samples)
+            if self.n_calib is not None:
+                mu    = self.resid.mean(axis=1)          # (H,)
+                sigma = np.cov(self.resid, rowvar=True)  # (H, H)
+                # draws shape: (n_samples, H)
+                draws = self._rng.multivariate_normal(mu, sigma, size=n_samples)
+            else: # error if trying to use correlated sampling without cross-validated residuals, since we won't have H-dimensional residual vectors
+                raise ValueError("Correlated sampling requires n_calibration to be set to a positive integer to compute cross-validated residuals.")
 
          # ✅ Create a deep copy so that we don’t overwrite self
         new_instance = copy.deepcopy(self)
@@ -748,12 +822,20 @@ class mv_prob_forecasts:
             Columns: ``point_forecast``, ``q_<level>`` for each level.
         """
         self._require_sample_paths()
-        return get_bootstrap_quantiles(
-            self.sample_paths,   # (n_samples, H) — rows are samples
-            self.n_calib,
-            quantiles,
-            self.point_forecast,
-        )
+        if self.n_calib is not None:
+            return get_bootstrap_quantiles(
+                self.sample_paths,   # (n_samples, H) — rows are samples
+                self.n_calib,
+                quantiles,
+                self.point_forecast,
+            )
+        else:
+            return get_bootstrap_quantiles(
+                self.sample_paths,   # (n_samples, H) — rows are samples
+                self.resid.shape[0],
+                quantiles,
+                self.point_forecast,
+            )
  
     def copy(self):
         return copy.deepcopy(self)

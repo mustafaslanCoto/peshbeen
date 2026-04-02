@@ -37,17 +37,30 @@ def get_conformal_quantiles(non_conform, n_calib, quantiles, y_forecast):
     """
     # Helper to compute one quantile column
     def _one_quantile(q):
-        if q < 0.5:
-            q_which = np.ceil((1 - 2 * q) * (n_calib + 1)) / n_calib
-            return y_forecast - np.quantile(non_conform, q_which,
-                                            method="higher", axis=1)
-        elif q == 0.5:
-            return y_forecast
+        # if n_calib is not array
+        if non_conform.ndim == 2:
+            if q < 0.5:
+                q_which = np.ceil((1 - 2 * q) * (n_calib + 1)) / n_calib
+                return y_forecast - np.quantile(non_conform, q_which,
+                                                method="higher", axis=1)
+            elif q == 0.5:
+                return y_forecast
+            else:
+                q_which = np.ceil((2 * q - 1) * (n_calib + 1)) / n_calib
+                return y_forecast + np.quantile(non_conform, q_which,
+                                                method="higher", axis=1)
         else:
-            q_which = np.ceil((2 * q - 1) * (n_calib + 1)) / n_calib
-            return y_forecast + np.quantile(non_conform, q_which,
-                                            method="higher", axis=1)
- 
+            if q < 0.5:
+                q_which = np.ceil((1 - 2 * q) * (n_calib + 1)) / n_calib
+                return y_forecast - np.quantile(non_conform, q_which,
+                                                method="higher")
+            elif q == 0.5:
+                return y_forecast
+            else:
+                q_which = np.ceil((2 * q - 1) * (n_calib + 1)) / n_calib
+                return y_forecast + np.quantile(non_conform, q_which,
+                                                method="higher")
+            
     if isinstance(quantiles, float):
         quantiles_list = [quantiles]
     elif isinstance(quantiles, list):

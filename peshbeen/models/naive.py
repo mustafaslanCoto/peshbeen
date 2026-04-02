@@ -22,8 +22,7 @@ class naive:
         self,
         target_col: str,
         season_period: Optional[int] = None,
-        box_cox: bool = False,
-        box_cox_lmda: Optional[float] = None,
+        box_cox: Union[bool, float] = False,
         box_cox_biasadj: bool = False,
     ) -> None:
  
@@ -46,22 +45,21 @@ class naive:
             Seasonal period ``m``.  ``None`` selects the non-seasonal naïve
             method.  When provided and the training series is shorter than
             ``m``, ``forecast`` returns an array of ``NaN``.
-        box_cox : bool, default False
-            Apply a manual Box-Cox transformation to the target before storing
-            the training values.  The transformation is inverted on the output
-            of ``forecast``.
-        box_cox_lmda : float or None, default None
-            Lambda for the manual Box-Cox transform.  ``None`` means
-            auto-estimate from the training data.
+        box_cox : bool or float, optional
+            Whether to apply Box-Cox transformation to the target variable. If a float value is provided, it will be used as the lambda parameter for the Box-Cox transformation. If True, the lambda parameter will be estimated from the data.
         box_cox_biasadj : bool, default False
             Bias adjustment when inverting the manual Box-Cox on forecasts.
         """
  
         self.target_col  = target_col
         self.season_period = season_period
-        self.box_cox     = box_cox
-        self.lamda       = box_cox_lmda
-        self.biasadj     = box_cox_biasadj
+        if isinstance(box_cox, float):
+            self.box_cox = True
+            self.lamda = box_cox
+        else:
+            self.box_cox = box_cox  # True or False
+            self.lamda = None
+        self.biasadj       = box_cox_biasadj
  
         # ── placeholders set during fit ────────────────────────────────────────
         self.tuned_params   = None
@@ -88,15 +86,15 @@ class naive:
         pd.DataFrame
         """
         dfc = df.copy()
- 
+        self.orig_target = dfc[self.target_col].values # store for generating in sample residuals later
         # ── manual Box-Cox ────────────────────────────────────────────────────
         if self.box_cox:
             self.is_zero = np.any(np.array(dfc[self.target_col]) < 1)
-            trans_data, self.lamda = box_cox_transform(
+            self.trans_data, self.lamda = box_cox_transform(
                 x=dfc[self.target_col], shift=self.is_zero,
                 box_cox_lmda=self.lamda,
             )
-            dfc[self.target_col] = trans_data
+            dfc[self.target_col] = self.trans_data
  
         return dfc[[self.target_col]].dropna()
  
@@ -123,6 +121,45 @@ class naive:
         """
         model_df = self.data_prep(df)
         self.y   = model_df[self.target_col].to_numpy()
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # predict_in_sample
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def predict_in_sample(self) -> np.ndarray:
+        """
+        Generate in-sample predictions and residuals for the training data. This can be useful for diagnostic purposes, such as checking for patterns in the residuals or calculating in-sample performance metrics.
+
+        Returns
+        -------
+        np.ndarray
+            In-sample fitted values and residuals for the training data.
+        """
+
+        # if .fit has not been called yet, error out
+        if not hasattr(self, "y"):
+            raise ValueError("Model has not been fitted yet. Call .fit() before predict_in_sample().")
+
+
+        # residuals are the difference between the today and yesterday values in the transformed scale (after all transformations are applied in the correct order in data_prep)
+
+        if self.season_period is not None:
+            # for seasonal naive, the in-sample residuals are the difference between the value at time t and the value at time t-m (the last season)
+             self.in_samp_resids = self.y - np.concatenate([np.repeat(np.nan, self.season_period), self.y[:-self.season_period]])
+        else:
+            # for non-seasonal naive, the in-sample residuals are the difference between the value at time t and the value at time t-1 (the last observed value)
+            self.in_samp_resids = self.y - np.concatenate([np.repeat(np.nan, 1), self.y[:-1]])
+
+        if not self.box_cox:
+            self.fitted_values = self.orig_target + self.in_samp_resids
+            
+        else:
+            bc_fitted= self.trans_data + self.in_samp_resids
+            self.fitted_values = back_box_cox_transform(
+                y_pred=bc_fitted, lmda=self.lamda,
+                shift=self.is_zero)
+            self.in_samp_resids = self.orig_target - self.fitted_values
+        # add NaNs for the initial periods where fitted values are not available due to lag features        if fit_len < len(self.orig_target):
  
     # ─────────────────────────────────────────────────────────────────────────
     # FORECAST

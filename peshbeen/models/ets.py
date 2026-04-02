@@ -37,7 +37,6 @@ class ets:
         initial_level: Optional[float] = None,
         initial_trend: Optional[float] = None,
         initial_seasonal: Optional[list] = None,
-        use_boxcox: Union[bool, str] = False,
         bounds: Optional[dict] = None,
         dates=None,
         freq: Optional[str] = None,
@@ -52,8 +51,7 @@ class ets:
         method: Optional[str] = None,
         minimize_kwargs: Optional[dict] = None,
         use_brute: bool = True,
-        box_cox: bool = False,
-        box_cox_lmda: Optional[float] = None,
+        box_cox: Union[bool, float] = False,
         box_cox_biasadj: bool = False,
         fit_kwargs: Optional[dict] = None,
     ) -> None:
@@ -111,10 +109,8 @@ class ets:
             Extra keyword arguments forwarded to the chosen SciPy minimiser.
         use_brute : bool, default True
             Search for good starting values with a brute-force grid search before running the main optimiser.
-        box_cox : bool, default False
-            Apply a manual Box-Cox transformation to the target.
-        box_cox_lmda : float or None, default None
-            Lambda for the manual transform.  ``None`` means auto-estimate.
+        box_cox : bool or float, optional
+            Whether to apply Box-Cox transformation to the target variable. If a float value is provided, it will be used as the lambda parameter for the Box-Cox transformation. If True, the lambda parameter will be estimated from the data.
         box_cox_biasadj : bool, default False
             Bias adjustment when inverting the manual Box-Cox on forecasts.
         fit_kwargs : dict or None, default None
@@ -127,8 +123,12 @@ class ets:
         """
 
         self.target_col    = target_col
-        self.box_cox       = box_cox
-        self.lamda         = box_cox_lmda
+        if isinstance(box_cox, float):
+            self.box_cox = True
+            self.lamda = box_cox
+        else:
+            self.box_cox = box_cox  # True or False
+            self.lamda = None
         self.biasadj       = box_cox_biasadj
         self.fit_kwargs    = fit_kwargs or {}
 
@@ -141,7 +141,6 @@ class ets:
         self.initial_level        = initial_level
         self.initial_trend        = initial_trend
         self.initial_seasonal     = initial_seasonal
-        self.use_boxcox           = use_boxcox
         self.bounds               = bounds
         self.dates                = dates
         self.freq                 = freq
@@ -185,14 +184,15 @@ class ets:
         """
         dfc = df.copy()
 
+        self.orig_target = dfc[self.target_col].values # store for generating in sample residuals later
         # ── manual Box-Cox ────────────────────────────────────────────────────
         if self.box_cox:
             self.is_zero = np.any(np.array(dfc[self.target_col]) < 1)
-            trans_data, self.lamda = box_cox_transform(
+            self.trans_data, self.lamda = box_cox_transform(
                 x=dfc[self.target_col], shift=self.is_zero,
                 box_cox_lmda=self.lamda,
             )
-            dfc[self.target_col] = trans_data
+            dfc[self.target_col] = self.trans_data
 
         return dfc[[self.target_col]].dropna()
 
@@ -260,7 +260,6 @@ class ets:
             seasonal              = _seasonal,
             seasonal_periods      = _seasonal_periods,
             initialization_method = self.initialization_method,
-            use_boxcox            = self.use_boxcox,
             missing               = self.missing,
         )
         # optional — only pass when explicitly set to avoid overriding statsmodels defaults
@@ -292,6 +291,40 @@ class ets:
         fit_kw.update(self.fit_kwargs)
 
         self.model_fit = self.model.fit(**fit_kw)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # predict_in_sample
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def predict_in_sample(self) -> np.ndarray:
+        """
+        Generate in-sample predictions and residuals for the training data. This can be useful for diagnostic purposes, such as checking for patterns in the residuals or calculating in-sample performance metrics.
+
+        Returns
+        -------
+        np.ndarray
+            In-sample fitted values and residuals for the training data.
+        """
+
+        # if .fit has not been called yet, error out
+        if not hasattr(self, "model_fit"):
+            raise ValueError("Model has not been fitted yet. Call .fit() before predict_in_sample().")
+
+        fitted_values = self.model_fit.fittedvalues
+        fit_len = len(fitted_values)
+        self.in_samp_resids = self.y - fitted_values
+        if not self.box_cox:
+            self.fitted_values = self.orig_target[-fit_len:] + self.in_samp_resids # start with original target values and add residuals to get fitted values in original scale (after all transformations are inverted in the correct order below)
+            
+        else:
+            bc_fitted= self.trans_data[-fit_len:] + self.in_samp_resids
+            self.fitted_values = back_box_cox_transform(
+                y_pred=bc_fitted, lmda=self.lamda,
+                shift=self.is_zero)
+            self.in_samp_resids = self.orig_target[-fit_len:] - self.fitted_values
+        # add NaNs for the initial periods where fitted values are not available due to lag features        if fit_len < len(self.orig_target):
+        self.fitted_values = np.concatenate([np.repeat(np.nan, len(self.orig_target) - fit_len), self.fitted_values])
+
 
     # ─────────────────────────────────────────────────────────────────────────
     # INFORMATION CRITERIA  (delegated to statsmodels fitted result)

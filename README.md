@@ -4,16 +4,16 @@
 
 <img src="images/peshbeen_logo_transparent.svg" style="display:block; width:100%; max-width:1500px; margin:0 auto;" />
 
-**peshbeen** is an easy-to-use Python package designed to bridge the gap
-between traditional statistical forecasting and modern machine learning.
-In Kurdish, “pesh” means “front” and “been” means “to see/be”; together,
-they translate to “foresight”. The library provides a unified interface
+**peshbeen** is a Python forecasting library built around a single idea:
+the forecasting workflow should be the same regardless of the model. The
+name draws from Kurdish — pesh (“front”) and been (“to see/be”) —
+combining to mean foresight. The library provides a unified interface
 spanning a wide range of models: from ARIMA and Vector Autoregressions
 to scikit-learn regressors and gradient-boosted trees (XGBoost,
-LightGBM, CatBoost). Whether you are working with univariate time series
-or multivariate time series forecasts, peshbeen automates the heavy
-lifting of feature engineering, lag generation, and stationarity
-transformations.
+LightGBM, CatBoost). Whether you’re working with univariate or
+multivariate time series, peshbeen automates the heavy lifting — feature
+engineering, lag generation, and stationarity transformations — so you
+can focus on forecasting.
 
 ## Key Features
 
@@ -83,6 +83,8 @@ transformations.
 
 ## Installation
 
+Installation requires Python 3.8 or higher.
+
 Run the following command in your terminal to install the latest version
 from PyPI:
 
@@ -129,8 +131,6 @@ forecasts = ml_linear.forecast(H=30, exog=test[cat_variables])
 ``` python
 ## Plot the historical data
 import matplotlib.pyplot as plt
-plt.rcParams['figure.facecolor'] = "#FBFAF4"
-plt.rcParams['axes.facecolor'] = "#FBFAF4"
 load_wales_admissions["admissions"].plot(figsize=(10, 6), label='Admissions')
 plt.title("Daily Admissions to E&A Hospitals in Wales")
 plt.xlabel("Date")

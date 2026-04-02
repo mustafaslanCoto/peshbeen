@@ -3,13 +3,9 @@
 # %% ../../nbs/modules/02_models/01_ml_forecast.ipynb #ef1fdc89
 from __future__ import annotations
 from typing import List, Dict, Optional, Callable, Tuple, Any, Union
-from xml.parsers.expat import model
-from sklearn.base import clone
-from tabnanny import verbose
 import numpy as np
 import pandas as pd
 import copy
-import statsmodels.api as sm
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from xgboost import XGBRegressor
@@ -17,28 +13,18 @@ from lightgbm import LGBMRegressor
 from sklearn.ensemble import RandomForestRegressor, AdaBoostRegressor, HistGradientBoostingRegressor
 from ..model_selection import SplitTimeSeries
 from ..statstools import lr_trend_model, forecast_trend
-from ..formatting import make_main_gt, gt_mini, inject_header_table_groups, cov_table, make_var_gt_regimes
 from catboost import CatBoostRegressor
 from cubist import Cubist
 from ..transformations import (box_cox_transform, back_box_cox_transform,
-                                      rolling_quantile, rolling_mean, rolling_std,
-                        expanding_mean, expanding_std, expanding_quantile)
+                                      rolling_quantile, expanding_mean, expanding_std, expanding_quantile)
 from ..helpers import seasonal_diff, undiff_ts, invert_seasonal_diff
 # dot not show warnings
 import warnings
 warnings.filterwarnings("ignore")
 import copy
-import statsmodels.api as sm
-from scipy.stats import norm, multivariate_normal
 from sklearn.linear_model import LinearRegression
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
-from scipy.special import logsumexp
-from scipy.stats import t
 import re # for regex escaping to build drop patterns
-
-import warnings
-warnings.filterwarnings("ignore")
-
 
 class ml_forecaster:
 
@@ -54,8 +40,7 @@ class ml_forecaster:
         pol_degree: int = 1,
         ets_params: Optional[tuple] = None,
         change_points: Optional[List[int]] = None,
-        box_cox: bool = False,
-        box_cox_lmda: Optional[float] = None,
+        box_cox: Union[bool, float, int] = False,
         box_cox_biasadj: bool = False,
         cat_variables: Optional[List[str]] = None,
         target_encode: bool = False) -> None:
@@ -66,7 +51,7 @@ class ml_forecaster:
         Parameters
         ----------
         model : Any
-            A regression model object (e.g. LGBMRegressor(), CatBoostRegressor(), LinearRegression(), etc.)
+            A regression model object (e.g. LGBMRegressor(), XGBRegressor(), CatBoostRegressor(), LinearRegression(), etc.)
         target_col : str
             Name of the target variable column in the input DataFrame.
         lags : int or list of int, optional
@@ -85,10 +70,8 @@ class ml_forecaster:
             Tuple of (model_params_dict, fit_params_dict) to specify the parameters for the ExponentialSmoothing model when using 'ets' or 'feature_ets' trend strategy. The first element should be a dictionary of parameters to pass to the ExponentialSmoothing constructor, and the second element should be a dictionary of parameters to pass to the fit() method. Default is None (use default ETS parameters).
         change_points : list of int, optional
             List of indices in the time series where change points occur for piecewise linear trend fitting. Only used when trend strategy is 'linear' or 'feature_lr'. Default is None (no change points, fit a single linear trend).
-        box_cox : bool, optional
-            Whether to apply Box-Cox transformation to the target variable before modeling. Default is False.
-        box_cox_lmda : float, optional
-            Lambda parameter for Box-Cox transformation. If None, lambda will be estimated from the data. Default is None.
+        box_cox : bool or float or int, optional
+            Whether to apply Box-Cox transformation to the target variable. If a float or int value is provided, it will be used as the lambda parameter for the Box-Cox transformation. If True, the lambda parameter will be estimated from the data.
         box_cox_biasadj : bool, optional
             Whether to apply bias adjustment when inverting the Box-Cox transformation on forecasts. Default is False.
         cat_variables : list of str, optional
@@ -107,8 +90,12 @@ class ml_forecaster:
         self.target_encode = target_encode
         self.cps = change_points
         self.pol = pol_degree
-        self.box_cox = box_cox
-        self.lamda = box_cox_lmda
+        if isinstance(box_cox, (float, int)):
+            self.box_cox = True
+            self.lamda = box_cox
+        else:
+            self.box_cox = box_cox  # True or False
+            self.lamda = None
         self.biasadj = box_cox_biasadj
         self.difference = difference
         self.season_diff = seasonal_diff
@@ -120,8 +107,8 @@ class ml_forecaster:
             self.ets_model = ets_params[0]
             self.ets_fit = ets_params[1]
         else:
-            self.ets_model = None
-            self.ets_fit = None
+            self.ets_model = {}
+            self.ets_fit = {}
 
         # ── lags ──────────────────────────────────────────────────────────────
         if lags is None:
@@ -185,41 +172,40 @@ class ml_forecaster:
         # ── Box-Cox ───────────────────────────────────────────────────────────
         if self.box_cox:
             self.is_zero = np.any(np.array(dfc[self.target_col]) < 1)
-            trans_data, self.lamda = box_cox_transform(
+            self.trans_data, self.lamda = box_cox_transform(
                 x=dfc[self.target_col], shift=self.is_zero, box_cox_lmda=self.lamda
             )
-            dfc[self.target_col] = trans_data
+            dfc[self.target_col] = self.trans_data
 
         # ── Trend removal ─────────────────────────────────────────────────────
         if self.trend is not None:
             self.len = len(df)
             self.target_orig = dfc[self.target_col].copy()
 
-            if self.trend in ("linear", "feature_lr"):
+            if self.trend == "linear":
                 if self.cps is not None:
-                    trend_vals, self.lr_model, self.X_trend = lr_trend_model(
+                    self.trend_vals, self.lr_model, self.X_trend = lr_trend_model(
                         dfc[self.target_col], degree=self.pol,
                         breakpoints=self.cps, type='piecewise'
                     )
                 else:
-                    trend_vals, self.lr_model, self.X_trend = lr_trend_model(
+                    self.trend_vals, self.lr_model, self.X_trend = lr_trend_model(
                         dfc[self.target_col], degree=self.pol
                     )
-                if self.trend == "linear":
-                    dfc[self.target_col] = dfc[self.target_col] - trend_vals
 
-            elif self.trend in ("ets", "feature_ets"):
+            elif self.trend == "ets":
                 self.ets_model_fit = ExponentialSmoothing(
                     dfc[self.target_col], **self.ets_model
                 ).fit(**self.ets_fit)
-                if self.trend == "ets":
-                    dfc[self.target_col] = dfc[self.target_col] - self.ets_model_fit.fittedvalues.values
+                self.trend_vals = self.ets_model_fit.fittedvalues.values
 
             else:
                 raise ValueError(
                     f"Unknown trend type '{self.trend}'. "
-                    "Use 'linear', 'ets', 'feature_lr', or 'feature_ets'."
+                    "Use 'linear' or 'ets'."
                 )
+            
+            dfc[self.target_col] = dfc[self.target_col] - self.trend_vals
 
         # ── Ordinary differencing ─────────────────────────────────────────────
         if self.difference is not None or self.season_diff is not None:
@@ -251,14 +237,6 @@ class ml_forecaster:
                     dfc[f"{func.__class__.__name__}_{func.window_size}_shift_{func.shift}_q{func.quantile}"] = func(dfc[self.target_col])
                 else:
                     dfc[f"{func.__class__.__name__}_{func.window_size}_shift_{func.shift}"] = func(dfc[self.target_col])
-
-        # ── Trend as features ─────────────────────────────────────────────────
-        if self.trend is not None:
-            if self.trend == "feature_lr":
-                for i in range(self.X_trend.shape[1]):
-                    dfc[f"trend_{i}"] = self.X_trend[:, i]
-            elif self.trend == "feature_ets":
-                dfc["trend"] = self.ets_model_fit.fittedvalues.values
 
         return dfc.dropna()
 
@@ -305,6 +283,10 @@ class ml_forecaster:
         else:
             self.model_fit = self.model.fit(self.X, self.y)
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # predict_in_sample
+    # ─────────────────────────────────────────────────────────────────────────
+
     def predict_in_sample(self) -> np.ndarray:
         """
         Generate in-sample predictions and residuals for the training data. This can be useful for diagnostic purposes, such as checking for patterns in the residuals or calculating in-sample performance metrics.
@@ -314,9 +296,25 @@ class ml_forecaster:
         np.ndarray
             In-sample fitted values and residuals for the training data.
         """
-        self.fitted_values = self.model_fit.predict(self.X)
-        # make sure the fitted values are in the same order as the original data (in case of any reordering during data prep)
-        self.in_samp_resids = self.orig_target[-len(self.fitted_values):] - self.fitted_values
+
+        # if .fit has not been called yet, error out
+        if not hasattr(self, "model_fit"):
+            raise ValueError("Model has not been fitted yet. Call .fit() before predict_in_sample().")
+        
+        fitted_values = self.model_fit.predict(self.X)
+        fit_len = len(fitted_values)
+        self.in_samp_resids = self.y - fitted_values
+        if not self.box_cox:
+            self.fitted_values = self.orig_target[-fit_len:] + self.in_samp_resids # start with original target values and add residuals to get fitted values in original scale (after all transformations are inverted in the correct order below)
+            
+        else:
+            bc_fitted= self.trans_data[-fit_len:] + self.in_samp_resids
+            self.fitted_values = back_box_cox_transform(
+                y_pred=bc_fitted, lmda=self.lamda,
+                shift=self.is_zero)
+            self.in_samp_resids = self.orig_target[-fit_len:] - self.fitted_values
+        # add NaNs for the initial periods where fitted values are not available due to lag features        if fit_len < len(self.orig_target):
+        self.fitted_values = np.concatenate([np.repeat(np.nan, len(self.orig_target) - fit_len), self.fitted_values])
 
     # ─────────────────────────────────────────────────────────────────────────
     # INFORMATION CRITERIA
@@ -431,15 +429,7 @@ class ml_forecaster:
                 for func in self.lag_transform:
                     transform_lag.append(func(series_array, is_forecast=True).to_numpy()[-1])
 
-            # Trend features (feature_lr / feature_ets only)
-            trend_var = []
-            if self.trend is not None:
-                if self.trend == "feature_lr":
-                    trend_var.extend(X_trend_forecast[i, :].tolist())
-                elif self.trend == "feature_ets":
-                    trend_var.append(trend_forecast[i])
-
-            inp = x_var + inp_lag + transform_lag + trend_var
+            inp = x_var + inp_lag + transform_lag
             df_inp = pd.DataFrame(np.array(inp).reshape(1, -1), columns=self.X.columns)
 
             if isinstance(self.model, (LGBMRegressor, CatBoostRegressor)):
