@@ -506,5 +506,43 @@ class ets:
 
         return overall_performance, cv_df_
 
+    # a name for the class that is more descriptive of its purpose
+    def get_name(self):
+        return "ets"
+    
+    def set_params(self, params: Optional[Dict[str, Any]] = None, **kwargs):
+        updates = {}
+        if params is not None:
+            if not isinstance(params, dict):
+                raise TypeError("params must be a dictionary")
+            updates.update(params)
+        updates.update(kwargs)
+
+        allowed = {
+            "trend", "damped_trend", "seasonal", "seasonal_periods",
+            "initialization_method", "initial_level", "initial_trend", "initial_seasonal",
+            "bounds", "dates", "freq", "missing",
+            "optimized", "smoothing_level", "smoothing_trend", "smoothing_seasonal",
+            "damping_trend", "remove_bias", "start_params", "method", "minimize_kwargs",
+            "use_brute", "box_cox", "box_cox_biasadj", "fit_kwargs"
+        }
+        unknown = set(updates) - allowed
+        if unknown:
+            raise ValueError(f"Unknown parameter(s): {sorted(unknown)}")
+
+        for k, v in updates.items():
+            if k == "box_cox_biasadj":
+                self.biasadj = v
+            elif k == "box_cox":
+                if isinstance(v, (float, int)):
+                    self.box_cox = True
+                    self.lamda = v
+                else:
+                    self.box_cox = v
+                    self.lamda = None
+            else:
+                setattr(self, k, v)
+        return self
+
 # %% auto #0
 __all__ = ['ets']

@@ -40,7 +40,7 @@ class ms_arr:
         seasonal_diff: Optional[int] = None,
         trend: Optional[str] = None,
         pol_degree: int = 1,
-        ets_params: Optional[tuple] = None,
+        ets_params: Optional[Dict[str, Any]] = None,
         change_points: Optional[List[int]] = None,
         box_cox: Union[bool, float, int] = False,
         box_cox_biasadj: bool = False,
@@ -82,8 +82,8 @@ class ms_arr:
             Trend strategy: 'linear' or 'ets'.
         pol_degree : int
             Degree of polynomial trend (default: 1). Used when trend='linear'.
-        ets_params : Optional[tuple]
-            Tuple of (model_params_dict, fit_params_dict) for ExponentialSmoothing. Example: ({'trend': 'add', 'seasonal': 'add', 'seasonal_periods': 12}, {'optimized': True, 'use_boxcox': True}).
+        ets_params : Dict[str, Any], optional
+            Dictionary of parameters for the ExponentialSmoothing model when using 'ets' trend strategy. The keys should be the parameter names and the values should be the parameter values. Default is None (use default ETS parameters).
         change_points : Optional[List[int]]
             Change points for piecewise linear trend. List of indices where the trend slope can change.
         box_cox : bool or float or int, optional
@@ -151,12 +151,26 @@ class ms_arr:
 
         # ── trend ─────────────────────────────────────────────────────────────
         self.trend = trend
-        if ets_params is not None:
-            self.ets_model = ets_params[0]
-            self.ets_fit = ets_params[1]
-        else:
+        if self.trend == "ets":
             self.ets_model = {}
             self.ets_fit = {}
+            if ets_params is not None:
+                # make sure ets_params is a dict with keys for both constructor and fit params
+                if not isinstance(ets_params, dict):
+                    raise TypeError("ets_params must be a dictionary with keys for both constructor and/or fit parameters.")
+                # ExponentialSmoothing constructor params
+                constructor_params = ["trend","damped_trend", "seasonal","seasonal_periods","initialization_method",
+                                      "initial_level","initial_trend", "initial_seasonal","bounds","dates","freq","missing"]
+
+                # ExponentialSmoothing.fit params
+                fit_params = ["optimized","smoothing_level","smoothing_trend","smoothing_seasonal","damping_trend",
+                    "remove_bias","start_params","method","minimize_kwargs","use_brute"]
+                for param in constructor_params:
+                    if param in ets_params:
+                        self.ets_model[param] = ets_params[param]
+                for param in fit_params:
+                    if param in ets_params:
+                        self.ets_fit[param] = ets_params[param]
 
         # ── lags ──────────────────────────────────────────────────────────────
         if lags is None:
@@ -734,7 +748,8 @@ class ms_arr:
             self.fit(train)
 
             # Forecast using the model
-            bb_forecast = self.forecast(test_size, x_test)
+            exog_t = x_test if x_test.shape[1] > 0 else None
+            bb_forecast = self.forecast(test_size, exog_t)
             # Evaluate each metric
             for m in metrics:
                 if m.__name__ in ['MASE', 'SMAE', 'SRMSE', 'RMSSE']:
@@ -772,6 +787,10 @@ class ms_arr:
             # merge all three dataframes
             overall_performance = overall_performance.merge(perf_1_df, on="eval_metric").merge(perf_2_df, on="eval_metric")
         return overall_performance, cv_df_
+    
+    # a name for the class that is more descriptive of its purpose
+    def get_name(self):
+        return "ms_arr"
 
     # ─────────────────────────────────────────────────────────────────────────
     # PARAMETER SUMMARY

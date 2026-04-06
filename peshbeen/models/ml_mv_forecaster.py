@@ -47,7 +47,7 @@ class ml_mv_forecaster:
         seasonal_diff: Optional[Dict[str, int]] = None, # Seasonal differencing order per target, e.g. {'y1': 12, 'y2': 7}
         trend: Optional[Dict[str, str]] = None, # Trend strategies per target, e.g. {'y1': 'linear', 'y2': 'ets'}
         pol_degree: Optional[Union[int, Dict[str, int]]] = 1, # Polynomial degree for linear trend per target, e.g. 1 or {'y1': 1, 'y2': 2}
-        ets_params: Optional[Dict[str, tuple]] = None, # ETS model/fit params per target, e.g. {'y1': ({'trend': 'add'}, {'damped_trend': True}), 'y2': ({'trend': 'mul'}, {})}
+        ets_params: Optional[Dict[str, Any]] = None, # ETS model/fit params per target, e.g. {'y1': ({'trend': 'add'}, {'damped_trend': True}), 'y2': ({'trend': 'mul'}, {})}
         change_points: Optional[Dict[str, List[int]]] = None, # Change points for piecewise linear trend per target, e.g. {'y1': [100, 200], 'y2': [150]}
         box_cox: Optional[Dict[str, Union[bool, float, int]]] = None, # Box-Cox transformation per target, e.g. {'y1': True, 'y2': 0.5}
         box_cox_biasadj: Optional[Dict[str, bool]] = None, # Bias adjustment after inverting Box-Cox per target, e.g. {'y1': True, 'y2': False}
@@ -76,8 +76,8 @@ class ml_mv_forecaster:
             Dictionary specifying the trend removal strategy for each target variable. Supported values are 'linear', 'ets', 'feature_lr', and 'feature_ets'.
         pol_degree : Optional[Union[int, Dict[str, int]]], optional
             Polynomial degree for linear trend removal. Can be a single integer applied to all targets or a dictionary specifying the degree for each target variable.
-        ets_params : Optional[Dict[str, tuple]], optional
-            Dictionary specifying ETS model and fit parameters for each target variable when using 'ets' or 'feature_ets' trend removal. The value should be a tuple of (model_params, fit_params) where model_params are passed to ExponentialSmoothing and fit_params are passed to the fit() method.
+        ets_params : Optional[Dict[str, Any]]
+            Dictionary specifying ETS model and fit parameters for each target variable when using 'ets' trend removal. Each value is a dictionary of parameters for the ExponentialSmoothing model and fitting process.
         change_points : Optional[Dict[str, List[int]]], optional
             Dictionary specifying change points for piecewise linear trend removal for each target variable. The value should be a list of integer indices where the trend slope can change.
         box_cox : Optional[Dict[str, Union[bool, float, int]]], optional
@@ -98,7 +98,6 @@ class ml_mv_forecaster:
         self.target_cols = target_cols
         self.cat_variables = cat_variables
         self.target_encode = target_encode
-        self.ets_params = ets_params
         self.cps = change_points
 
         # ── lags ──────────────────────────────────────────────────────────────
@@ -140,6 +139,47 @@ class ml_mv_forecaster:
         self.trend = trend
         if trend is not None and not isinstance(trend, dict):
             raise TypeError("trend must be a dict keyed by target column name.")
+        
+
+        if self.trend is not None and "ets" in trend.values():
+            # ── ets params ────────────────────────────────────────────────────────────
+            CONSTRUCTOR_PARAMS = {
+                "trend", "damped_trend", "seasonal", "seasonal_periods",
+                "initialization_method", "initial_level", "initial_trend",
+                "initial_seasonal", "bounds", "dates", "freq", "missing",
+            }
+            FIT_PARAMS = {
+                "optimized", "smoothing_level", "smoothing_trend", "smoothing_seasonal",
+                "damping_trend", "remove_bias", "start_params", "method",
+                "minimize_kwargs", "use_brute",
+            }
+
+            self.ets_model: Dict[str, dict] = {}
+            self.ets_fit: Dict[str, dict] = {}
+            if ets_params is not None:
+                if not isinstance(ets_params, dict):
+                    raise TypeError("ets_params must be a dict keyed by target column name.")
+                for col, ttype in trend.items():
+                    if ttype == "ets":
+                        col_params = ets_params.get(col, {})  # flat dict per target, same as univariate
+                        if not isinstance(col_params, dict):
+                            raise TypeError(f"ets_params['{col}'] must be a flat dict of ETS parameters.")
+                        self.ets_model[col] = {k: v for k, v in col_params.items() if k in CONSTRUCTOR_PARAMS}
+                        self.ets_fit[col]   = {k: v for k, v in col_params.items() if k in FIT_PARAMS}
+            else:
+                # default empty dicts for all ETS targets
+                for col, ttype in trend.items():
+                    if ttype == "ets":
+                        self.ets_model[col] = {}
+                        self.ets_fit[col]   = {}
+
+        # ── polynomial degree ─────────────────────────────────────────────────
+        if isinstance(pol_degree, int):
+            self.pol = {col: pol_degree for col in target_cols}
+        elif isinstance(pol_degree, dict):
+            self.pol = {col: pol_degree.get(col, 1) for col in target_cols}
+        else:
+            raise ValueError("pol_degree must be an int or a dict.")
 
         # ── polynomial degree ─────────────────────────────────────────────────
         if isinstance(pol_degree, int):
@@ -248,7 +288,7 @@ class ml_mv_forecaster:
             for col, ttype in self.trend.items():
                 self.orig_targets[col] = dfc[col].copy()
 
-                if ttype in ("linear", "feature_lr"):
+                if ttype == "linear":
                     bps = self.cps.get(col) if self.cps else None
                     if bps:
                         trend_vals, model_fit, X_trend = lr_trend_model(
@@ -259,20 +299,19 @@ class ml_mv_forecaster:
                         trend_vals, model_fit, X_trend = lr_trend_model(
                             self.orig_targets[col], degree=self.pol[col])
                     self.trend_models[col] = (model_fit, X_trend)
-                    if ttype == "linear":
-                        dfc[col] = dfc[col] - trend_vals
+                    dfc[col] = dfc[col] - trend_vals
 
-                elif ttype in ("ets", "feature_ets"):
-                    ep = self.ets_params[col]
-                    model_fit = ExponentialSmoothing(self.orig_targets[col], **ep[0]).fit(**ep[1])
+                elif ttype == "ets":
+                    model_fit = ExponentialSmoothing(
+                        self.orig_targets[col], **self.ets_model[col]
+                    ).fit(**self.ets_fit[col])
+                    dfc[col] = dfc[col] - model_fit.fittedvalues.values
                     self.trend_models[col] = model_fit
-                    if ttype == "ets":
-                        dfc[col] = dfc[col] - model_fit.fittedvalues.values
 
                 else:
                     raise ValueError(
                         f"Unknown trend type '{ttype}' for '{col}'. "
-                        "Use 'linear', 'ets', 'feature_lr', or 'feature_ets'."
+                        "Use 'linear' or 'ets'."
                     )
 
         # ── Ordinary differencing ─────────────────────────────────────────────
@@ -450,16 +489,16 @@ class ml_mv_forecaster:
 
         if self.trend is not None:
             for col, ttype in self.trend.items():
-                if ttype in ("linear", "feature_lr"):
+                if ttype == "linear":
                     model_fit, _ = self.trend_models[col]
-                    bps = self.cps.get(col) if self.cps else None
+                    bps = self.cps.get(col) if self.cps else None # get breakpoints for this target if they exist, if not use None
                     tf, X_tf = forecast_trend(
                         model=model_fit, H=H, start=self.len,
                         degree=self.pol[col], breakpoints=bps
                     )
                     trend_forecasts[col] = tf
                     X_trend_forecasts[col] = X_tf
-                elif ttype in ("ets", "feature_ets"):
+                elif ttype == "ets":
                     trend_forecasts[col] = np.array(self.trend_models[col].forecast(H))
 
         # ── Recursive forecast loop ───────────────────────────────────────────
@@ -482,16 +521,7 @@ class ml_mv_forecaster:
                     for func in funcs:
                         transform_lag.append(func(series_array, is_forecast=True).to_numpy()[-1])
 
-            # Trend features (feature_lr / feature_ets only)
-            trend_var = []
-            if self.trend is not None:
-                for col, ttype in self.trend.items():
-                    if ttype == "feature_lr":
-                        trend_var.extend(X_trend_forecasts[col][t, :].tolist())
-                    elif ttype == "feature_ets":
-                        trend_var.append(trend_forecasts[col][t])
-
-            inp = x_var + inp_lag + transform_lag + trend_var
+            inp = x_var + inp_lag + transform_lag
             df_inp = pd.DataFrame(np.array(inp).reshape(1, -1), columns=self.X.columns)
 
             if isinstance(self.model, (LGBMRegressor, CatBoostRegressor)):
@@ -649,7 +679,8 @@ class ml_mv_forecaster:
             train, test = df.iloc[train_index], df.iloc[test_index]
             x_test, y_test = test.drop(columns=self.target_cols), np.array(test[target_col])
             self.fit(train)
-            forecasts = self.forecast(test_size, x_test)[target_col]
+            exog_t = x_test if x_test.shape[1] > 0 else None
+            forecasts = self.forecast(test_size, exog_t)[target_col]
 
             for m in metrics:
                 if m.__name__ in ["MASE", "SMAE", "SRMSE", "RMSSE"]:
@@ -672,7 +703,7 @@ class ml_mv_forecaster:
 
             if cv_df:
                 ## store results for this split
-                all_forecasts = self.forecast(test_size, x_test)
+                all_forecasts = self.forecast(test_size, exog_t)
                 actuals = {f"actual_{col}": test[col].values for col in self.target_cols}
                 all_forecasts_dict = {f"forecast_{col}": all_forecasts[col] for col in self.target_cols}
                 split_results = {"cutoff": np.repeat(test.index[0], len(test)), "index": test.index,
@@ -694,6 +725,11 @@ class ml_mv_forecaster:
             # merge all three dataframes
             overall_performance = overall_performance.merge(perf_1_df, on="eval_metric").merge(perf_2_df, on="eval_metric")
         return overall_performance, cv_df_
+
+    # a name for the class that is more descriptive of its purpose
+    def get_name(self):
+        return "ml_mv_forecaster"
+
 
 
 # %% auto #0

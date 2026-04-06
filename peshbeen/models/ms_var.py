@@ -141,7 +141,6 @@ class ms_var:
         self.cvr = covariance_type
         self.switching_cov = switching_cov
         self.coeffs = coefficients
-        self.ets_params = ets_params
         self.cps = change_points
 
         # ── lags ──────────────────────────────────────────────────────────────
@@ -173,6 +172,18 @@ class ms_var:
         self.trend = trend
         if trend is not None and not isinstance(trend, dict):
             raise TypeError("trend must be a dict keyed by target column name.")
+        
+        if self.trend is not None and 'ets' in trend.values():
+            if ets_params is None:
+                # assign default ETS parameters if not provided
+                self.ets_params = {col: ({}, {}) for col, type in trend.items() if type == 'ets'}
+            else:
+                if not isinstance(ets_params, dict):
+                    raise TypeError("ets_params must be a dict keyed by target column name.")
+                self.ets_params = ets_params
+                for col in target_cols:
+                    if trend.get(col) == 'ets' and col not in self.ets_params:
+                        self.ets_params[col] = ({}, {})  # default parameters for any ETS target not specified
 
         # ── polynomial degree ─────────────────────────────────────────────────
         if isinstance(pol_degree, int):
@@ -1017,7 +1028,8 @@ class ms_var:
             train, test = df.iloc[train_index], df.iloc[test_index]
             x_test, y_test = test.drop(columns=self.target_cols), np.array(test[target_col])
             self.fit(train)
-            forecasts = self.forecast(test_size, x_test)[target_col]
+            exog_t = x_test if x_test.shape[1] > 0 else None
+            forecasts = self.forecast(test_size, exog_t)[target_col]
 
             for m in metrics:
                 if m.__name__ in ["MASE", "SMAE", "SRMSE", "RMSSE"]:
@@ -1040,7 +1052,7 @@ class ms_var:
 
             if cv_df:
                 ## store results for this split
-                all_forecasts = self.forecast(test_size, x_test)
+                all_forecasts = self.forecast(test_size, exog_t)
                 actuals = {f"actual_{col}": test[col].values for col in self.target_cols}
                 all_forecasts_dict = {f"forecast_{col}": all_forecasts[col] for col in self.target_cols}
                 split_results = {"cutoff": np.repeat(test.index[0], len(test)), "index": test.index,
@@ -1062,6 +1074,11 @@ class ms_var:
             # merge all three dataframes
             overall_performance = overall_performance.merge(perf_1_df, on="eval_metric").merge(perf_2_df, on="eval_metric")
         return overall_performance, cv_df_
+
+    # a name for the class that is more descriptive of its purpose
+    def get_name(self):
+        return "ms_var"
+
 
 # %% auto #0
 __all__ = ['ms_var']

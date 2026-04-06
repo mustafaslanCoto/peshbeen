@@ -57,7 +57,7 @@ def box_cox_transform(x,
 
 # %% auto #0
 __all__ = ['box_cox_transform', 'back_box_cox_transform', 'fourier_terms', 'rolling_mean', 'rolling_quantile', 'rolling_std',
-           'expanding_mean', 'expanding_std', 'expanding_quantile']
+           'rolling_min', 'rolling_max', 'expanding_mean', 'expanding_std', 'expanding_quantile']
 
 # %% ../nbs/modules/05_transformations.ipynb #18d295f7
 def back_box_cox_transform(y_pred: np.ndarray,
@@ -337,6 +337,128 @@ class rolling_std:
             return pd.Series(data).shift(self.shift).rolling(self.window_size, min_periods=self.min_samples).std()
     def get_name(self):
         return f"rolling_std_{self.window_size}_{self.shift}"   
+
+# %% ../nbs/modules/05_transformations.ipynb #fca964a7
+class rolling_min:
+    def __init__(self,
+                 window_size: int,
+                 shift: int = 1,
+                 min_samples: int = 1
+                 ):
+
+        """
+        
+        A class to compute the rolling minimum of a time series with specified window size and shift.
+
+        Parameters
+        ----------
+        window_size : int
+            The size of the rolling window.
+        shift : int, optional
+            The number of periods to shift the data before applying the rolling minimum (default is 1).
+        min_samples : int, optional
+            The minimum number of observations in the window required to have a value (default is 1).
+
+        Returns
+        -------
+        None
+
+        """
+        self.shift = shift
+        self.window_size = window_size
+        self.min_samples = min_samples
+
+    def __call__(self,
+                 data: Union[pd.Series, np.ndarray],
+                 is_forecast: bool = False
+                 ) -> pd.Series:
+        """
+        Compute the rolling minimum of the input data.
+        
+        Parameters
+        ----------
+        data : array-like
+            The input time series data for which to compute the rolling minimum.
+        is_forecast : bool, optional
+            Whether the data is a forecast (default is False). If True, the shift will be adjusted to align with the forecasted period. For example, if it's a forecast, for the forecasting next value, we might want to shift by one less than usual to align with the forecasted period
+
+        Returns
+        -------
+        pd.Series
+            A Series containing the rolling minimum of the input data, shifted and computed according to the specified parameters.
+        """
+
+        if is_forecast:
+            # For example, if it's a forecast, for the forecasting next value, we might want to shift by one less than usual to align with the forecasted period
+            return pd.Series(data).shift(self.shift-1).rolling(self.window_size, min_periods=self.min_samples).min()
+        # If not a forecast, apply the usual shift
+        else:
+            # If not a forecast, apply the usual shift
+            return pd.Series(data).shift(self.shift).rolling(self.window_size, min_periods=self.min_samples).min()
+        
+    def get_name(self):
+        return f"rolling_min_{self.window_size}_{self.shift}"
+
+# %% ../nbs/modules/05_transformations.ipynb #26285015
+class rolling_max:
+    def __init__(self,
+                 window_size: int,
+                 shift: int = 1,
+                 min_samples: int = 1
+                 ):
+
+        """
+        
+        A class to compute the rolling maximum of a time series with specified window size and shift.
+
+        Parameters
+        ----------
+        window_size : int
+            The size of the rolling window.
+        shift : int, optional
+            The number of periods to shift the data before applying the rolling maximum (default is 1).
+        min_samples : int, optional
+            The minimum number of observations in the window required to have a value (default is 1).
+
+        Returns
+        -------
+        None
+
+        """
+        self.shift = shift
+        self.window_size = window_size
+        self.min_samples = min_samples
+
+    def __call__(self,
+                 data: Union[pd.Series, np.ndarray],
+                 is_forecast: bool = False
+                 ) -> pd.Series:
+        """
+        Compute the rolling maximum of the input data.
+        
+        Parameters
+        ----------
+        data : array-like
+            The input time series data for which to compute the rolling maximum.
+        is_forecast : bool, optional
+            Whether the data is a forecast (default is False). If True, the shift will be adjusted to align with the forecasted period. For example, if it's a forecast, for the forecasting next value, we might want to shift by one less than usual to align with the forecasted period
+
+        Returns
+        -------
+        pd.Series
+            A Series containing the rolling maximum of the input data, shifted and computed according to the specified parameters.
+        """
+
+        if is_forecast:
+            # For example, if it's a forecast, for the forecasting next value, we might want to shift by one less than usual to align with the forecasted period
+            return pd.Series(data).shift(self.shift-1).rolling(self.window_size, min_periods=self.min_samples).max()
+        # If not a forecast, apply the usual shift
+        else:
+            # If not a forecast, apply the usual shift
+            return pd.Series(data).shift(self.shift).rolling(self.window_size, min_periods=self.min_samples).max()
+        
+    def get_name(self):
+        return f"rolling_max_{self.window_size}_{self.shift}"
 
 # %% ../nbs/modules/05_transformations.ipynb #ced41853
 class expanding_mean:

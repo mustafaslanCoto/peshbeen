@@ -38,7 +38,7 @@ class ml_forecaster:
         seasonal_diff: Optional[int] = None,
         trend: Optional[str] = None,
         pol_degree: int = 1,
-        ets_params: Optional[tuple] = None,
+        ets_params: Optional[Dict[str, Any]] = None,
         change_points: Optional[List[int]] = None,
         box_cox: Union[bool, float, int] = False,
         box_cox_biasadj: bool = False,
@@ -66,8 +66,8 @@ class ml_forecaster:
             Trend strategy to use. Options are 'linear' for linear trend removal, 'ets' for ETS-based trend removal, 'feature_lr' for using linear trend components as features, and 'feature_ets' for using ETS trend components as features. Default is None (no trend handling).
         pol_degree : int, optional
             Degree of polynomial trend to fit when using 'linear' or 'feature_lr' trend strategy. Default is 1 (linear trend).
-        ets_params : tuple, optional
-            Tuple of (model_params_dict, fit_params_dict) to specify the parameters for the ExponentialSmoothing model when using 'ets' or 'feature_ets' trend strategy. The first element should be a dictionary of parameters to pass to the ExponentialSmoothing constructor, and the second element should be a dictionary of parameters to pass to the fit() method. Default is None (use default ETS parameters).
+        ets_params : Dict[str, Any], optional
+            Dictionary of parameters for the ExponentialSmoothing model when using 'ets' trend strategy. The keys should be the parameter names and the values should be the parameter values. Default is None (use default ETS parameters).
         change_points : list of int, optional
             List of indices in the time series where change points occur for piecewise linear trend fitting. Only used when trend strategy is 'linear' or 'feature_lr'. Default is None (no change points, fit a single linear trend).
         box_cox : bool or float or int, optional
@@ -103,12 +103,27 @@ class ml_forecaster:
 
         # ── trend ─────────────────────────────────────────────────────────────
         self.trend = trend
-        if ets_params is not None:
-            self.ets_model = ets_params[0]
-            self.ets_fit = ets_params[1]
-        else:
+        if self.trend == "ets":
             self.ets_model = {}
             self.ets_fit = {}
+            if ets_params is not None:
+                # make sure ets_params is a dict with keys for both constructor and fit params
+                if not isinstance(ets_params, dict):
+                    raise TypeError("ets_params must be a dictionary with keys for both constructor and/or fit parameters.")
+                # ExponentialSmoothing constructor params
+                constructor_params = ["trend","damped_trend", "seasonal","seasonal_periods","initialization_method",
+                                      "initial_level","initial_trend", "initial_seasonal","bounds","dates","freq","missing"]
+
+                # ExponentialSmoothing.fit params
+                fit_params = ["optimized","smoothing_level","smoothing_trend","smoothing_seasonal","damping_trend",
+                    "remove_bias","start_params","method","minimize_kwargs","use_brute"]
+                for param in constructor_params:
+                    if param in ets_params:
+                        self.ets_model[param] = ets_params[param]
+                for param in fit_params:
+                    if param in ets_params:
+                        self.ets_fit[param] = ets_params[param]
+
 
         # ── lags ──────────────────────────────────────────────────────────────
         if lags is None:
@@ -402,7 +417,7 @@ class ml_forecaster:
 
         # ── Pre-compute trend forecasts ───────────────────────────────────────
         if self.trend is not None:
-            if self.trend in ("linear", "feature_lr"):
+            if self.trend == "linear":
                 trend_forecast, X_trend_forecast = forecast_trend(
                     model=self.lr_model, H=H, start=self.len,
                     degree=self.pol, breakpoints=self.cps
@@ -516,7 +531,8 @@ class ml_forecaster:
             x_test = test.drop(columns=[self.target_col])
             y_test = np.array(test[self.target_col])
             self.fit(train)
-            bb_forecast = self.forecast(test_size, x_test)
+            exog_t = x_test if x_test.shape[1] > 0 else None
+            bb_forecast = self.forecast(test_size, exog_t)
             # Evaluate each metric
             for m in metrics:
                 if m.__name__ in ["MASE", "SMAE", "SRMSE", "RMSSE"]:
@@ -554,6 +570,10 @@ class ml_forecaster:
             # merge all three dataframes
             overall_performance = overall_performance.merge(perf_1_df, on="eval_metric").merge(perf_2_df, on="eval_metric")
         return overall_performance, cv_df_
+    
+    # a name for the class that is more descriptive of its purpose
+    def get_name(self):
+        return "ml_forecaster"
 
 # %% auto #0
 __all__ = ['ml_forecaster']

@@ -334,5 +334,9 @@ class naive:
  
         return overall_performance, cv_df_
 
+    # a name for the class that is more descriptive of its purpose
+    def get_name(self):
+        return "naive"
+
 # %% auto #0
 __all__ = ['naive']

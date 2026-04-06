@@ -38,7 +38,7 @@ class var:
         seasonal_diff: Optional[Dict[str, int]] = None,
         trend: Optional[Dict[str, str]] = None,
         pol_degree: Optional[Union[int, Dict[str, int]]] = 1,
-        ets_params: Optional[Dict[str, tuple]] = None,
+        ets_params: Optional[Dict[str, Any]] = None,
         change_points: Optional[Dict[str, List[int]]] = None,
         box_cox: Optional[Dict[str, Union[bool, float, int]]] = None,
         box_cox_biasadj: Union[bool, Dict[str, bool]] = False,
@@ -66,8 +66,8 @@ class var:
             Dictionary specifying the trend strategy for each target variable. Values can be 'linear' for linear trend removal or 'ets' for ETS-based trend removal.
         pol_degree : Optional[Union[int, Dict[str, int]]]
             Polynomial degree for linear trend removal. Can be a single integer applied to all targets or a dictionary specifying the degree for each target.
-        ets_params : Optional[Dict[str, tuple]]
-            Dictionary specifying ETS model and fit parameters for each target variable when using 'ets' trend removal. Each value is a tuple of (model_params, fit_params) where model_params are the parameters for the ExponentialSmoothing model and fit_params are the parameters for fitting the model.
+        ets_params : Optional[Dict[str, Any]]
+            Dictionary specifying ETS model and fit parameters for each target variable when using 'ets' trend removal. Each value is a dictionary of parameters for the ExponentialSmoothing model and fitting process.
         change_points : Optional[Dict[str, List[int]]]
             Dictionary specifying change points for piecewise linear trend removal for each target variable. Values are lists of integer indices indicating where the trend should change. Only applicable when trend strategy is 'linear'.
         box_cox : Optional[Dict[str, Union[bool, float, int]]]
@@ -90,7 +90,6 @@ class var:
         self.cat_variables = cat_variables
         self.cons = add_constant
         self.verbose = verbose
-        self.ets_params = ets_params
         self.cps = change_points
 
         # ── lags ──────────────────────────────────────────────────────────────
@@ -119,6 +118,39 @@ class var:
         self.trend = trend
         if trend is not None and not isinstance(trend, dict):
             raise TypeError("trend must be a dict keyed by target column name.")
+        
+
+        if self.trend is not None and "ets" in trend.values():
+            # ── ets params ────────────────────────────────────────────────────────────
+            CONSTRUCTOR_PARAMS = {
+                "trend", "damped_trend", "seasonal", "seasonal_periods",
+                "initialization_method", "initial_level", "initial_trend",
+                "initial_seasonal", "bounds", "dates", "freq", "missing",
+            }
+            FIT_PARAMS = {
+                "optimized", "smoothing_level", "smoothing_trend", "smoothing_seasonal",
+                "damping_trend", "remove_bias", "start_params", "method",
+                "minimize_kwargs", "use_brute",
+            }
+
+            self.ets_model: Dict[str, dict] = {}
+            self.ets_fit: Dict[str, dict] = {}
+            if ets_params is not None:
+                if not isinstance(ets_params, dict):
+                    raise TypeError("ets_params must be a dict keyed by target column name.")
+                for col, ttype in trend.items():
+                    if ttype == "ets":
+                        col_params = ets_params.get(col, {})  # flat dict per target, same as univariate
+                        if not isinstance(col_params, dict):
+                            raise TypeError(f"ets_params['{col}'] must be a flat dict of ETS parameters.")
+                        self.ets_model[col] = {k: v for k, v in col_params.items() if k in CONSTRUCTOR_PARAMS}
+                        self.ets_fit[col]   = {k: v for k, v in col_params.items() if k in FIT_PARAMS}
+            else:
+                # default empty dicts for all ETS targets
+                for col, ttype in trend.items():
+                    if ttype == "ets":
+                        self.ets_model[col] = {}
+                        self.ets_fit[col]   = {}
 
         # ── polynomial degree ─────────────────────────────────────────────────
         if isinstance(pol_degree, int):
@@ -222,12 +254,11 @@ class var:
                         )
                     dfc[col] = dfc[col] - trend_vals
                     self.trend_models[col] = model_fit
-
+                    
                 elif ttype == "ets":
-                    ep = self.ets_params[col]
                     model_fit = ExponentialSmoothing(
-                        self.orig_targets[col], **ep[0]
-                    ).fit(**ep[1])
+                        self.orig_targets[col], **self.ets_model[col]
+                    ).fit(**self.ets_fit[col])
                     dfc[col] = dfc[col] - model_fit.fittedvalues.values
                     self.trend_models[col] = model_fit
 
@@ -569,7 +600,8 @@ class var:
             train, test = df.iloc[train_index], df.iloc[test_index]
             x_test, y_test = test.drop(columns=self.target_cols), np.array(test[target_col])
             self.fit(train)
-            forecasts = self.forecast(test_size, x_test)[target_col]
+            exog_t = x_test if x_test.shape[1] > 0 else None
+            forecasts = self.forecast(test_size, exog_t)[target_col]
 
             for m in metrics:
                 if m.__name__ in ["MASE", "SMAE", "SRMSE", "RMSSE"]:
@@ -592,7 +624,7 @@ class var:
 
             if cv_df:
                 ## store results for this split
-                all_forecasts = self.forecast(test_size, x_test)
+                all_forecasts = self.forecast(test_size, exog_t)
                 actuals = {f"actual_{col}": test[col].values for col in self.target_cols}
                 all_forecasts_dict = {f"forecast_{col}": all_forecasts[col] for col in self.target_cols}
                 split_results = {"cutoff": np.repeat(test.index[0], len(test)), "index": test.index,
@@ -614,6 +646,10 @@ class var:
             # merge all three dataframes
             overall_performance = overall_performance.merge(perf_1_df, on="eval_metric").merge(perf_2_df, on="eval_metric")
         return overall_performance, cv_df_
+
+    # a name for the class that is more descriptive of its purpose
+    def get_name(self):
+        return "var"
 
 
 
