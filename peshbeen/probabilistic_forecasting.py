@@ -60,6 +60,10 @@ class prob_forecasts:
         self.n_iter        = n_iter
         self._rng          = np.random.default_rng(seed=random_state)
         self._random_state = random_state
+        if self.model.get_name() == "pesh":
+            self.pesh = next(iter(self.model.models.values())).target_col # Get the target column name from any of the models in self.model.models
+        else:
+            self.pesh = self.model.target_col
         
     # ── private ──────────────────────────────────────────────────────────────
  
@@ -97,11 +101,17 @@ class prob_forecasts:
     
             for fold, (train_idx, test_idx) in enumerate(tscv.split(df)):
                 train, test = df.iloc[train_idx], df.iloc[test_idx]
-                x_test = test.drop(columns=[self.model.target_col])
-                y_test = np.array(test[self.model.target_col])
+                x_test = test.drop(columns=[self.pesh])
+                y_test = np.array(test[self.pesh])
+
+                exog_t = x_test if x_test.shape[1] > 0 else None
 
                 self.model.fit(train)
-                y_hat = self.model.forecast(self.H, x_test) if x_test is not None else self.model.forecast(self.H)
+
+                if self.model.get_name() == "pesh":
+                    y_hat = self.model.forecast(self.H, exog_t)[self.pesh].values
+                else:
+                    y_hat = self.model.forecast(self.H, exog_t)
 
                 c_actuals.append(y_test)
                 c_forecasts.append(y_hat)
@@ -516,7 +526,8 @@ class mv_prob_forecasts:
                 y_test = np.array(test[self.target_col])
 
                 self.model.fit(train)
-                y_hat = self.model.forecast(self.H, exog=x_test)[self.target_col] if x_test is not None else self.model.forecast(self.H)[self.target_col]
+                exog_t = x_test if x_test.shape[1] > 0 else None
+                y_hat = self.model.forecast(self.H, exog=exog_t)[self.target_col]
 
                 c_actuals.append(y_test)
                 c_forecasts.append(y_hat)

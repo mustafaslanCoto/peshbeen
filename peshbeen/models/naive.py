@@ -42,13 +42,15 @@ class naive:
         target_col : str
             Name of the target variable column.
         season_period : int or None, default None
-            Seasonal period ``m``.  ``None`` selects the non-seasonal naïve
-            method.  When provided and the training series is shorter than
-            ``m``, ``forecast`` returns an array of ``NaN``.
+            Seasonal period ``m``.  ``None`` selects the non-seasonal naïve method.  When provided and the training series is shorter than ``m``, ``forecast`` returns an array of ``NaN``.
         box_cox : bool or float, optional
             Whether to apply Box-Cox transformation to the target variable. If a float value is provided, it will be used as the lambda parameter for the Box-Cox transformation. If True, the lambda parameter will be estimated from the data.
         box_cox_biasadj : bool, default False
             Bias adjustment when inverting the manual Box-Cox on forecasts.
+        
+        Returns
+        -------
+        None
         """
  
         self.target_col  = target_col
@@ -170,6 +172,7 @@ class naive:
         H: int,
         exog: Optional[pd.DataFrame] = None,
     ) -> np.ndarray:
+        
         """
         Generate naïve forecasts.
  

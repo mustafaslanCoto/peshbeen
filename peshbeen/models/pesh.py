@@ -18,16 +18,19 @@ class pesh:
     def __init__(
         self,
         models: dict,
+        weighting_scheme: Optional[Dict[str, float]] = None
         ) -> None:
 
         """
-        Initialize the pesh model with the specified parameters for hybrid forecasting.
+        Initialize the pesh model with the specified parameters for hybrid forecasting that combines forecasts from multiple models.
 
         Parameters
         ----------
         models : dict
-            A dictionary of model instances to be used for forecasting. The keys should be string names for
-            each model.
+            A dictionary of model instances to be used for forecasting. The keys should be string names for each model.
+
+        weighting_scheme : dict | None, default None
+            Optional dictionary specifying weights for each model's forecast. Default is None, which means equal weighting.
 
         Returns
         -------
@@ -35,7 +38,7 @@ class pesh:
         """
 
         self.models = models
-
+        self.weighting_scheme = weighting_scheme
     # ─────────────────────────────────────────────────────────────────────────
     # FIT
     # ─────────────────────────────────────────────────────────────────────────
@@ -67,7 +70,6 @@ class pesh:
         self,
         H: int,
         exog: Optional[pd.DataFrame] = None,
-        weighting_scheme: Optional[Dict[str, float]] = None
     ) -> np.ndarray:
         """
         Recursive multi-step forecast.
@@ -77,9 +79,7 @@ class pesh:
         H : int
             Forecast horizon.
         exog : pd.DataFrame | None, default None
-            Optional dataframe of future regressors.
-        weighting_scheme : dict | None, default None
-            Optional dictionary specifying weights for each model's forecast. Default is None, which means equal weighting.
+            Optional dataframe of future regressors. Must have the same columns as the exogenous variables used during training and at least `H` rows.
 
         Returns
         -------
@@ -88,14 +88,14 @@ class pesh:
         """
         forecasts = {name: model.forecast(H=H, exog=exog) if exog is not None else model.forecast(H=H) for name, model in self.models.items()}
         # add mean of forecasts as final forecast add as as hybrid forecast to dictionary
-        if weighting_scheme is not None:
+        if self.weighting_scheme is not None:
             # check if all models have weights specified, if not raise error
-            if not all(name in weighting_scheme for name in self.models.keys()):
+            if not all(name in self.weighting_scheme for name in self.models.keys()):
                 raise ValueError("All models must have weights specified in the weighting_scheme dictionary.")
             # check if weights sum to 1, if not raise error
-            if not np.isclose(sum(weighting_scheme.values()), 1):
+            if not np.isclose(sum(self.weighting_scheme.values()), 1):
                 raise ValueError("Weights in the weighting_scheme dictionary must sum to 1.")
-            forecasts["pesh"] = np.sum([weighting_scheme[name] * forecasts[name] for name in self.models.keys()], axis=0)
+            forecasts["pesh"] = np.sum([self.weighting_scheme[name] * forecasts[name] for name in self.models.keys()], axis=0)
         else:
             forecasts["pesh"] = np.mean(list(forecasts.values()), axis=0)
         

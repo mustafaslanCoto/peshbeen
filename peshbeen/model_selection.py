@@ -124,14 +124,12 @@ def hyperopt_tune(
                 model.n_lag = params["lags"]
         if "box_cox" in params:
             model.box_cox = params["box_cox"]
-        if "box_cox_lmda" in params:
-            model.lamda = params["box_cox_lmda"]
         if "box_cox_biasadj" in params:
             model.biasadj = params["box_cox_biasadj"]
 
     def _get_model_params_for_fit(params):
         # Exclude special parameters that should not be passed to the model constructor
-        skip_keys = {"box_cox", "lags", "box_cox_lmda", "box_cox_biasadj"}
+        skip_keys = {"box_cox", "lags", "box_cox_biasadj"}
 
         return {k: v for k, v in params.items() if k not in skip_keys}
     
@@ -160,7 +158,8 @@ def hyperopt_tune(
                     model.model.set_params(**model_params)
             model.fit(train)
             
-            y_pred = model.forecast(len(y_test), x_test)
+            exog_test = x_test if x_test.shape[1] > 0 else None
+            y_pred = model.forecast(len(y_test), exog_test)
 
             #Evaluate using the specified metric
             if eval_metric.__name__ in ["MASE", "SMAE", "SRMSE", "RMSSE"]:
@@ -193,11 +192,19 @@ def hyperopt_tune(
         best_lags = None
         model_parameters = space_eval(param_space, best_hyperparams)
 
-    # model.tuned_params = [
-    #     space_eval(param_space, {k: v[0] for k, v in t["misc"]["vals"].items()})
-    #     for t in trials.trials]
+    other_ags = {}
+    if "box_cox" in param_space:
+        best_box_cox = space_eval(param_space, best_hyperparams)["box_cox"]
+        other_ags["box_cox"] = best_box_cox
+        model_parameters = {k: v for k, v in model_parameters.items() if k != "box_cox"}
+    if "box_cox_biasadj" in param_space:
+        best_box_cox_biasadj = space_eval(param_space, best_hyperparams)["box_cox_biasadj"]
+        other_ags["box_cox_biasadj"] = best_box_cox_biasadj
+        model_parameters = {k: v for k, v in model_parameters.items() if k != "box_cox_biasadj"}
 
-    return model_parameters, best_lags
+ 
+    # return model_parameters, best_lags, other_ags
+    return model_parameters, best_lags, other_ags
 
 # %% ../nbs/modules/03_model_selection.ipynb #42ad67aa
 import optuna
@@ -251,7 +258,6 @@ def optuna_tune(
             lags = params["lags"]
             model.n_lag = list(range(1, lags + 1)) if isinstance(lags, int) else list(lags)
         if "box_cox"         in params: model.box_cox = params["box_cox"]
-        if "box_cox_lmda"    in params: model.lamda   = params["box_cox_lmda"]
         if "box_cox_biasadj" in params: model.biasadj = params["box_cox_biasadj"]
  
     def _fit_params(params: dict) -> Optional[dict]:
@@ -267,21 +273,22 @@ def optuna_tune(
  
         _set_model_params(params)
         fit_params = _fit_params(params)
+
+        if fit_params is not None:
+            if model.get_name() == "arima" or model.get_name() == "ets":
+                model.set_params(params=fit_params)
+            else:
+                model.model.set_params(**fit_params)
  
         scores = []
         for train_idx, test_idx in tscv.split(df):
             train, test = df.iloc[train_idx], df.iloc[test_idx]
             x_test = test.drop(columns=[model.target_col])
             y_test = np.array(test[model.target_col])
- 
-            if fit_params is not None:
-                if model.get_name() == "arima" or model.get_name() == "ets":
-                    model.set_params(params=fit_params)
-                else:
-                    model.model.set_params(**fit_params)
                     
             model.fit(train)
-            y_pred = model.forecast(len(y_test), x_test)
+            exog_test = x_test if x_test.shape[1] > 0 else None
+            y_pred = model.forecast(len(y_test), exog_test)
  
             if eval_metric.__name__ in ("MASE", "SMAE", "SRMSE", "RMSSE"):
                 score = eval_metric(y_test, y_pred, train[model.target_col])
@@ -291,24 +298,48 @@ def optuna_tune(
  
         mean_score = float(np.mean(scores))
         if verbose:
-            print(f"Trial {trial.number:>4d} | score={mean_score:.6f} | {params} ")
+            if trial.number > 0:
+                print(f"Trial {trial.number:>4d} | score={mean_score:.6f} | {params} | best trial={trial.study.best_trial.number} | best_score={trial.study.best_value:.4f}")
+            else:
+                print(f"Trial {trial.number:>4d} | score={mean_score:.6f} | {params}")
         return mean_score
- 
-    study = optuna.create_study(direction="minimize")
-    study.optimize(objective, n_trials=eval_num)
+    
+    # Optuna internal logging control
+    old_verbosity = optuna.logging.get_verbosity()
+    if not verbose:
+        optuna.logging.set_verbosity(optuna.logging.WARNING)  # or ERROR / CRITICAL
+
+    try:
+        study = optuna.create_study(direction="minimize")
+        study.optimize(objective, n_trials=eval_num, show_progress_bar=False)
+    finally:
+        optuna.logging.set_verbosity(old_verbosity)
  
     best = study.best_params
- 
+    
     if "lags" in param_space:
         best_lags = best.pop("lags")
         if not isinstance(best_lags, list):
             best_lags = list(best_lags)
         model_parameters = best
+
     else:
         best_lags = None
         model_parameters = best
+
+    other_ags = {}
+    if "box_cox" in param_space:
+        best_box_cox = best.pop("box_cox")
+        model_parameters = best
+        other_ags["box_cox"] = best_box_cox
+    if "box_cox_biasadj" in param_space:
+        best_box_cox_biasadj = best.pop("box_cox_biasadj")
+        model_parameters = best
+        other_ags["box_cox_biasadj"] = best_box_cox_biasadj
+
+
  
-    return model_parameters, best_lags
+    return model_parameters, best_lags, other_ags
 
 # %% ../nbs/modules/03_model_selection.ipynb #d2e7cb3d
 def mv_hyperopt_tune(
@@ -370,7 +401,8 @@ def mv_hyperopt_tune(
             model.model.set_params(**params)
             model.fit(train)
             
-            y_pred = model.forecast(len(y_test), x_test)[target_col]
+            exog_test = x_test if x_test.shape[1] > 0 else None
+            y_pred = model.forecast(len(y_test), exog_test)[target_col]
 
             #Evaluate using the specified metric
             if eval_metric.__name__ in ["MASE", "SMAE", "SRMSE", "RMSSE"]:
@@ -455,7 +487,9 @@ def mv_optuna_tune(
  
             model.model.set_params(**params)
             model.fit(train)
-            y_pred = model.forecast(len(y_test), x_test)[target_col]
+
+            exog_test = x_test if x_test.shape[1] > 0 else None
+            y_pred = model.forecast(len(y_test), exog_test)[target_col]
  
             if eval_metric.__name__ in ("MASE", "SMAE", "SRMSE", "RMSSE"):
                 score = eval_metric(y_test, y_pred, train[target_col])
@@ -465,11 +499,22 @@ def mv_optuna_tune(
  
         mean_score = float(np.mean(scores))
         if verbose:
-            print(f"Trial {trial.number:>4d} | score={mean_score:.6f} | {params} ")
+            if trial.number > 0:
+                print(f"Trial {trial.number:>4d} | score={mean_score:.6f} | {params} | best trial={trial.study.best_trial.number} | best_score={trial.study.best_value:.4f}")
+            else:
+                print(f"Trial {trial.number:>4d} | score={mean_score:.6f} | {params}")
         return mean_score
- 
-    study = optuna.create_study(direction="minimize")
-    study.optimize(objective, n_trials=eval_num)
+    
+    # Optuna internal logging control
+    old_verbosity = optuna.logging.get_verbosity()
+    if not verbose:
+        optuna.logging.set_verbosity(optuna.logging.WARNING)  # or ERROR / CRITICAL
+
+    try:
+        study = optuna.create_study(direction="minimize")
+        study.optimize(objective, n_trials=eval_num, show_progress_bar=False)
+    finally:
+        optuna.logging.set_verbosity(old_verbosity)
  
     return study.best_params
 
