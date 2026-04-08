@@ -46,6 +46,8 @@
                   file: modules/02_models/01_ml_forecast.ipynb
                 - text: "MsHmmRegression"
                   file: modules/02_models/02_ms_arr.ipynb
+                - text: "glm"
+                  file: modules/02_models/09_glm.ipynb
                 - text: "ml_bidirect_forecaster"
                   file: modules/02_models/03_ml_mv_forecast.ipynb
                 - text: "VARModel"
