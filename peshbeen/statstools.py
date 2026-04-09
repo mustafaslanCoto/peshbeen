@@ -33,13 +33,19 @@ from statsmodels.tsa.stattools import ccf
 #------------------------------------------------------------------------------
 
 def unit_root_test(series, method = "ADF", n_lag = None):
+
     """
     Performs a unit root test on the given time series data to check for stationarity.
-    Args:
+
+
+    Parameters
+    ----------
         series (pd.Series): The time series data to be tested.
         method (str): The method for the unit root test, either "ADF" for Augmented Dickey-Fuller or "KPSS" for Kwiatkowski-Phillips-Schmidt-Shin.
         n_lag (int, optional): The number of lags to include in the test. If None, the default lag will be used.
-    Returns:
+    
+    Returns
+    -------
         float: The p-value from the unit root test.
     """
     if method == "ADF":
@@ -137,14 +143,21 @@ def pacf_strength(series, alpha=0.05, n_lags=5, adjusted=True):
     Calculate the pacf scores for the partial autocorrelation function (PACF) of a time series to identify powerful significant lags.
     It is calculated as (PACF value - bound) / bound for positive exceedances and (PACF value + bound) / bound for negative exceedances.
 
-    Parameters:
-    - series: The input time series data.
-    - alpha: Significance level for the confidence intervals.
-    - n_lags: Number of lags to consider for the PACF.
-    - adjusted: Whether to use an adjusted bound for the PACF.
+    Parameters
+    ----------
+    series : array_like
+        The input time series data.
+    alpha : float, optional
+        Significance level for the confidence intervals (default is 0.05).
+    n_lags : int, optional
+        Number of lags to consider for the PACF (default is 5).
+    adjusted : bool, optional
+        Whether to use an adjusted bound for the PACF (default is True).
 
-    Returns:
-    - A DataFrame containing the exceedance scores for each lag. Also includes the absolute scores
+    Returns
+    -------
+    DataFrame
+        A DataFrame containing the exceedance scores for each lag. Also includes the absolute scores.
     """
     
     pacf_vals = pacf(series, nlags=n_lags)
@@ -222,15 +235,24 @@ def ccf_strength(x, y, alpha=0.05, n_lags=5, adjusted=True):
     return exceed_score
 
 def lr_trend_model(series, breakpoints=None, type='linear', degree=1):
+
     """
     Compute the piecewise trend of a time series using linear regression.
-    Args:
-        series (pd.Series): The input time series.
-        breakpoints (list): A list of breakpoints for the piecewise segments when type is "piecewise". It could be a list of indices.
-        type (str): The type of model ("linear" or "piecewise")
-        degree (int): The degree of the polynomial trend when type is "linear". Default is 1 (linear trend).
 
-    Returns:
+    Parameters
+    ----------
+
+        series: pd.Series
+            The input time series.
+        breakpoints: list
+            A list of breakpoints for the piecewise segments when type is "piecewise". It could be a list of indices.
+        type: str
+            The type of model ("linear" or "piecewise")
+        degree: int
+            The degree of the polynomial trend when type is "linear". Default is 1 (linear trend).
+
+    Returns
+    -------
         pd.Series: Fitted trend values, LinearRegression model, and design time index matrix.
     """ 
 
@@ -264,14 +286,23 @@ def lr_trend_model(series, breakpoints=None, type='linear', degree=1):
 def forecast_trend(model, H, start, degree = 1, breakpoints=None):
     """
     Forecast future trend values using the fitted model.
-    Args:
-        model (LinearRegression): The fitted linear regression model.
-        breakpoints (list): A list of breakpoints for the piecewise segments.
-        H (int): The forecast horizon.
-        start (int): The starting point for the forecast.
-        degree (int): The degree of the polynomial trend when type is "linear". Default is 1 (linear trend).
 
-    Returns:
+    Parameters
+    ----------
+
+        model: LinearRegression
+            The fitted linear regression model.
+        breakpoints: list
+            A list of breakpoints for the piecewise segments.
+        H: int
+            The forecast horizon.
+        start: int
+            The starting point for the forecast.
+        degree: int
+            The degree of the polynomial trend when type is "linear". Default is 1 (linear trend).
+
+    Returns
+    -------
         np.ndarray: The forecasted trend values.
     """
     TH = np.arange(start, start + H, dtype=int)
@@ -297,20 +328,37 @@ def forecast_trend(model, H, start, degree = 1, breakpoints=None):
 def trend_strength(series, **kwargs):
     """
     Compute the strength of the trend component in a time series using Hyndman formula.
-    Args:
-        series (pd.Series): The time series data.
-        **kwargs: Additional arguments passed to the STL decomposition. For example, you can specify the period, seasonal and/or trend components.
+    1 means strong trend, 0 means no trend.
 
+    Parameters
+    ----------
+        series: pd.Series
+            The time series data.
+        **kwargs:
+            Additional arguments passed to the STL decomposition. For example, you can specify the period, seasonal and/or trend components.
+
+    Returns
+    -------
+        float: The strength of the trend component, calculated as 1 - (variance of residuals / variance of residuals + trend).
     """
     res = STL(series, **kwargs).fit()
     return np.max(1-np.var(res.resid)/(np.var(res.resid+res.trend)), 0)
 
 def seasonality_strength(series, **kwargs):
     """
+
     Compute the strength of the seasonal component in a time series using Hyndman formula.
-    Args:
-        series (pd.Series): The time series data.
-        **kwargs: Additional arguments passed to the STL decomposition. For example, you can specify the period, seasonal and/or trend components.
+    1 means strong seasonality, 0 means no seasonality.
+
+    Parameters
+    ----------
+        series: pd.Series
+            The time series data.
+        **kwargs:
+            Additional arguments passed to the STL decomposition. For example, you can specify the period, seasonal and/or trend components.
+    Returns
+    -------
+        float: The strength of the seasonal component, calculated as 1 - (variance of residuals / variance of residuals + seasonal).
     """
     res = STL(series, **kwargs).fit()
     return np.max(1-np.var(res.resid)/(np.var(res.resid+res.seasonal)), 0)

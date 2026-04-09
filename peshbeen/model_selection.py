@@ -63,12 +63,12 @@ from pyexpat import model
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
-from numba import jit
-from hyperopt import fmin, tpe, hp, Trials, STATUS_OK, space_eval
+# from numba import jit
+from hyperopt import fmin, tpe, Trials, STATUS_OK, space_eval
 import warnings
 warnings.filterwarnings("ignore")
-from tqdm import tqdm_notebook
-from itertools import product
+# from tqdm import tqdm_notebook
+# from itertools import product
 from typing import List, Dict, Optional, Callable, Tuple, Any, Union
 
 def hyperopt_tune(
@@ -95,7 +95,7 @@ def hyperopt_tune(
     cv_split : int
         Number of cross-validation splits.
     test_size : int
-        Number of samples in each test set.
+        Number of samples in each test set. For ml_direct_forecaster, this will be overridden to be the maximum horizon in model.H.
     eval_metric : Callable
         Evaluation metric function.
     step_size : int, optional
@@ -112,8 +112,20 @@ def hyperopt_tune(
     Tuple[Dict[str, Any], List[int], List[str]]
         A tuple containing the best hyperparameters, selected lags, and selected transforms.
     """
-    tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
+    if model.get_name() == "ml_direct_forecaster":
+        test_size = max(model.H)
+        eval_indices = [h - 1 for h in model.H]
+    else:
+        test_size = test_size
 
+    # Function to index the target array for ml_direct_forecaster based on the specified horizons
+    def index_target(target_array):
+        if model.get_name() == "ml_direct_forecaster":
+            return target_array[eval_indices]
+        else:
+            return target_array
+
+    tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
     def _set_model_params(params):
         # Handle special model parameters that are not passed to model constructor
         # and must be set directly on the forecasting model object
@@ -149,6 +161,7 @@ def hyperopt_tune(
             train, test = df.iloc[train_index], df.iloc[test_index]
             x_test = test.drop(columns=[model.target_col])
             y_test = np.array(test[model.target_col])
+            y_test = index_target(y_test)
 
             if model_params is not None:
                 
@@ -231,7 +244,7 @@ def optuna_tune(
     cv_split : int
         Number of cross-validation splits.
     test_size : int
-        Number of samples in each test fold.
+        Number of samples in each test fold. For ml_direct_forecaster, this will be overridden to be the maximum horizon in model.H.
     eval_metric : Callable
         Metric function to minimise.
     param_space : dict
@@ -249,6 +262,21 @@ def optuna_tune(
         Best hyperparameters and best lags (if 'lags' is in param_space).
 
     """
+
+    if model.get_name() == "ml_direct_forecaster":
+        test_size = max(model.H)
+        eval_indices = [h - 1 for h in model.H]
+    else:
+        test_size = test_size
+
+    # Function to index the target array for ml_direct_forecaster based on the specified horizons
+    def index_target(target_array):
+        if model.get_name() == "ml_direct_forecaster":
+            return target_array[eval_indices]
+        else:
+            return target_array
+
+
     tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
  
     _skip = {"box_cox", "lags", "box_cox_lmda", "box_cox_biasadj"}
@@ -285,6 +313,7 @@ def optuna_tune(
             train, test = df.iloc[train_idx], df.iloc[test_idx]
             x_test = test.drop(columns=[model.target_col])
             y_test = np.array(test[model.target_col])
+            y_test = index_target(y_test)
                     
             model.fit(train)
             exog_test = x_test if x_test.shape[1] > 0 else None

@@ -4,6 +4,10 @@
 __all__ = []
 
 # %% ../../nbs/modules/02_models/00_index.ipynb #313a58b5
+# do not show warnings for now
+
+import warnings
+warnings.filterwarnings("ignore")
 from .ml_forecaster import ml_forecaster
 from .var import var
 from .ms_arr import ms_arr
@@ -12,3 +16,4 @@ from .ms_var import ms_var
 from .arima import arima
 from .naive import naive
 from .ets import ets
+from .glm import glm

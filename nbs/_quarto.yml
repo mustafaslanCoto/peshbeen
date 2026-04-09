@@ -54,6 +54,8 @@
                   file: modules/02_models/04_var.ipynb
                 - text: "MsHmmVar"
                   file: modules/02_models/05_ms_var.ipynb
+                - text: "ml_direct_forecaster"
+                  file: modules/02_models/10_direct_ml.ipynb
                 - text: "ensemble"
                   file: modules/02_models/90_herne_pesh.ipynb
             # - section: "model_selection"
