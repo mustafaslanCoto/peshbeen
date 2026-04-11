@@ -4,6 +4,13 @@ website:
       - index.ipynb
       - 99_examp_core.ipynb
       - user_guide.ipynb
+      - section: guide
+        contents:
+          - guide/01_model_zoo.ipynb
+          - guide/02_stationarity_detrending.ipynb
+          - guide/03_auto_transformation.ipynb
+          - guide/04_prob_forecasting.ipynb
+          - guide/05_hyperparameter_tuning.ipynb
       - section: modules
         contents:
           - modules/01_metrics.ipynb

@@ -32,6 +32,16 @@
           file: index.ipynb
         - text: "User Guide"
           file: user_guide.ipynb
+        - text: "Model Zoo"
+          file: guide/01_model_zoo.ipynb
+        - text: "Stationarity & Detrending Strategies"
+          file: guide/02_stationarity_detrending.ipynb
+        - text: "Automatic Transformations"
+          file: guide/03_auto_transformation.ipynb
+        - text: "Probabilistic Forecasting"
+          file: guide/04_prob_forecasting.ipynb
+        - text: "Hyperparameter Tuning"
+          file: guide/05_hyperparameter_tuning.ipynb
         - section: "API Reference"
           contents:
             - section: "models"
