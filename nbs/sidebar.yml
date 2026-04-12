@@ -18,8 +18,7 @@ website:
           - modules/05_transformations.ipynb
           - modules/06_stattools.ipynb
           - modules/07_statplots.ipynb
-          - modules/08_formatting.ipynb
-          - modules/09_helpers.ipynb
+          - modules/08_helpers.ipynb
           - modules/99_datasets.ipynb
           - section: models
             contents:

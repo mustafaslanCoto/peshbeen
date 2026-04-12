@@ -283,39 +283,39 @@ class arima:
     # INFORMATION CRITERIA
     # ─────────────────────────────────────────────────────────────────────────
 
-    def _k(self) -> int:
-        """Number of model parameters (approximate)."""
-        base = self.X.shape[1]
-        if isinstance(self.model, (LinearRegression, Ridge, Lasso, ElasticNet)):
-            return base + 2   # coefficients + intercept + variance
-        return base + 1       # coefficients + variance
+    # def _k(self) -> int:
+    #     """Number of model parameters (approximate)."""
+    #     base = self.X.shape[1]
+    #     if isinstance(self.model, (LinearRegression, Ridge, Lasso, ElasticNet)):
+    #         return base + 2   # coefficients + intercept + variance
+    #     return base + 1       # coefficients + variance
 
-    def _ic_base(self):
-        k = self._k()
-        n = len(self.y)
-        rss = np.sum((self.y.to_numpy() - self.model_fit.predict(self.X)) ** 2)
-        return k, n, rss
+    # def _ic_base(self):
+    #     k = self._k()
+    #     n = len(self.y)
+    #     rss = np.sum((self.y.to_numpy() - self.model_fit.predict(self.X)) ** 2)
+    #     return k, n, rss
 
-    @property
-    def aic(self) -> float:
-        k, n, rss = self._ic_base()
-        return n * np.log(rss / n) + 2 * k
+    # @property
+    # def aic(self) -> float:
+    #     k, n, rss = self._ic_base()
+    #     return n * np.log(rss / n) + 2 * k
 
-    @property
-    def aicc(self) -> float:
-        k, n, rss = self._ic_base()
-        aic = n * np.log(rss / n) + 2 * k
-        return aic + (2 * k * (k + 1)) / (n - k - 1)
+    # @property
+    # def aicc(self) -> float:
+    #     k, n, rss = self._ic_base()
+    #     aic = n * np.log(rss / n) + 2 * k
+    #     return aic + (2 * k * (k + 1)) / (n - k - 1)
 
-    @property
-    def bic(self) -> float:
-        k, n, rss = self._ic_base()
-        return n * np.log(rss / n) + k * np.log(n)
+    # @property
+    # def bic(self) -> float:
+    #     k, n, rss = self._ic_base()
+    #     return n * np.log(rss / n) + k * np.log(n)
 
-    @property
-    def hqc(self) -> float:
-        k, n, rss = self._ic_base()
-        return n * np.log(rss / n) + 2 * k * np.log(np.log(n))
+    # @property
+    # def hqc(self) -> float:
+    #     k, n, rss = self._ic_base()
+    #     return n * np.log(rss / n) + 2 * k * np.log(np.log(n))
 
     def copy(self):
         return copy.deepcopy(self)

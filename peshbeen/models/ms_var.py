@@ -14,7 +14,6 @@ from ..transformations import (box_cox_transform, back_box_cox_transform,
 from ..helpers import seasonal_diff, undiff_ts, invert_seasonal_diff
 from ..model_selection import SplitTimeSeries
 from ..statstools import lr_trend_model, forecast_trend
-from ..formatting import inject_header_table_groups, cov_table, make_var_gt_regimes
 # dot not show warnings
 import warnings
 warnings.filterwarnings("ignore")
@@ -25,9 +24,6 @@ from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from scipy.special import logsumexp
 from scipy.stats import t
 import re
-
-import warnings
-warnings.filterwarnings("ignore")
 
 
 class ms_var:
@@ -917,53 +913,7 @@ class ms_var:
             (f"Covariance matrix for regime {i}", _cov_df(i))
             for i in range(self.N)
         ]
-
-    def summary(self, font_size: int = 10, row_padding: int = 4,
-                col_labels_padding: int = 4, cov_font_size: int = 350):
-        """
-        Generate a formatted summary table of the model results.
-
-        Parameters
-        ----------
-        font_size : int
-            Font size for the main table (default: 10).
-        row_padding : int
-            Row padding in the main table (default: 4).
-        col_labels_padding : int
-            Column label padding in the main table (default: 4).
-        cov_font_size : int
-            Font size for covariance tables (default: 350).
-        """
-        self.get_param_spec()
-        gt_main = make_var_gt_regimes(self.param_spec_df, n_regimes=self.N)
-        gt_final = inject_header_table_groups(
-            gt_main,
-            columns=[
-                [("Regime probabilities", self.regime_probs, True),
-                 ("Transition probabilities", self.tm_df, True)],
-                [("Data", self.data_inf, False),
-                 ("Diagnostics", self.data_fit, False)],
-            ],
-            subtitle_text="Regime-switching hidden markov VAR model results"
-        ).tab_options(
-            table_font_size=f"{font_size}px",
-            data_row_padding=f"{row_padding}px",
-            column_labels_padding=f"{col_labels_padding}px",
-        )
-        return gt_final
-
-    def cov_results(self, cov_font_size: int = 350):
-        """
-        Generate covariance matrix tables for each regime.
-
-        Parameters
-        ----------
-        cov_font_size : int
-            Font size for the covariance tables (default: 350).
-        """
-        return cov_table(self.cov_matrixes, font_size_px=cov_font_size)
     
-
     def cross_validate(self,
                        df: pd.DataFrame,
                        target_col: str,

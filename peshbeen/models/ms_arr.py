@@ -14,7 +14,6 @@ from ..transformations import (box_cox_transform, back_box_cox_transform,
 from ..helpers import seasonal_diff, undiff_ts, invert_seasonal_diff
 from ..model_selection import SplitTimeSeries
 from ..statstools import lr_trend_model, forecast_trend
-from ..formatting import make_main_gt, inject_header_table_groups
 # dot not show warnings
 import warnings
 warnings.filterwarnings("ignore")
@@ -839,92 +838,6 @@ class ms_arr:
             .reset_index()
             .rename(columns={"index": "variable"})
         )
-
-    def summary(
-        self,
-        font_size: int = 12,
-        row_padding: int = 4,
-        col_labels_padding: int = 4
-    ):
-        """
-        Generate a formatted summary table of the model results.
-
-        Parameters
-        ----------
-        font_size : int
-            Font size for the summary table (default: 12).
-        row_padding : int
-            Row padding in the summary table (default: 4).
-        col_labels_padding : int
-            Column label padding in the summary table (default: 4).
-        """
-        self.get_param_spec()
-
-        # Regime probabilities
-        state_probs = pd.DataFrame(
-            pd.Series(self.predict_states()).value_counts(normalize=True).sort_index()
-        )
-        state_probs.index = [f"regime_{i+1}" for i in state_probs.index]
-        state_probs[state_probs.select_dtypes(include='number').columns] = (
-            state_probs.select_dtypes(include='number').applymap(lambda x: f"{x:.3f}")
-        )
-        state_probs = state_probs.T
-
-        # Regime variances
-        reg_vars = pd.DataFrame([{
-            f"regime_{i+1}": f"{v:.3f}"
-            for i, v in enumerate(np.round(self.stds ** 2, 3))
-        }])
-
-        # Transition matrix
-        tm = pd.DataFrame(
-            self.A,
-            columns=[f"regime_{i+1}" for i in range(self.A.shape[1])],
-            index=[f"regime_{i+1}" for i in range(self.A.shape[0])]
-        )
-        tm_df = tm.reset_index().rename(columns={"index": ""})
-        tm_df[tm_df.select_dtypes(include='number').columns] = (
-            tm_df.select_dtypes(include='number').applymap(lambda x: f"{x:.3f}")
-        )
-
-        # Data info
-        data = {
-            "dep. Variable": self.target_col,
-            "n_obs": len(self.y),
-            "df_model": self.coeffs.shape[1],
-        }
-        data_df = pd.DataFrame([data]).T.rename(columns={0: " "})
-        data_df = data_df.reset_index().rename(columns={"index": ""})
-
-        # Diagnostics
-        diagn = {"overall_R-squared": round(self.r2, 3)}
-        diagn.update({f"regime_{i+1}_R-squared": round(j, 3) for i, j in enumerate(self.regime_r2)})
-        diagn.update({
-            "log-likelihood": round(self.loglik, 1),
-            "AIC": round(self.aic, 1),
-            "BIC": round(self.bic, 1),
-        })
-        diagnosis_df = pd.DataFrame([diagn]).T.rename(columns={0: "diagnostics"})
-        diagnosis_df = diagnosis_df.reset_index().rename(columns={"index": ""})
-
-        gt_main = make_main_gt(self.param_spec_df, n_regimes=self.N)
-        gt_final = inject_header_table_groups(
-            gt_main,
-            columns=[
-                [("Regime probabilities", state_probs, True),
-                 ("Regime variances", reg_vars, True)],
-                [("Transition probabilities", tm_df, True)],
-                [("Data", data_df, False)],
-                [("Diagnostics", diagnosis_df, False)],
-            ],
-            subtitle_text="Regime-switching hidden markov regression model results"
-        ).tab_options(
-            table_font_size=f"{font_size}px",
-            data_row_padding=f"{row_padding}px",
-            column_labels_padding=f"{col_labels_padding}px",
-        )
-        return gt_final
-
 
 # %% auto #0
 __all__ = ['ms_arr']
