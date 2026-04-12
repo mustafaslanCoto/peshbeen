@@ -1,0 +1,28 @@
+<svg width="100%" viewBox="0 0 355 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="inside-iris">
+      <circle cx="50" cy="50" r="26"/>
+    </clipPath>
+  </defs>
+
+  <path d="M 8,50 C 22,12 78,12 92,50 C 78,88 22,88 8,50 Z" fill="none" stroke="#20808D" stroke-width="2.4"/>
+  <circle cx="8"  cy="50" r="3.2" fill="#20808D"/>
+  <circle cx="92" cy="50" r="3.2" fill="#20808D"/>
+  <circle cx="50" cy="50" r="26" fill="none" stroke="#20808D" stroke-width="1.6"/>
+
+  <g clip-path="url(#inside-iris)">
+    <path d="M 38,76 C 38,67 72,61 72,50 C 72,39 38,33 38,24"
+          fill="none" stroke="#20808D" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M 38,76 C 38,67 72,61 72,50 C 72,39 38,33 38,24 Z"
+          fill="#20808D" fill-opacity="0.1"/>
+    <line x1="38" y1="50" x2="70" y2="50"
+          stroke="#20808D" stroke-width="1" opacity="0.5" stroke-dasharray="2 3"/>
+  </g>
+
+  <circle cx="50" cy="50" r="4" fill="#20808D"/>
+
+  <text y="46" x="104" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="700" letter-spacing="1" dominant-baseline="central">
+    <tspan fill="#0A0A0A">pesh</tspan><tspan fill="#20808D">been</tspan>
+  </text>
+
+</svg>
