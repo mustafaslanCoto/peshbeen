@@ -20,7 +20,7 @@ jobs:
       - name: Install nbdev cleanly
         run: |
           python -m pip uninstall -y execnb nbdev || true
-          python -m pip install --no-cache-dir 'nbdev<3' execnb
+          python -m pip install --no-cache-dir 'nbdev<3' 'execnb>=0.1.7,<0.2.0'
           python -c "from execnb.nbio import read_nb; print('execnb OK')"
       - name: Build and deploy docs
         run: |
