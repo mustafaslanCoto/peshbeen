@@ -13,19 +13,28 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-      - name: Install nbdev cleanly
+      - name: Fix execnb
         run: |
-          python -m pip uninstall -y execnb nbdev || true
-          python -m pip install --no-cache-dir 'nbdev<3' 'execnb>=0.1.7,<0.2.0'
-          python -c "from execnb.nbio import read_nb; print('execnb OK')"
+          python -m pip install --no-cache-dir 'execnb>=0.1.7,<0.2.0'
+      - uses: answerdotai/workflows/quarto-ghp@master
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v3
+#       - uses: actions/setup-python@v4
+#         with:
+#           python-version: '3.12'
+#       - name: Install nbdev cleanly
+#         run: |
+#           python -m pip uninstall -y execnb nbdev || true
+#           python -m pip install --no-cache-dir 'nbdev<3' 'execnb>=0.1.7,<0.2.0'
+#           python -c "from execnb.nbio import read_nb; print('execnb OK')"
       
-      - name: Build and deploy docs
-        run: |
-          nbdev_docs
+#       - name: Build and deploy docs
+#         run: |
+#           nbdev_docs
 
 # jobs:
 #   deploy:
