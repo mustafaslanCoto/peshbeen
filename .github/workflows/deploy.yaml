@@ -11,4 +11,12 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    steps: [uses: answerdotai/workflows/quarto-ghp@master]
+    steps:
+      - name: Fix nbdev dependencies
+        run: pip install -Uq --force-reinstall 'nbdev<3' execnb
+      - uses: answerdotai/workflows/quarto-ghp@master
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     steps: [uses: answerdotai/workflows/quarto-ghp@master]
