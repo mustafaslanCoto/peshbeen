@@ -11,15 +11,15 @@ jobs:
           python-version: '3.12'
       - name: Install nbdev cleanly
         run: |
-          pip uninstall -y execnb nbdev || true
-          pip install --no-cache-dir 'nbdev<3' execnb
+          python -m pip uninstall -y execnb nbdev || true
+          python -m pip install --no-cache-dir 'nbdev<3' execnb
+          python -c "from execnb.nbio import read_nb; print('execnb OK')"
       - name: Run nbdev CI
         run: |
-          nbdev_clean
-          nbdev_export
-          pip install -e ".[dev]"
-          nbdev_test
-
+          python -m nbdev.clean
+          python -m nbdev.doclinks
+          python -m pip install -e ".[dev]"
+          python -m nbdev.test
 
 # jobs:
 #   test:
