@@ -2,18 +2,13 @@
 
 # %% ../../nbs/modules/02_models/08_naive.ipynb #3167faec
 from __future__ import annotations
-from typing import List, Dict, Optional, Callable, Tuple, Any, Union
+from typing import List, Optional, Callable, Tuple, Union
 import numpy as np
 import pandas as pd
 import copy
 from ..transformations import (box_cox_transform, back_box_cox_transform)
 from ..model_selection import SplitTimeSeries
 # dot not show warnings
-import warnings
-warnings.filterwarnings("ignore")
-import copy
-from scipy.stats import t
-import re # for regex escaping to build drop patterns
 import warnings
 warnings.filterwarnings("ignore")
 

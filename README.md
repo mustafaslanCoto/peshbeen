@@ -83,21 +83,29 @@ can focus on forecasting.
 
 ## Installation
 
-Installation requires Python 3.8 or higher.
+Installation requires Python 3.10 or higher.
 
-Run the following command in your terminal to install the latest version
-from PyPI:
+### Core install
+
+Installs only the essential dependencies (numpy, pandas, scipy,
+scikit-learn, statsmodels):
 
 ``` bash
 pip install peshbeen
 ```
 
-If you are using a Conda environment, you can still install peshbeen via
-pip once your environment is active:
+### Optional dependencies
+
+Install only what you need:
 
 ``` bash
-conda activate your_env_name
-pip install peshbeen
+pip install peshbeen[ml]        # XGBoost, LightGBM, CatBoost, Cubist
+pip install peshbeen[tuning]    # Hyperopt, Optuna
+pip install peshbeen[forecast]  # StatsForecast, Numba
+pip install peshbeen[plotting]  # Matplotlib, Seaborn
+pip install peshbeen[tables]    # Great Tables
+pip install peshbeen[io]        # OpenPyXL (Excel support)
+pip install peshbeen[all]       # Everything above
 ```
 
 ## Quick Start Example
@@ -124,9 +132,6 @@ ml_linear = ml_forecaster(model=XGBRegressor(),
 ml_linear.fit(train)
 forecasts = ml_linear.forecast(H=30, exog=test[cat_variables])
 ```
-
-    /Users/aslanm/Desktop/my_desk/peshbeen/.venv/lib/python3.14/site-packages/hyperopt/atpe.py:19: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
-      import pkg_resources
 
 ``` python
 ## Plot the historical data

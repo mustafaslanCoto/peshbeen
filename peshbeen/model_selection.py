@@ -7,7 +7,7 @@ __all__ = ['SplitTimeSeries', 'hyperopt_tune', 'optuna_tune', 'mv_hyperopt_tune'
 
 # %% ../nbs/modules/03_model_selection.ipynb #623ad0b6
 import numpy as np
-from typing import List, Dict, Optional, Callable, Tuple, Any, Union
+from typing import Optional
 
 #------------------------------------------------------------------------------
 # Parametric Time Series Split
@@ -59,12 +59,10 @@ class SplitTimeSeries:
 
 
 # %% ../nbs/modules/03_model_selection.ipynb #da8122f3
-from pyexpat import model
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
 # from numba import jit
-from hyperopt import fmin, tpe, Trials, STATUS_OK, space_eval
 import warnings
 warnings.filterwarnings("ignore")
 # from tqdm import tqdm_notebook
@@ -112,6 +110,13 @@ def hyperopt_tune(
     Tuple[Dict[str, Any], List[int], List[str]]
         A tuple containing the best hyperparameters, selected lags, and selected transforms.
     """
+
+    try:
+        from hyperopt import fmin, tpe, Trials, STATUS_OK, space_eval
+    except ImportError:
+        raise ImportError("hyperopt is required. Install with: pip install peshbeen[tuning]")
+    
+    
     if model.get_name() == "ml_direct_forecaster":
         test_size = max(model.H)
         eval_indices = [h - 1 for h in model.H]
@@ -220,7 +225,6 @@ def hyperopt_tune(
     return model_parameters, best_lags, other_ags
 
 # %% ../nbs/modules/03_model_selection.ipynb #42ad67aa
-import optuna
 def optuna_tune(
     model: object,
     df: pd.DataFrame,
@@ -262,6 +266,11 @@ def optuna_tune(
         Best hyperparameters and best lags (if 'lags' is in param_space).
 
     """
+
+    try:
+        import optuna
+    except ImportError:
+        raise ImportError("optuna is required. Install with: pip install peshbeen[tuning]")
 
     if model.get_name() == "ml_direct_forecaster":
         test_size = max(model.H)
@@ -415,6 +424,12 @@ def mv_hyperopt_tune(
     Tuple[Dict[str, Any], List[int], List[str]]
         A tuple containing the best hyperparameters, selected lags, and selected transforms.
     """
+
+    try:
+        from hyperopt import fmin, tpe, Trials, STATUS_OK, space_eval
+    except ImportError:
+        raise ImportError("hyperopt is required. Install with: pip install peshbeen[tuning]")
+    
     tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
 
     
@@ -503,6 +518,12 @@ def mv_optuna_tune(
         Best hyperparameters and best lags (if 'lags' is in param_space).
 
     """
+
+    try:
+        import optuna
+    except ImportError:
+        raise ImportError("optuna is required. Install with: pip install peshbeen[tuning]")
+    
     tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
  
     def objective(trial: optuna.Trial) -> float:

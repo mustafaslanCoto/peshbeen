@@ -19,54 +19,31 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
+
 dependencies = [
     "numpy",
     "pandas",
     "scipy",
     "scikit-learn",
     "statsmodels",
-    "nbdev",
-    "fastcore",
-    "setuptools>=68,<82",
-    "importlib-metadata",
-    "openpyxl",
-    "xgboost",
-    "lightgbm",
-    "catboost",
-    "cubist",
-    "statsforecast",
-    "numba",
-    "hyperopt",
-    "optuna",
-    "matplotlib",
-    "great_tables",
 ]
 
 [project.optional-dependencies]
 dev = [
-"setuptools>=68,<82",
-"xgboost",
-"lightgbm",
-"catboost",
-"cubist",
-"statsforecast",
-"numba",
-"hyperopt",
-"optuna",
-"matplotlib",
-"great_tables",
+    "nbdev<3",
+    "execnb>=0.1.7,<0.2.0",
+    "fastcore",
+    "setuptools>=68,<82",
+    "importlib-metadata",
 ]
 
 tuning = [
-"setuptools>=68,<82",
-"importlib-metadata",
-"hyperopt",
-"optuna",
+    "hyperopt",
+    "optuna",
 ]
 
 forecast = [
     "statsforecast",
-    "window_ops",
     "numba",
 ]
 
@@ -92,8 +69,8 @@ io = [
 
 all = [
     "hyperopt",
+    "optuna",
     "statsforecast",
-    "window_ops",
     "numba",
     "matplotlib",
     "seaborn",

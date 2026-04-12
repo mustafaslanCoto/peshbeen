@@ -3,25 +3,13 @@
 # %% ../../nbs/modules/02_models/07_ets.ipynb #928028da
 from __future__ import annotations
 from typing import List, Dict, Optional, Callable, Tuple, Any, Union
-from xml.parsers.expat import model
-from sklearn.base import clone
-from tabnanny import verbose
 import numpy as np
 import pandas as pd
 import copy
-import statsmodels.api as sm
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from ..transformations import (box_cox_transform, back_box_cox_transform)
 from ..model_selection import SplitTimeSeries
 # dot not show warnings
-import warnings
-warnings.filterwarnings("ignore")
-import copy
-import statsmodels.api as sm
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
-from scipy.special import logsumexp
-from scipy.stats import t
-import re # for regex escaping to build drop patterns
 import warnings
 warnings.filterwarnings("ignore")
 

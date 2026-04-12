@@ -4,7 +4,6 @@
 from __future__ import annotations
 import numpy as np
 import pandas as pd
-from typing import Union
 ArrayLike = np.ndarray|list|pd.Series
 
 def MAPE(

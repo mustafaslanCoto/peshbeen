@@ -21,9 +21,6 @@ from ..helpers import seasonal_diff, undiff_ts, invert_seasonal_diff
 # dot not show warnings
 import warnings
 warnings.filterwarnings("ignore")
-import copy
-from sklearn.linear_model import LinearRegression
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
 import re # for regex escaping to build drop patterns
 
 class ml_direct_forecaster:

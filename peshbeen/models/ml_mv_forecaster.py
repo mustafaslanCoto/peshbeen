@@ -4,36 +4,23 @@
 # from nbdev.showdoc import *
 from __future__ import annotations
 from typing import List, Dict, Optional, Callable, Tuple, Any, Union
-from pyparsing import col
 from sklearn.base import clone
-from tabnanny import verbose
 import numpy as np
 import pandas as pd
 import copy
-import statsmodels.api as sm
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
-from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
-from sklearn.ensemble import RandomForestRegressor, AdaBoostRegressor, HistGradientBoostingRegressor
 from ..transformations import (box_cox_transform, back_box_cox_transform,
-                                      rolling_quantile, rolling_mean, rolling_std,
+                                      rolling_quantile,
                         expanding_mean, expanding_std, expanding_quantile)
 from ..helpers import seasonal_diff, undiff_ts, invert_seasonal_diff
 from ..model_selection import SplitTimeSeries
 from ..statstools import lr_trend_model, forecast_trend
-from ..formatting import make_main_gt, gt_mini, inject_header_table_groups, cov_table, make_var_gt_regimes
 from catboost import CatBoostRegressor
-from cubist import Cubist
 # dot not show warnings
 import warnings
 warnings.filterwarnings("ignore")
-import copy
-import statsmodels.api as sm
-from scipy.stats import norm, multivariate_normal
-from sklearn.linear_model import LinearRegression
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
-from scipy.special import logsumexp
-from scipy.stats import t
 import re # for regex escaping to build drop patterns
 
 class ml_mv_forecaster:
@@ -379,10 +366,7 @@ class ml_mv_forecaster:
         None
         """
         # Build categorical lookup for non-native-cat models
-        if isinstance(self.model, (
-            XGBRegressor, RandomForestRegressor, Cubist,
-            HistGradientBoostingRegressor, AdaBoostRegressor,
-            LinearRegression, Ridge, Lasso, ElasticNet)):
+        if not isinstance(self.model, (CatBoostRegressor, LGBMRegressor)):
             if self.cat_variables is not None and not self.target_encode:
                 self.cat_var = {
                     c: sorted(df[c].drop_duplicates().tolist())
@@ -468,11 +452,7 @@ class ml_mv_forecaster:
         # Prepare exog if provided
         if exog is not None:
             if self.cat_variables is not None and not self.target_encode:
-                if isinstance(self.model, (
-                    XGBRegressor, RandomForestRegressor, Cubist,
-                    HistGradientBoostingRegressor, AdaBoostRegressor,
-                    LinearRegression, Ridge, Lasso, ElasticNet
-                )):
+                if not isinstance(self.model, (CatBoostRegressor, LGBMRegressor)):
                     exog = self.data_prep(exog)
             elif self.cat_variables is not None and self.target_encode:
                 for col in self.cat_variables:

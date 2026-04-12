@@ -3,7 +3,7 @@
 # %% ../nbs/modules/04_prob_forecast.ipynb #8a50b621
 # Generate conformal quantiles for future time steps
 from __future__ import annotations
-from typing import List, Dict, Optional, Callable, Tuple, Any, Union
+from typing import List, Union
 import numpy as np
 import pandas as pd
 from .model_selection import SplitTimeSeries
@@ -14,9 +14,6 @@ from .helpers import get_conformal_quantiles, get_bootstrap_quantiles
 # Main class
 # ─────────────────────────────────────────────────────────────────────────────
  
-from pyexpat import model
-
-
 class prob_forecasts: 
     def __init__(
         self,

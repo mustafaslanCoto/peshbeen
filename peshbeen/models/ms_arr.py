@@ -18,7 +18,6 @@ from ..formatting import make_main_gt, gt_mini, inject_header_table_groups, cov_
 # dot not show warnings
 import warnings
 warnings.filterwarnings("ignore")
-import copy
 import statsmodels.api as sm
 from scipy.special import logsumexp
 from scipy.stats import t, norm

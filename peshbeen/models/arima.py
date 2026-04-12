@@ -3,36 +3,22 @@
 # %% ../../nbs/modules/02_models/06_arima.ipynb #4cd61f38
 from __future__ import annotations
 from typing import List, Dict, Optional, Callable, Tuple, Any, Union
-from xml.parsers.expat import model
-from sklearn.base import clone
-from tabnanny import verbose
 import numpy as np
 import pandas as pd
 import copy
-import statsmodels.api as sm
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from ..transformations import (box_cox_transform, back_box_cox_transform,
-                                      rolling_quantile, rolling_mean, rolling_std,
+                                      rolling_quantile,
                         expanding_mean, expanding_std, expanding_quantile)
-from ..helpers import seasonal_diff, undiff_ts, invert_seasonal_diff
 from ..model_selection import SplitTimeSeries
 from ..statstools import lr_trend_model, forecast_trend
-from ..formatting import make_main_gt, gt_mini, inject_header_table_groups, cov_table, make_var_gt_regimes
 # dot not show warnings
 import warnings
 warnings.filterwarnings("ignore")
-import copy
-import statsmodels.api as sm
-from scipy.stats import norm, multivariate_normal
 from sklearn.linear_model import LinearRegression
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
-from scipy.special import logsumexp
-from scipy.stats import t
 import re # for regex escaping to build drop patterns
-from statsforecast.models import AutoARIMA, ARIMA
-import warnings
-warnings.filterwarnings("ignore")
-
+from statsforecast.models import ARIMA
 
 class arima:
 

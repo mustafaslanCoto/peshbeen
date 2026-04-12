@@ -5,27 +5,18 @@ __all__ = ['unit_root_test', 'cross_autocorrelation', 'pacf_strength', 'ccf_stre
            'trend_strength', 'seasonality_strength']
 
 # %% ../nbs/modules/06_stattools.ipynb #d96f3ae7
-from pyexpat import model
 import pandas as pd
 import numpy as np
-from scipy import stats
-from numba import jit
-from scipy.stats import boxcox
-from scipy.special import inv_boxcox
 from sklearn.linear_model import LinearRegression
-from numba import jit
+# from numba import jit
 ##Stationarity Check
 from statsmodels.tsa.stattools import adfuller, kpss
-from hyperopt import fmin, tpe, hp, Trials, STATUS_OK, space_eval
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
-import matplotlib.pyplot as plt
-from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from statistics import NormalDist
 import warnings
 warnings.filterwarnings("ignore")
 from statsmodels.tsa.stattools import pacf
-from statsmodels.tsa.seasonal import STL, MSTL
-from statsmodels.nonparametric.smoothers_lowess import lowess
+from statsmodels.tsa.seasonal import STL
+# from statsmodels.nonparametric.smoothers_lowess import lowess
 from statsmodels.tsa.stattools import ccf
 
 #------------------------------------------------------------------------------
