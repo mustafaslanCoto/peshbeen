@@ -30,6 +30,7 @@ dependencies = [
     "lightgbm",
     "catboost",
     "numba",
+    "setuptools>=68,<82",
 ]
 
 [project.optional-dependencies]
@@ -37,7 +38,6 @@ dev = [
     "nbdev<3",
     "execnb>=0.1.7,<0.2.0",
     "fastcore",
-    "setuptools>=68,<82",
     "importlib-metadata",
 ]
 
