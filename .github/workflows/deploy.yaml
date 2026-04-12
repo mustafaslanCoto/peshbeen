@@ -22,9 +22,11 @@ jobs:
           python -m pip uninstall -y execnb nbdev || true
           python -m pip install --no-cache-dir 'nbdev<3' 'execnb>=0.1.7,<0.2.0'
           python -c "from execnb.nbio import read_nb; print('execnb OK')"
+      
       - name: Build and deploy docs
         run: |
-          python -m nbdev.quarto nbdev_docs
+          nbdev_docs
+          nbdev_ghp_push
 
 # jobs:
 #   deploy:
