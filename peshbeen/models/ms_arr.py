@@ -14,7 +14,7 @@ from ..transformations import (box_cox_transform, back_box_cox_transform,
 from ..helpers import seasonal_diff, undiff_ts, invert_seasonal_diff
 from ..model_selection import SplitTimeSeries
 from ..statstools import lr_trend_model, forecast_trend
-from ..formatting import make_main_gt, gt_mini, inject_header_table_groups, cov_table, make_var_gt_regimes
+from ..formatting import make_main_gt, inject_header_table_groups
 # dot not show warnings
 import warnings
 warnings.filterwarnings("ignore")

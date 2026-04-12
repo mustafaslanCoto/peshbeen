@@ -8,10 +8,8 @@ import pandas as pd
 import copy
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
-from lightgbm import LGBMRegressor
 from ..model_selection import SplitTimeSeries
 from ..statstools import lr_trend_model, forecast_trend
-from catboost import CatBoostRegressor
 from ..transformations import (box_cox_transform, back_box_cox_transform,
                                       rolling_quantile, expanding_mean, expanding_std, expanding_quantile)
 from ..helpers import seasonal_diff, undiff_ts, invert_seasonal_diff
@@ -19,6 +17,8 @@ from ..helpers import seasonal_diff, undiff_ts, invert_seasonal_diff
 import warnings
 warnings.filterwarnings("ignore")
 import re # for regex escaping to build drop patterns
+from lightgbm import LGBMRegressor
+from catboost import CatBoostRegressor
 
 class ml_forecaster:
 

@@ -114,7 +114,7 @@ def hyperopt_tune(
     try:
         from hyperopt import fmin, tpe, Trials, STATUS_OK, space_eval
     except ImportError:
-        raise ImportError("hyperopt is required. Install with: pip install peshbeen[tuning]")
+        raise ImportError("hyperopt is required. Install with: pip install hyperopt or pip install peshbeen[tuning]")
     
     
     if model.get_name() == "ml_direct_forecaster":
@@ -270,7 +270,7 @@ def optuna_tune(
     try:
         import optuna
     except ImportError:
-        raise ImportError("optuna is required. Install with: pip install peshbeen[tuning]")
+        raise ImportError("optuna is required. Install with: pip install optuna or pip install peshbeen[tuning]")
 
     if model.get_name() == "ml_direct_forecaster":
         test_size = max(model.H)
@@ -428,7 +428,7 @@ def mv_hyperopt_tune(
     try:
         from hyperopt import fmin, tpe, Trials, STATUS_OK, space_eval
     except ImportError:
-        raise ImportError("hyperopt is required. Install with: pip install peshbeen[tuning]")
+        raise ImportError("hyperopt is required. Install with: pip install hyperopt or pip install peshbeen[tuning]")
     
     tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
 
@@ -522,7 +522,7 @@ def mv_optuna_tune(
     try:
         import optuna
     except ImportError:
-        raise ImportError("optuna is required. Install with: pip install peshbeen[tuning]")
+        raise ImportError("optuna is required. Install with: pip install optuna or pip install peshbeen[tuning]")
     
     tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
  

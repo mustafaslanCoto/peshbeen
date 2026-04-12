@@ -26,6 +26,10 @@ dependencies = [
     "scipy",
     "scikit-learn",
     "statsmodels",
+    "statsforecast",
+    "lightgbm",
+    "catboost",
+    "numba",
 ]
 
 [project.optional-dependencies]
@@ -42,11 +46,6 @@ tuning = [
     "optuna",
 ]
 
-forecast = [
-    "statsforecast",
-    "numba",
-]
-
 plotting = [
     "matplotlib",
     "seaborn",
@@ -58,8 +57,6 @@ tables = [
 
 ml = [
     "xgboost",
-    "lightgbm",
-    "catboost",
     "cubist",
 ]
 
@@ -70,14 +67,10 @@ io = [
 all = [
     "hyperopt",
     "optuna",
-    "statsforecast",
-    "numba",
     "matplotlib",
     "seaborn",
     "great_tables",
     "xgboost",
-    "lightgbm",
-    "catboost",
     "cubist",
     "openpyxl",
 ]

@@ -8,13 +8,10 @@ import pandas as pd
 import copy
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
-from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
-from sklearn.ensemble import RandomForestRegressor, AdaBoostRegressor, HistGradientBoostingRegressor
 from ..model_selection import SplitTimeSeries
 from ..statstools import lr_trend_model, forecast_trend
 from catboost import CatBoostRegressor
-from cubist import Cubist
 from ..transformations import (box_cox_transform, back_box_cox_transform,
                                       rolling_quantile, expanding_mean, expanding_std, expanding_quantile)
 from ..helpers import seasonal_diff, undiff_ts, invert_seasonal_diff
@@ -268,11 +265,7 @@ class ml_direct_forecaster:
             Training DataFrame containing the target and any feature columns.
         """
         # Build categorical lookup for non-native-cat models
-        if isinstance(self.model, (
-            XGBRegressor, RandomForestRegressor, Cubist,
-            HistGradientBoostingRegressor, AdaBoostRegressor,
-            LinearRegression, Ridge, Lasso, ElasticNet
-        )):
+        if not isinstance(self.model, (CatBoostRegressor, LGBMRegressor)):
             if self.cat_variables is not None and not self.target_encode:
                 self.cat_var = {
                     c: sorted(df[c].drop_duplicates().tolist())
@@ -367,10 +360,7 @@ class ml_direct_forecaster:
                         exog[encode_col] = target_encoder_for_test(self.df_encode, exog, col)
                     exog = exog.drop(columns=self.cat_variables)
                 else:
-                    if isinstance(self.model, (
-                        XGBRegressor, RandomForestRegressor, Cubist,
-                        HistGradientBoostingRegressor, AdaBoostRegressor,
-                        LinearRegression, Ridge, Lasso, ElasticNet)):
+                    if not isinstance(self.model, (CatBoostRegressor, LGBMRegressor)):
                         exog = self.data_prep(exog)
 
         # ── Build input row from most recent lags ─────────────────────────────
