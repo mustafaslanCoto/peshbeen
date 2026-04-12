@@ -8,16 +8,26 @@ on:
   push:
     branches: [ "main", "master" ]
   workflow_dispatch:
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    steps: [uses: answerdotai/workflows/quarto-ghp@master]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Install nbdev cleanly
+        run: |
+          pip uninstall -y execnb nbdev || true
+          pip install --no-cache-dir 'nbdev<3' execnb
+      - name: Build and deploy docs
+        run: |
+          nbdev_docs
+          nbdev_proc_nbs
+
 # jobs:
 #   deploy:
 #     runs-on: ubuntu-latest
-#     steps:
-#       - name: Fix nbdev dependencies
-#         run: pip install -Uq --force-reinstall 'nbdev<3' execnb
-#       - uses: answerdotai/workflows/quarto-ghp@master
-
+#     steps: [uses: answerdotai/workflows/quarto-ghp@master]
 
