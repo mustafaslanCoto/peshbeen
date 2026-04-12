@@ -26,7 +26,6 @@ jobs:
       - name: Build and deploy docs
         run: |
           nbdev_docs
-          nbdev_gh_deploy
 
 # jobs:
 #   deploy:
