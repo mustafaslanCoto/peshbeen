@@ -31,6 +31,7 @@ dependencies = [
     "catboost",
     "numba",
     "setuptools>=68,<82",
+    "openpyxl",
 ]
 
 [project.optional-dependencies]
@@ -51,17 +52,9 @@ plotting = [
     "seaborn",
 ]
 
-tables = [
-    "great_tables",
-]
-
 ml = [
     "xgboost",
     "cubist",
-]
-
-io = [
-    "openpyxl",
 ]
 
 all = [
