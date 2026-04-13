@@ -4,6 +4,13 @@
 
 <img src="images/peshbeen_logo_transparent.svg" style="display:block; width:100%; max-width:1500px; margin:0 auto;" />
 
+[![Python](https://img.shields.io/pypi/pyversions/peshbeen.png)](https://pypi.org/project/peshbeen/)
+[![PyPI](https://img.shields.io/pypi/v/peshbeen.png)](https://pypi.org/project/peshbeen/)
+[![License](https://img.shields.io/pypi/l/peshbeen.png)](https://github.com/mustafaslanCoto/peshbeen/blob/main/LICENSE)
+[![Downloads](https://img.shields.io/pypi/dm/peshbeen.png)](https://pypistats.org/packages/peshbeen)
+[![GitHub
+stars](https://img.shields.io/github/stars/mustafaslanCoto/peshbeen.png)](https://github.com/mustafaslanCoto/peshbeen/stargazers)
+
 **peshbeen** is a Python forecasting library built around a single idea:
 the forecasting workflow should be the same regardless of the model. The
 name draws from Kurdish — pesh (“front”) and been (“to see/be”) —

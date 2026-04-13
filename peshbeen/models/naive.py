@@ -50,12 +50,12 @@ class naive:
  
         self.target_col  = target_col
         self.season_period = season_period
-        if isinstance(box_cox, float):
+        if isinstance(box_cox, bool):
+            self.box_cox = box_cox
+            self.lamda = None
+        elif isinstance(box_cox, (float, int)):
             self.box_cox = True
             self.lamda = box_cox
-        else:
-            self.box_cox = box_cox  # True or False
-            self.lamda = None
         self.biasadj       = box_cox_biasadj
  
         # ── placeholders set during fit ────────────────────────────────────────

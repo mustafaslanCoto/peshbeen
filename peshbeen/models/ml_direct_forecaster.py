@@ -95,12 +95,12 @@ class ml_direct_forecaster:
         self.cps = change_points
         self.pol = pol_degree
 
-        if isinstance(box_cox, (float, int)) and box_cox is not True and box_cox is not False:
-            self.box_cox = True
-            self.lamda = box_cox
-        else:
+        if isinstance(box_cox, bool):
             self.box_cox = box_cox
             self.lamda = None
+        elif isinstance(box_cox, (float, int)):
+            self.box_cox = True
+            self.lamda = box_cox
 
         self.biasadj = box_cox_biasadj
         self.difference = difference

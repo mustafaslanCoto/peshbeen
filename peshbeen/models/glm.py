@@ -100,12 +100,12 @@ class glm:
         self.target_encode = target_encode
         self.cps = change_points
         self.pol = pol_degree
-        if isinstance(box_cox, (float, int)):
+        if isinstance(box_cox, bool):
+            self.box_cox = box_cox
+            self.lamda = None
+        elif isinstance(box_cox, (float, int)):
             self.box_cox = True
             self.lamda = box_cox
-        else:
-            self.box_cox = box_cox  # True or False
-            self.lamda = None
         self.biasadj = box_cox_biasadj
         self.difference = difference
         self.season_diff = seasonal_diff
