@@ -145,7 +145,7 @@ def hyperopt_tune(
         is_lr = isinstance(base_model, LinearRegression) # Determine if the base model is LinearRegression, which does not require hyperparameter tuning
 
         if is_lr:
-            return None
+            return {}  # Return an empty dict for LinearRegression, as it does not have hyperparameters to tune
         return {k: v for k, v in params.items() if k not in _skip}
     
 
@@ -297,7 +297,7 @@ def optuna_tune(
         is_lr = isinstance(base_model, LinearRegression) # Determine if the base model is LinearRegression, which does not require hyperparameter tuning
 
         if is_lr:
-            return None
+            return {}  # Return an empty dict for LinearRegression, as it does not have hyperparameters to tune
         return {k: v for k, v in params.items() if k not in _skip}
  
     def objective(trial: optuna.Trial) -> float:
@@ -437,7 +437,7 @@ def mv_hyperopt_tune(
         is_lr = isinstance(base_model, LinearRegression) # Determine if the base model is LinearRegression, which does not require hyperparameter tuning
 
         if is_lr:
-            return None
+            return {}  # Return an empty dict for LinearRegression, as it does not have hyperparameters to tune
         return {k: v for k, v in params.items() if k not in _skip}
 
     def objective(params):
@@ -558,7 +558,7 @@ def mv_optuna_tune(
         is_lr = isinstance(base_model, LinearRegression) # Determine if the base model is LinearRegression, which does not require hyperparameter tuning
 
         if is_lr:
-            return None
+            return {}  # Return an empty dict for LinearRegression, as it does not have hyperparameters to tune
         return {k: v for k, v in params.items() if k not in _skip}
  
     def objective(trial: optuna.Trial) -> float:
