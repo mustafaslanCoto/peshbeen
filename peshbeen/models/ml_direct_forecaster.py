@@ -437,8 +437,7 @@ class ml_direct_forecaster:
                        cv_split: int,
                        metrics: List[Callable],
                        step_size: int = 1,
-                       h_split_point: Optional[int] = None,
-                       cv_df: bool = False
+                       h_split_point: Optional[int] = None
                        ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
         Run cross-validation using time series splits.
@@ -449,14 +448,13 @@ class ml_direct_forecaster:
             DataFrame containing the target and any feature columns.
         cv_split : int
             Number of cross-validation splits.
-        metrics : list of callables
-            List of metric functions to evaluate (e.g. [mean_absolute_error, mean_squared_error]).
+        metrics : list of callable
+            Metric functions (e.g. ``[MAE, RMSE]``) used to evaluate forecast accuracy across folds. Call ``.cv_summary()`` after cross-validation to retrieve the aggregated scores.
         step_size : int, default 1
             Step size to move the test window forward in each split.
         h_split_point : int or None, default None
             Optional index to split the test set into two parts for separate evaluation (e.g. to evaluate short-term vs long-term performance). If None, no split is done.
-        cv_df : bool, default False
-            Whether to return the cross-validation dataframe. If True, also returns a DataFrame with forecasts and actuals for each fold.
+
         Returns
         -------
         pd.DataFrame
@@ -501,12 +499,12 @@ class ml_direct_forecaster:
                         eval_val2 = m(y_test_2, bb_forecast_2)
                     metrics_dict1[m.__name__].append(eval_val1)
                     metrics_dict2[m.__name__].append(eval_val2)
-            
-            if cv_df:
-                ## store results for this split
-                split_results = {"cutoff": np.repeat(test.index[0], len(test)), "index": test.index,
-                                "split": np.repeat(f"fold_{idx+1}", len(test)), "y_true": y_test, "y_pred": bb_forecast}
-                cv_df_ = pd.concat([cv_df_, pd.DataFrame(split_results)], ignore_index=True)
+
+            ## store results for this split
+            x_test_idx = x_test.iloc[eval_indices]
+            split_results = {"cutoff": np.repeat(x_test_idx.index[0], len(y_test)), "index": x_test_idx.index,
+                            "split": np.repeat(f"fold_{idx+1}", len(y_test)), "y_true": y_test, "y_pred": bb_forecast}
+            cv_df_ = pd.concat([cv_df_, pd.DataFrame(split_results)], ignore_index=True)
 
         overall_performance = [[m.__name__, np.mean(metrics_dict[m.__name__])] for m in metrics]
         overall_performance = pd.DataFrame(overall_performance).rename(columns={0: "eval_metric", 1: "score"})
@@ -518,7 +516,9 @@ class ml_direct_forecaster:
             perf_2_df = pd.DataFrame(performance_2).rename(columns={0: "eval_metric", 1: f"score_after_{h_split_point}"})
             # merge all three dataframes
             overall_performance = overall_performance.merge(perf_1_df, on="eval_metric").merge(perf_2_df, on="eval_metric")
-        return overall_performance, cv_df_
+        
+        self.cv_summary = overall_performance
+        return cv_df_
 
     def copy(self):
         return copy.deepcopy(self)

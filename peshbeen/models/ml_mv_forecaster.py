@@ -617,8 +617,7 @@ class ml_mv_forecaster:
                        test_size: int,
                        metrics: List[Callable],
                        step_size: int = 1,
-                       h_split_point: Optional[int] = None,
-                       cv_df = False
+                       h_split_point: Optional[int] = None
                        ) -> Union[pd.DataFrame, Tuple[pd.DataFrame, pd.DataFrame]]:
         """
         Perform cross-validation.
@@ -633,14 +632,12 @@ class ml_mv_forecaster:
             Number of cross-validation folds.
         test_size : int
             Test size per fold.
-        metrics : List[Callable]
-            List of metric functions.
+        metrics : list of callable
+            Metric functions (e.g. ``[MAE, RMSE]``) used to evaluate forecast accuracy across folds. Call ``.cv_summary()`` after cross-validation to retrieve the aggregated scores.
         step_size : int, optional
             Step size for rolling window. Default is 1.
         h_split_point : int, optional
             Point to split the test set for separate evaluation. Default is None.
-        cv_df : bool, optional
-            Whether to return the cross-validation dataframe. If True, also returns a DataFrame with forecasts and actuals for each fold.
     
         Returns
         -------
@@ -681,18 +678,17 @@ class ml_mv_forecaster:
                     metrics_dict1[m.__name__].append(eval_val1)
                     metrics_dict2[m.__name__].append(eval_val2)
 
-            if cv_df:
-                ## store results for this split
-                all_forecasts = self.forecast(test_size, exog_t)
-                actuals = {f"actual_{col}": test[col].values for col in self.target_cols}
-                all_forecasts_dict = {f"forecast_{col}": all_forecasts[col] for col in self.target_cols}
-                split_results = {"cutoff": np.repeat(test.index[0], len(test)), "index": test.index,
-                                "split": np.repeat(f"fold_{idx+1}", len(test))}
-                
-                split_results.update(actuals)
-                split_results.update(all_forecasts_dict)
+            ## store results for this split
+            all_forecasts = self.forecast(test_size, exog_t)
+            actuals = {f"actual_{col}": test[col].values for col in self.target_cols}
+            all_forecasts_dict = {f"forecast_{col}": all_forecasts[col] for col in self.target_cols}
+            split_results = {"cutoff": np.repeat(test.index[0], len(test)), "index": test.index,
+                            "split": np.repeat(f"fold_{idx+1}", len(test))}
+            
+            split_results.update(actuals)
+            split_results.update(all_forecasts_dict)
 
-                cv_df_ = pd.concat([cv_df_, pd.DataFrame(split_results)], ignore_index=True)
+            cv_df_ = pd.concat([cv_df_, pd.DataFrame(split_results)], ignore_index=True)
                 
         overall_performance = [[m.__name__, np.mean(metrics_dict[m.__name__])] for m in metrics]
         overall_performance = pd.DataFrame(overall_performance).rename(columns={0: "eval_metric", 1: "score"})
@@ -704,7 +700,9 @@ class ml_mv_forecaster:
             perf_2_df = pd.DataFrame(performance_2).rename(columns={0: "eval_metric", 1: f"score_after_{h_split_point}"})
             # merge all three dataframes
             overall_performance = overall_performance.merge(perf_1_df, on="eval_metric").merge(perf_2_df, on="eval_metric")
-        return overall_performance, cv_df_
+            
+        self.cv_summary = overall_performance
+        return cv_df_
 
     # a name for the class that is more descriptive of its purpose
     def get_name(self):

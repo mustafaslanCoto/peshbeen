@@ -104,7 +104,7 @@ pip install peshbeen[tuning]    # Hyperopt, Optuna
 pip install peshbeen[forecast]  # StatsForecast, Numba
 pip install peshbeen[plotting]  # Matplotlib, Seaborn
 pip install peshbeen[tables]    # Great Tables
-pip install peshbeen[io]        # OpenPyXL (Excel support)
+pip install peshbeen[io]        # OpenPyXL (Excel support) for datasets module
 pip install peshbeen[all]       # Everything above
 ```
 

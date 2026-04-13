@@ -232,7 +232,6 @@ class naive:
         metrics: List[Callable],
         step_size: int = 1,
         h_split_point: Optional[int] = None,
-        cv_df: bool = False,
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
         Run time-series cross-validation.
@@ -246,13 +245,11 @@ class naive:
         test_size : int
             Test window size per fold.
         metrics : list of callable
-            Metric functions (e.g. ``[MAE, RMSE]``).
+            Metric functions (e.g. ``[MAE, RMSE]``) used to evaluate forecast accuracy across folds. Call ``.cv_summary()`` after cross-validation to retrieve the aggregated scores.
         step_size : int, default 1
             Step size to advance the test window each fold.
         h_split_point : int or None, default None
             Split the test window into two sub-horizons for separate short- and long-term evaluation.
-        cv_df : bool, default False
-            If ``True``, return a fold-level prediction DataFrame alongside the summary.
  
         Returns
         -------
@@ -298,17 +295,16 @@ class naive:
                     metrics_dict1[m.__name__].append(eval_val1)
                     metrics_dict2[m.__name__].append(eval_val2)
  
-            if cv_df:
-                split_results = {
-                    "cutoff": np.repeat(test.index[0], len(test)),
-                    "index":  test.index,
-                    "split":  np.repeat(f"fold_{idx + 1}", len(test)),
-                    "y_true": y_test,
-                    "y_pred": bb_forecast,
-                }
-                cv_df_ = pd.concat(
-                    [cv_df_, pd.DataFrame(split_results)], ignore_index=True
-                )
+            split_results = {
+                "cutoff": np.repeat(test.index[0], len(test)),
+                "index":  test.index,
+                "split":  np.repeat(f"fold_{idx + 1}", len(test)),
+                "y_true": y_test,
+                "y_pred": bb_forecast,
+            }
+            cv_df_ = pd.concat(
+                [cv_df_, pd.DataFrame(split_results)], ignore_index=True
+            )
  
         overall_performance = pd.DataFrame(
             [[m.__name__, np.mean(metrics_dict[m.__name__])] for m in metrics],
@@ -329,8 +325,8 @@ class naive:
                 .merge(perf_1_df, on="eval_metric")
                 .merge(perf_2_df, on="eval_metric")
             )
- 
-        return overall_performance, cv_df_
+        self.cv_summary = overall_performance
+        return cv_df_
 
     # a name for the class that is more descriptive of its purpose
     def get_name(self):

@@ -124,8 +124,8 @@ class pesh:
             The number of cross-validation splits.
         test_size : int
             The size of the test set for each split.
-        metrics : callable or list of callables
-            A metric function or a list of metric functions to evaluate the forecasts. Each function should take the true values and forecasted values as input and return a scalar performance metric.
+        metrics : list of callable
+            Metric functions (e.g. ``[MAE, RMSE]``) used to evaluate forecast accuracy across folds. Call ``.cv_summary()`` after cross-validation to retrieve the aggregated scores.
         step_size : int, default 1
             The step size for rolling the forecasting origin.
         metric_to_opt : callable, optional
@@ -230,7 +230,9 @@ class pesh:
         perf= pd.DataFrame(perf)
         perf.index = [m.__name__ for m in metrics]
 
-        return perf, cv_df_
+        self.cv_summary = perf
+        return cv_df_
+    
     # a name for the class that is more descriptive of its purpose
     def get_name(self):
         return "pesh"

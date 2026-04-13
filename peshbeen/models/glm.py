@@ -153,10 +153,6 @@ class glm:
         self.var_weights = var_weights
         self.missing = missing
 
-        # ── placeholders set during fit ───────────────────────────────────────
-        self.tuned_params = None
-        self.actuals = None
-        self.prob_forecasts = None
 
     # ─────────────────────────────────────────────────────────────────────────
     # DATA PREPARATION
@@ -333,39 +329,37 @@ class glm:
     # INFORMATION CRITERIA
     # ─────────────────────────────────────────────────────────────────────────
 
-    # def _k(self) -> int:
-    #     """Number of model parameters (approximate)."""
-    #     base = self.X.shape[1]
-    #     if isinstance(self.model, (LinearRegression, Ridge, Lasso, ElasticNet)):
-    #         return base + 2   # coefficients + intercept + variance
-    #     return base + 1       # coefficients + variance
+    def _k(self) -> int:
+        """Number of model parameters (approximate)."""
+        # run .predict_in_sample, if not already run, to generate in-sample residuals and fitted values needed to calculate variance for the information criteria
+        if not hasattr(self, "in_samp_resids"):
+            self.predict_in_sample()
+        base = self.X.shape[1]
+        return base + 2   # coefficients + intercept + variance
 
-    # def _ic_base(self):
-    #     k = self._k()
-    #     n = len(self.y)
-    #     rss = np.sum((self.y.to_numpy() - self.model_fit.predict(self.X)) ** 2)
-    #     return k, n, rss
+    def _ic_base(self): # helper function to calculate components needed for information criteria calculations
+        k = self._k()
+        n = len(self.y)
+        rss = self.in_samp_resids
+        return k, n, rss
 
-    # @property
-    # def aic(self) -> float:
-    #     k, n, rss = self._ic_base()
-    #     return n * np.log(rss / n) + 2 * k
+    @property
+    def aic(self) -> float:
+        return self.result.aic
 
-    # @property
-    # def aicc(self) -> float:
-    #     k, n, rss = self._ic_base()
-    #     aic = n * np.log(rss / n) + 2 * k
-    #     return aic + (2 * k * (k + 1)) / (n - k - 1)
+    @property
+    def aicc(self) -> float: # corrected AIC for small sample sizes
+        k, n, rss = self._ic_base()
+        return n * np.log(rss / n) + 2 * k + (2 * k * (k + 1)) / (n - k - 1)
 
-    # @property
-    # def bic(self) -> float:
-    #     k, n, rss = self._ic_base()
-    #     return n * np.log(rss / n) + k * np.log(n)
+    @property
+    def bic(self) -> float:
+        return self.result.bic
 
-    # @property
-    # def hqc(self) -> float:
-    #     k, n, rss = self._ic_base()
-    #     return n * np.log(rss / n) + 2 * k * np.log(np.log(n))
+    @property
+    def hqc(self) -> float: # Hannan-Quinn criterion
+        k, n, rss = self._ic_base()
+        return n * np.log(rss / n) + 2 * k * np.log(np.log(n))
 
     def copy(self):
         return copy.deepcopy(self)
@@ -477,8 +471,7 @@ class glm:
                        test_size: int,
                        metrics: List[Callable],
                        step_size: int = 1,
-                       h_split_point: Optional[int] = None,
-                       cv_df: bool = False
+                       h_split_point: Optional[int] = None
                        ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
         Run cross-validation using time series splits.
@@ -491,14 +484,13 @@ class glm:
             Number of cross-validation splits.
         test_size : int
             Number of periods in each test set.
-        metrics : list of callables
-            List of metric functions to evaluate (e.g. [mean_absolute_error, mean_squared_error]).
+        metrics : list of callable
+            Metric functions (e.g. ``[MAE, RMSE]``) used to evaluate forecast accuracy across folds. Call ``.cv_summary()`` after cross-validation to retrieve the aggregated scores.
         step_size : int, default 1
             Step size to move the test window forward in each split.
         h_split_point : int or None, default None
             Optional index to split the test set into two parts for separate evaluation (e.g. to evaluate short-term vs long-term performance). If None, no split is done.
-        cv_df : bool, default False
-            Whether to return the cross-validation dataframe. If True, also returns a DataFrame with forecasts and actuals for each fold.
+
         Returns
         -------
         pd.DataFrame
@@ -538,11 +530,10 @@ class glm:
                     metrics_dict1[m.__name__].append(eval_val1)
                     metrics_dict2[m.__name__].append(eval_val2)
             
-            if cv_df:
-                ## store results for this split
-                split_results = {"cutoff": np.repeat(test.index[0], len(test)), "index": test.index,
-                                "split": np.repeat(f"fold_{idx+1}", len(test)), "y_true": y_test, "y_pred": bb_forecast}
-                cv_df_ = pd.concat([cv_df_, pd.DataFrame(split_results)], ignore_index=True)
+            ## store results for this split
+            split_results = {"cutoff": np.repeat(test.index[0], len(test)), "index": test.index,
+                            "split": np.repeat(f"fold_{idx+1}", len(test)), "y_true": y_test, "y_pred": bb_forecast}
+            cv_df_ = pd.concat([cv_df_, pd.DataFrame(split_results)], ignore_index=True)
 
         overall_performance = [[m.__name__, np.mean(metrics_dict[m.__name__])] for m in metrics]
         overall_performance = pd.DataFrame(overall_performance).rename(columns={0: "eval_metric", 1: "score"})
@@ -554,7 +545,9 @@ class glm:
             perf_2_df = pd.DataFrame(performance_2).rename(columns={0: "eval_metric", 1: f"score_after_{h_split_point}"})
             # merge all three dataframes
             overall_performance = overall_performance.merge(perf_1_df, on="eval_metric").merge(perf_2_df, on="eval_metric")
-        return overall_performance, cv_df_
+        
+        self.cv_summary = overall_performance
+        return cv_df_
     
     # a name for the class that is more descriptive of its purpose
     def get_name(self):

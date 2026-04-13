@@ -695,8 +695,7 @@ class ms_arr:
                        metrics: List[Callable],
                        step_size: int = 1,
                        n_iter: int = 1,
-                       h_split_point: Optional[int] = None,
-                       cv_df: bool = False
+                       h_split_point: Optional[int] = None
                        ) -> Union[pd.DataFrame, Tuple[pd.DataFrame, pd.DataFrame]]:
         
         """
@@ -710,16 +709,14 @@ class ms_arr:
             Number of cross-validation splits.
         test_size : int
             Number of time steps in the test set for each split.
-        metrics : List[Callable]
-            List of metric functions to evaluate.
+        metrics : list of callable
+            Metric functions (e.g. ``[MAE, RMSE]``) used to evaluate forecast accuracy across folds. Call ``.cv_summary()`` after cross-validation to retrieve the aggregated scores.
         step_size : int, default=1
             Step size between the start of each test set in the splits.
         n_iter : int, default=1
             Number of EM iterations to run for each training fold.
         h_split_point : Optional[int], default=None
             If provided, split the test set into two parts at this index and evaluate metrics separately on each part.
-        cv_df : bool, default=False
-            If True, return a DataFrame with predictions and true values for each test fold in addition to the overall performance metrics.
         
         Returns
         -------
@@ -768,11 +765,10 @@ class ms_arr:
                     metrics_dict1[m.__name__].append(eval_val1)
                     metrics_dict2[m.__name__].append(eval_val2)
 
-            if cv_df:
-                ## store results for this split
-                split_results = {"cutoff": np.repeat(test.index[0], len(test)), "index": test.index,
-                                "split": np.repeat(f"fold_{idx+1}", len(test)), "y_true": y_test, "y_pred": bb_forecast}
-                cv_df_ = pd.concat([cv_df_, pd.DataFrame(split_results)], ignore_index=True)
+            ## store results for this split
+            split_results = {"cutoff": np.repeat(test.index[0], len(test)), "index": test.index,
+                            "split": np.repeat(f"fold_{idx+1}", len(test)), "y_true": y_test, "y_pred": bb_forecast}
+            cv_df_ = pd.concat([cv_df_, pd.DataFrame(split_results)], ignore_index=True)
 
         overall_performance = [[m.__name__, np.mean(metrics_dict[m.__name__])] for m in metrics]
         overall_performance = pd.DataFrame(overall_performance).rename(columns={0: "eval_metric", 1: "score"})
@@ -784,7 +780,8 @@ class ms_arr:
             perf_2_df = pd.DataFrame(performance_2).rename(columns={0: "eval_metric", 1: f"score_after_{h_split_point}"})
             # merge all three dataframes
             overall_performance = overall_performance.merge(perf_1_df, on="eval_metric").merge(perf_2_df, on="eval_metric")
-        return overall_performance, cv_df_
+        self.cv_summary = overall_performance
+        return cv_df_
     
     # a name for the class that is more descriptive of its purpose
     def get_name(self):

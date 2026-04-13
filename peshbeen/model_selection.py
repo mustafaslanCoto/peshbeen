@@ -131,35 +131,33 @@ def hyperopt_tune(
             return target_array
 
     tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
-    def _set_model_params(params):
-        # Handle special model parameters that are not passed to model constructor
-        # and must be set directly on the forecasting model object
+    _skip = {"box_cox", "lags", "box_cox_biasadj"}
+ 
+    def _set_model_params(params: dict):
         if "lags" in params:
-            if isinstance(params["lags"], int):
-                model.n_lag = list(range(1, params["lags"] + 1))
-            elif isinstance(params["lags"], list):
-                model.n_lag = params["lags"]
-        if "box_cox" in params:
-            model.box_cox = params["box_cox"]
-        if "box_cox_biasadj" in params:
-            model.biasadj = params["box_cox_biasadj"]
-
-    def _get_model_params_for_fit(params):
-        # Exclude special parameters that should not be passed to the model constructor
-        skip_keys = {"box_cox", "lags", "box_cox_biasadj"}
-
-        return {k: v for k, v in params.items() if k not in skip_keys}
-    
-
-    def objective(params):
-        _set_model_params(params)
+            lags = params["lags"]
+            model.n_lag = list(range(1, lags + 1)) if isinstance(lags, int) else list(lags)
+        if "box_cox"         in params: model.box_cox = params["box_cox"]
+        if "box_cox_biasadj" in params: model.biasadj = params["box_cox_biasadj"]
+ 
+    def _fit_params(params: dict) -> Optional[dict]:
         base_model = getattr(model, "model", None) # Check if the model has a 'model' attribute (like ARIMA or ETS), otherwise use the model itself (like LinearRegression)
         is_lr = isinstance(base_model, LinearRegression) # Determine if the base model is LinearRegression, which does not require hyperparameter tuning
 
         if is_lr:
-            model_params = None # For LinearRegression, we don't have hyperparameters to tune, so we can skip the step of getting model parameters for fit
-        else:
-            model_params = _get_model_params_for_fit(params)  # or _fit_params(params)
+            return None
+        return {k: v for k, v in params.items() if k not in _skip}
+    
+
+    def objective(params):
+        _set_model_params(params)
+        fit_params = _fit_params(params)
+
+        if fit_params is not None:
+            if model.get_name() == "arima" or model.get_name() == "ets":
+                model.set_params(params=fit_params)
+            else:
+                model.model.set_params(**fit_params)
 
         metrics = []
         for train_index, test_index in tscv.split(df):
@@ -168,12 +166,6 @@ def hyperopt_tune(
             y_test = np.array(test[model.target_col])
             y_test = index_target(y_test)
 
-            if model_params is not None:
-                
-                if model.get_name() == "arima" or model.get_name() == "ets":
-                    model.set_params(params=model_params)
-                else:
-                    model.model.set_params(**model_params)
             model.fit(train)
             
             exog_test = x_test if x_test.shape[1] > 0 else None
@@ -204,7 +196,10 @@ def hyperopt_tune(
 
     # if lags are in the param space, extract the best lags and extract remain parameters for the model
     if "lags" in param_space:
-        best_lags = space_eval(param_space, best_hyperparams)["lags"]
+        if not isinstance(space_eval(param_space, best_hyperparams)["lags"], int):
+            best_lags = list(space_eval(param_space, best_hyperparams)["lags"])
+        else:
+            best_lags = space_eval(param_space, best_hyperparams)["lags"]
         model_parameters = {k: v for k, v in space_eval(param_space, best_hyperparams).items() if k != "lags"}
     else:
         best_lags = None
@@ -288,7 +283,7 @@ def optuna_tune(
 
     tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
  
-    _skip = {"box_cox", "lags", "box_cox_lmda", "box_cox_biasadj"}
+    _skip = {"box_cox", "lags", "box_cox_biasadj"}
  
     def _set_model_params(params: dict):
         if "lags" in params:
@@ -357,8 +352,6 @@ def optuna_tune(
     
     if "lags" in param_space:
         best_lags = best.pop("lags")
-        if not isinstance(best_lags, list):
-            best_lags = list(best_lags)
         model_parameters = best
 
     else:
@@ -432,7 +425,20 @@ def mv_hyperopt_tune(
     
     tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
 
-    
+    _skip = {"lags"}
+ 
+    def _set_model_params(params: dict):
+        if "lags" in params:
+            lags =  list(range(1, params["lags"] + 1)) if isinstance(params["lags"], int) else list(params["lags"])
+            model.n_lag = {trgt: lags for trgt in model.target_cols}
+ 
+    def _fit_params(params: dict) -> Optional[dict]:
+        base_model = getattr(model, "model", None) # Check if the model has a 'model' attribute (like ARIMA or ETS), otherwise use the model itself (like LinearRegression)
+        is_lr = isinstance(base_model, LinearRegression) # Determine if the base model is LinearRegression, which does not require hyperparameter tuning
+
+        if is_lr:
+            return None
+        return {k: v for k, v in params.items() if k not in _skip}
 
     def objective(params):
 
@@ -442,7 +448,9 @@ def mv_hyperopt_tune(
             x_test = test.drop(columns=model.target_cols)
             y_test = np.array(test[target_col])
 
-            model.model.set_params(**params)
+            _set_model_params(params)
+            fit_params = _fit_params(params)
+            model.model.set_params(**fit_params)
             model.fit(train)
             
             exog_test = x_test if x_test.shape[1] > 0 else None
@@ -471,7 +479,19 @@ def mv_hyperopt_tune(
         trials=trials,
     )
 
-    return space_eval(param_space, best_hyperparams)
+    # if lags are in the param space, extract the best lags and extract remain parameters for the model
+    if "lags" in param_space:
+        if not isinstance(space_eval(param_space, best_hyperparams)["lags"], int):
+            best_lags = list(space_eval(param_space, best_hyperparams)["lags"])
+        else:
+            best_lags = space_eval(param_space, best_hyperparams)["lags"]
+        best_lags = {trgt: best_lags for trgt in model.target_cols}
+        model_parameters = {k: v for k, v in space_eval(param_space, best_hyperparams).items() if k != "lags"}
+    else:
+        best_lags = None
+        model_parameters = space_eval(param_space, best_hyperparams)
+
+    return model_parameters, best_lags
 
 # %% ../nbs/modules/03_model_selection.ipynb #d3e15af8
 def mv_optuna_tune(
@@ -525,6 +545,21 @@ def mv_optuna_tune(
         raise ImportError("optuna is required. Install with: pip install optuna or pip install peshbeen[tuning]")
     
     tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
+
+    _skip = {"lags"}
+ 
+    def _set_model_params(params: dict):
+        if "lags" in params:
+            lags =  list(range(1, params["lags"] + 1)) if isinstance(params["lags"], int) else list(params["lags"])
+            model.n_lag = {trgt: lags for trgt in model.target_cols}
+ 
+    def _fit_params(params: dict) -> Optional[dict]:
+        base_model = getattr(model, "model", None) # Check if the model has a 'model' attribute (like ARIMA or ETS), otherwise use the model itself (like LinearRegression)
+        is_lr = isinstance(base_model, LinearRegression) # Determine if the base model is LinearRegression, which does not require hyperparameter tuning
+
+        if is_lr:
+            return None
+        return {k: v for k, v in params.items() if k not in _skip}
  
     def objective(trial: optuna.Trial) -> float:
         params = {name: suggest_fn(trial) for name, suggest_fn in param_space.items()}
@@ -535,7 +570,9 @@ def mv_optuna_tune(
             x_test = test.drop(columns=model.target_cols)
             y_test = np.array(test[target_col])
  
-            model.model.set_params(**params)
+            _set_model_params(params)
+            fit_params = _fit_params(params)
+            model.model.set_params(**fit_params)
             model.fit(train)
 
             exog_test = x_test if x_test.shape[1] > 0 else None
@@ -565,8 +602,18 @@ def mv_optuna_tune(
         study.optimize(objective, n_trials=eval_num, show_progress_bar=False)
     finally:
         optuna.logging.set_verbosity(old_verbosity)
+
+    best = study.best_params
+    if "lags" in param_space:
+        best_lags = best.pop("lags")
+        best_lags = {trgt: best_lags for trgt in model.target_cols}
+        model_parameters = best
+
+    else:
+        best_lags = None
+        model_parameters = best
  
-    return study.best_params
+    return model_parameters, best_lags
 
 # %% ../nbs/modules/03_model_selection.ipynb #855c8f86
 #------------------------------------------------------------------------------
@@ -689,13 +736,14 @@ def forward_feature_selection(
         Fit-and-score one candidate model via cross-validation.
         Returns a list of mean scores, one per metric.
         """
-        result_df, _ = m.cross_validate(
+        m.cross_validate(
             df=df_test,
             cv_split=cv_split,
             test_size=H,
             metrics=metrics,
             step_size=_step_size,
         )
+        result_df = m.cv_summary
         # result_df has columns ['eval_metric', 'score']
         return result_df["score"].tolist()
  
@@ -922,13 +970,14 @@ def backward_feature_selection(
 
     def _validate(m, df_test):
         """Fit-and-score one candidate model via cross-validation."""
-        result_df, _ = m.cross_validate(
+        m.cross_validate(
             df=df_test,
             cv_split=cv_split,
             test_size=H,
             metrics=metrics,
             step_size=_step_size,
         )
+        result_df = m.cv_summary
         return result_df["score"].tolist()
 
     # ── Baseline score with all features ──────────────────────────────────────
@@ -1117,10 +1166,11 @@ def mv_forward_feature_selection(
     def _validate(m, df_test):
         # cross_validate returns (metrics_df, cv_df_); metrics_df has columns
         # ["eval_metric", "score"] — one row per metric.
-        result_df, _ = m.cross_validate(
+        m.cross_validate(
             df=df_test, target_col=target_col, cv_split=cv_split,
             test_size=H, metrics=metrics, step_size=_step_size,
         )
+        result_df = m.cv_summary
         return result_df['score'].tolist()
 
     def _make_candidate_model(lags_dict, transforms_dict, active_exogs=None):
@@ -1295,10 +1345,11 @@ def mv_backward_feature_selection(
         return all(n < r for n, r in zip(new_score, ref_score))
 
     def _validate(m, df_test):
-        result_df, _ = m.cross_validate(
+        m.cross_validate(
             df=df_test, target_col=target_col, cv_split=cv_split,
             test_size=H, metrics=metrics, step_size=_step_size,
         )
+        result_df = m.cv_summary
         return result_df['score'].tolist()
 
     def _make_candidate_model(lags_dict, transforms_dict, active_exogs=None):
@@ -1544,11 +1595,12 @@ def ms_arr_forward_feature_selection(
 
     def _validate(m, df_test):
         if validation_type == "cv":
-            result, _ = m.cross_validate(
+            m.cross_validate(
                 df=df_test, cv_split=cv_split, test_size=H,
                 metrics=metrics, step_size=_step_size, n_iter=iterations,
             )
-            return result["score"].tolist()
+            result_df = m.cv_summary
+            return result_df["score"].tolist()
         elif validation_type == "BIC":
             return m.bic
         elif validation_type == "AIC":
@@ -1779,11 +1831,12 @@ def ms_arr_backward_feature_selection(
 
     def _validate(m, df_test):
         if validation_type == "cv":
-            result, _ = m.cross_validate(
+            m.cross_validate(
                 df=df_test, cv_split=cv_split, test_size=H,
                 metrics=metrics, step_size=_step_size, n_iter=iterations,
             )
-            return result["score"].tolist()
+            result_df = m.cv_summary
+            return result_df["score"].tolist()
         elif validation_type == "BIC":
             return m.bic
         elif validation_type == "AIC":
