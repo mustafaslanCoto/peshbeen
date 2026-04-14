@@ -105,44 +105,67 @@ def back_box_cox_transform(y_pred: np.ndarray,
 # Transformation Utility Functions
 #------------------------------------------------------------------------------
 
+from typing import Optional, Union
+
 def fourier_terms(
-    start_end_index: tuple,
-    period: int,
+    index: Union[pd.Index, tuple],
+    period: Union[int, float],
     num_terms: int,
-    frequency: str = "D"
+    frequency: Optional[str] = None,
+    t_start: Optional[int] = None
 ) -> pd.DataFrame:
+
     """
-    Generate Fourier terms for a given time index or range of indices.
+    Generate Fourier terms for a given index or (start, end) tuple.
 
     Parameters
     ----------
-    start_end_index : tuple
-        A tuple containing the start and end indices (can be integers or datetime strings).
-    period : int
-        The period of the seasonality (e.g., 7 for weekly, 12 for monthly).
+    index : pd.Index or tuple
+        Either a pandas Index directly (recommended), or a (start, end) tuple of integers or datetime strings.
+    period : int or float
+        The period of the seasonality (e.g., 365.25/7 for weekly yearly seasonality).
     num_terms : int
-        The number of Fourier terms to generate.
+        The number of Fourier term pairs (sin + cos) to generate.
     frequency : str, optional
-        The frequency of the time index (default is "D" for daily). For example, "D" for daily, "M" for monthly, "H" for hourly, etc. It is used when the start and end indices are datetime strings to create the appropriate date range.
-    
+        Frequency string (e.g., "W-SAT", "D", "M", "W"). Only relevant when index is a (start, end) tuple.
+    t_start : int, optional
+        Starting position of t. Only used when index is a (start, end) tuple. Use len(train_index) to ensure continuity between train and test.
+
     Returns
     -------
     pd.DataFrame
-        A DataFrame containing the Fourier terms with the appropriate index.
+        DataFrame of Fourier terms aligned to the provided index.
     """
-    start, end = start_end_index
 
-    # Decide index type
-    if isinstance(start, (int, np.integer)) and isinstance(end, (int, np.integer)):
-        index = pd.RangeIndex(start, end+1)  # exclusive of end
-        t = np.arange(len(index))
+    # ── Accept full index directly ────────────────────────────────────────────
+    if isinstance(index, (pd.DatetimeIndex, pd.RangeIndex)):
+        # Infer frequency from actual index if not provided
+        if isinstance(index, pd.DatetimeIndex) and frequency is None:
+            frequency = pd.infer_freq(index)
+        t = np.arange(len(index)) if t_start is None else np.arange(t_start, t_start + len(index))
+
+    elif isinstance(index, tuple):
+        start, end = index
+
+        if isinstance(start, (int, np.integer)) and isinstance(end, (int, np.integer)):
+            index = pd.RangeIndex(start, end + 1)
+            t = np.arange(start, end + 1)
+        else:
+            if frequency is None:
+                raise ValueError(
+                    "frequency is required when passing a (start, end) tuple. "
+                    "Either provide frequency explicitly (e.g., frequency='W-SAT'), "
+                    "or pass the full index directly: fourier_terms(df.index, ...)"
+                )
+            start, end = pd.to_datetime(start), pd.to_datetime(end)
+            index = pd.date_range(start, end, freq=frequency)
+            t = np.arange(len(index)) if t_start is None else np.arange(t_start, t_start + len(index))
+
     else:
-        # Convert to datetime if string given
-        start, end = pd.to_datetime(start), pd.to_datetime(end)
-        index = pd.date_range(start, end, freq=frequency)
-        t = np.arange(len(index))
+        raise TypeError(
+            "index must be a pandas DatetimeIndex, RangeIndex, or a (start, end) tuple."
+        )
 
-    # Build Fourier terms
     terms = {
         f'sin_{k}_{period}': np.sin(2 * np.pi * k * t / period)
         for k in range(1, num_terms + 1)

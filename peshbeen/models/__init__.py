@@ -17,3 +17,4 @@ from .arima import arima
 from .naive import naive
 from .ets import ets
 from .glm import glm
+from .pesh import pesh
