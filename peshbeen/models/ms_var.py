@@ -184,39 +184,42 @@ class ms_var:
             raise ValueError("pol_degree must be an int or a dict.")
 
         # ── box-cox ───────────────────────────────────────────────────────────
+        # initialise biasadj regardless of box_cox
+        if isinstance(box_cox_biasadj, bool):
+            self.biasadj = {col: box_cox_biasadj for col in target_cols}
+        elif isinstance(box_cox_biasadj, dict):
+            self.biasadj = {col: box_cox_biasadj.get(col, False) for col in target_cols}
+        else:
+            self.biasadj = {col: False for col in target_cols}
+
         if box_cox is not None:
             self.box_cox: Dict[str, bool] = {}
             self.lamdas: Dict[str, Optional[float]] = {col: None for col in target_cols}
-            if isinstance(box_cox, bool):
+            
+            if isinstance(box_cox, bool):          # ← bool before (float, int)
                 self.box_cox = {col: box_cox for col in target_cols}
             elif isinstance(box_cox, (float, int)):
                 self.box_cox = {col: True for col in target_cols}
-                self.lamdas = {col: box_cox for col in target_cols}  # use provided lambda for all targets
+                self.lamdas = {col: box_cox for col in target_cols}
             elif isinstance(box_cox, dict):
                 for col, val in box_cox.items():
-                    if isinstance(val, (float, int)):
-                        self.box_cox[col] = True
-                        self.lamdas[col] = val   # use provided lambda
-                    elif isinstance(val, bool):
+                    if isinstance(val, bool):          # ← bool before (float, int)
                         self.box_cox[col] = val
-                        self.lamdas[col] = None  # estimate from data
+                        self.lamdas[col] = None
+                    elif isinstance(val, (float, int)):
+                        self.box_cox[col] = True
+                        self.lamdas[col] = val
                     else:
-                        raise ValueError(f"Invalid value for box_cox for column '{col}': must be bool or float.")
+                        raise ValueError(
+                            f"Invalid value for box_cox['{col}']: must be bool or float."
+                        )
             else:
-                raise TypeError("box_cox must be a bool, a float, or a dict keyed by target column name.")
-                    
-            # ── box-cox bias adjustment ───────────────────────────────────────────
-            if isinstance(box_cox_biasadj, bool):
-                self.biasadj = {col: box_cox_biasadj for col in target_cols}
-            elif isinstance(box_cox_biasadj, dict):
-                self.biasadj = {col: box_cox_biasadj.get(col, False) for col in target_cols}
-            elif box_cox_biasadj is None:
-                self.biasadj = {col: False for col in target_cols}
-            else:
-                raise TypeError("box_cox_biasadj must be a bool or a dict keyed by target column name.")
+                raise TypeError(
+                    "box_cox must be a bool, float, or dict keyed by target column name."
+                )
             
         else:
-            self.box_cox = box_cox  # None if box_cox is None, otherwise a dict with bool values
+            self.box_cox = box_cox
             
         # ── HMM initialisation ────────────────────────────────────────────────
         self.rng = np.random.default_rng(random_state)

@@ -6,7 +6,6 @@ from typing import List, Dict, Optional, Callable, Tuple, Any, Union
 import numpy as np
 import pandas as pd
 import copy
-from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from ..model_selection import SplitTimeSeries
 from ..statstools import lr_trend_model, forecast_trend
