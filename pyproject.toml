@@ -27,8 +27,6 @@ dependencies = [
     "scikit-learn",
     "statsmodels",
     "statsforecast",
-    "lightgbm",
-    "catboost",
     "numba",
     "setuptools>=68,<82",
     "openpyxl",
@@ -55,6 +53,9 @@ plotting = [
 ml = [
     "xgboost",
     "cubist",
+    "lightgbm",
+    "catboost",
+    "feature-engine"
 ]
 
 all = [
