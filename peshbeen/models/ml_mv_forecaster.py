@@ -19,6 +19,7 @@ from ..statstools import lr_trend_model, forecast_trend
 import warnings
 warnings.filterwarnings("ignore")
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
+from sklearn.compose import ColumnTransformer
 
 class ml_mv_forecaster:
     def __init__(
@@ -89,10 +90,8 @@ class ml_mv_forecaster:
                     raise ValueError("The single key in categorical_encoder must be one of target_cols.")
                 self.cat_encoder_key = encoder_target_col
                 self.cat_encoder = encoder
-                self.cat_name = self.cat_encoder.__class__.__name__
             else:
                 self.cat_encoder = categorical_encoder
-                self.cat_name = self.cat_encoder.__class__.__name__
                 self.cat_encoder_key = self.target_cols[0] # just get one of the target columns since we are not using the encoder in a target-specific way, but we will check for target access requirement later when we fit the encoder
 
         else:
@@ -100,10 +99,6 @@ class ml_mv_forecaster:
             self.cat_encoder = None
 
 
-
-        # self.cat_encoder = categorical_encoder
-        if self.cat_variables is not None:
-            self.cat_name = self.cat_encoder.__class__.__name__
 
         if self.cat_variables is not None and self.cat_encoder is None: # if we have categorical variables but no encoder specified, model must be able to handle categorical features natively (e.g. LGBM or CatBoost)
             if not (self.model_name in ['LGBMRegressor', 'CatBoostRegressor']):
@@ -359,12 +354,20 @@ class ml_mv_forecaster:
         if self.cat_encoder is not None:
             # if self.target_col in df.columns and not hasattr(self, "model_fit"):
             if all(col in df.columns for col in self.target_cols): # if we have target values, we are in the fit stage and can fit the encoder on the training data (if not already fitted) and then transform the data for model fitting
-                self.cat_encoder.fit(df.drop(columns=self.target_cols), df[self.cat_encoder_key])
-                
-                train_df = self.cat_encoder.transform(df.drop(columns=self.target_cols))
-                return pd.concat([df[self.target_cols], pd.DataFrame(train_df, index=df.index)], axis=1)
-            else: # if we do not have target values, we are in the forecast stage and can use the already fitted encoder to transform the data for forecasting
-                return self.cat_encoder.transform(df)
+                num_cols = [c for c in df.columns if c not in self.cat_variables + self.target_cols]
+
+                # pass_cols = self.cat_variables + num_cols
+                self.preprocess = ColumnTransformer(
+                    transformers=[("cat", self.cat_encoder, self.cat_variables), ("num", "passthrough", num_cols)],
+                    remainder="drop",
+                    verbose_feature_names_out=False
+                ).set_output(transform="pandas")
+
+                X_train = self.preprocess.fit_transform(df.drop(columns=self.target_cols), y=df[self.cat_encoder_key])
+                return pd.concat([df[self.target_cols], X_train], axis=1)
+            
+            else: # if we do not have target values, we are in the forecast stage and can just transform the data using the already fitted encoder
+                return self.preprocess.transform(df)
         else:
             return df # if no encoder, return original df (but with categorical variables converted to category dtype in case model can handle them natively, e.g. LGBM or CatBoost)
 

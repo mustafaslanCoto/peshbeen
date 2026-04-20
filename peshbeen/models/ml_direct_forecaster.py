@@ -16,6 +16,7 @@ from ..helpers import seasonal_diff, undiff_ts, invert_seasonal_diff
 # dot not show warnings
 import warnings
 warnings.filterwarnings("ignore")
+from sklearn.compose import ColumnTransformer
 
 class ml_direct_forecaster:
 
@@ -90,8 +91,6 @@ class ml_direct_forecaster:
             raise TypeError("H must be an int or a list of ints.")
         self.cat_variables = cat_variables
         self.cat_encoder = categorical_encoder
-        if self.cat_encoder is not None:
-            self.cat_name = self.cat_encoder.__class__.__name__
 
         if self.cat_variables is not None and self.cat_encoder is None:
             if self.model_name not in ["LGBMRegressor", "CatBoostRegressor"]:
@@ -251,14 +250,22 @@ class ml_direct_forecaster:
         ## if fit has been called but forecat has not been called yet, we can fit the encoder on the training data and store it for use during forecasting
 
         if self.cat_encoder is not None:
-            # if self.target_col in df.columns and not hasattr(self, "model_fit"):
-            if self.target_col in df.columns: # if we have target values, we are in the fit stage and can fit the encoder on the training data (if not already fitted) and then transform the data for model fitting
-                self.cat_encoder.fit(df.drop(columns=[self.target_col]), df[self.target_col])
 
-                train_df = self.cat_encoder.transform(df.drop(columns=[self.target_col]))
-                return pd.concat([df[[self.target_col]], pd.DataFrame(train_df, index=df.index)], axis=1)
-            else: # if we do not have target values, we are in the forecast stage and can use the already fitted encoder to transform the data for forecasting
-                return self.cat_encoder.transform(df)
+            if self.target_col in df.columns: # if we have target values, we are in the fit stage and can fit the encoder on the training data (if not already fitted) and then transform the data for model fitting
+                num_cols = [c for c in df.columns if c not in self.cat_variables + [self.target_col]]
+
+                # pass_cols = self.cat_variables + num_cols
+                self.preprocess = ColumnTransformer(
+                    transformers=[("cat", self.cat_encoder, self.cat_variables), ("num", "passthrough", num_cols)],
+                    remainder="drop",
+                    verbose_feature_names_out=False
+                ).set_output(transform="pandas")
+
+                X_train = self.preprocess.fit_transform(df.drop(columns=[self.target_col]), y=df[self.target_col])
+                return pd.concat([df[[self.target_col]], X_train], axis=1)
+            
+            else: # if we do not have target values, we are in the forecast stage and can just transform the data using the already fitted encoder
+                return self.preprocess.transform(df)
         else:
             return df
         

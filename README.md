@@ -127,8 +127,8 @@ load_wales_admissions["day_of_month"] = load_wales_admissions.index.day # add da
 train = load_wales_admissions[:-30]
 test = load_wales_admissions[-30:]
 cat_variables = ["day_of_week", "month", "day_of_month"]
-from feature_engine.encoding import OneHotEncoder
-ohe = OneHotEncoder(drop_last=True)
+from sklearn.preprocessing import OneHotEncoder
+ohe = OneHotEncoder(drop='first', sparse_output=False, handle_unknown="ignore")
 transforms = [rolling_mean(window_size= 28, shift=7), rolling_std(window_size=28), expanding_mean()] 
 # import linear regression from sklearn
 from sklearn.linear_model import LinearRegression

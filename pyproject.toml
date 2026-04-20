@@ -55,7 +55,6 @@ ml = [
     "cubist",
     "lightgbm",
     "catboost",
-    "feature-engine"
 ]
 
 all = [
@@ -69,7 +68,6 @@ all = [
     "openpyxl",
     "lightgbm",
     "catboost",
-    "feature-engine"
 ]
 
 [project.urls]
