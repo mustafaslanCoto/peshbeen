@@ -36,6 +36,7 @@ class arima:
         box_cox: Union[bool, float, int] = False,
         box_cox_biasadj: bool = False,
         cat_variables: Optional[List[str]] = None,
+        categorical_encoder: Optional[Any] = None,
         target_encode: bool = False) -> None:
 
         """
@@ -67,8 +68,8 @@ class arima:
             Whether to apply bias adjustment when inverting the Box-Cox transformation on forecasts. Default is False.
         cat_variables : list of str, optional
             List of categorical feature column names. If provided, these columns will be treated as categorical variables and encoded accordingly. Default is None (no categorical variables).
-        target_encode : bool, optional
-            Whether to use target encoding for categorical variables instead of one-hot encoding. If True, each categorical variable will be replaced with the mean of the target variable for each category, computed using K-fold target encoding to avoid data leakage. Default is False (use one-hot encoding for categorical variables).
+        categorical_encoder : object, optional
+            Categorical encoder object (e.g. OneHotEncoder(), MeanEncoder(), etc.) to apply to the categorical variables specified in cat_variables. The encoder should have fit() and transform() methods that can be applied to the input DataFrame. Default is None (no categorical encoding) and if None, categorical variables can only be used if the model can handle them natively (e.g. LGBM or CatBoost).
 
         Returns
         -------
@@ -77,6 +78,9 @@ class arima:
         
         self.target_col = target_col
         self.cat_variables = cat_variables
+        self.cat_encoder = categorical_encoder
+        if self.cat_encoder is not None:
+            self.cat_name = self.cat_encoder.__class__.__name__
         self.target_encode = target_encode
         self.cps = change_points
         self.pol = pol_degree
@@ -138,21 +142,7 @@ class arima:
 
         # ── categorical encoding ──────────────────────────────────────────────
         if self.cat_variables is not None:
-            if self.target_encode:
-                for col in self.cat_variables:
-                    encode_col = col + "_target_encoded"
-                    dfc[encode_col] = kfold_target_encoder(dfc, col, self.target_col, 36)
-                self.df_encode = dfc.copy()
-                dfc = dfc.drop(columns=self.cat_variables)
-
-            else:
-                for col, cats in self.cat_var.items():
-                    dfc[col] = pd.Categorical(dfc[col], categories=cats) # ensure same categories as training
-                dfc = pd.get_dummies(dfc, dtype=float)
-                for pat in self.drop_categ_patterns:
-                    cols = list(dfc.filter(regex=pat).columns)
-                    if cols:
-                        dfc.drop(cols, axis=1, inplace=True)
+            dfc = self.create_encoded_features(dfc)
 
         if self.target_col not in dfc.columns:
             return dfc.dropna()
@@ -209,6 +199,31 @@ class arima:
                     dfc[f"{func.__class__.__name__}_{func.window_size}_shift_{func.shift}"] = func(dfc[self.target_col])
 
         return dfc.dropna()
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # ENCODE CATEGORICAL FEATURES
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def create_encoded_features(self,
+                    df: pd.DataFrame
+                    ) -> pd.DataFrame:
+        
+        ## make sure categorical variables are treated as category dtype for encoding
+        for col in self.cat_variables:
+            df[col] = df[col].astype('category')
+        ## if fit has been called but forecat has not been called yet, we can fit the encoder on the training data and store it for use during forecasting
+
+        if self.cat_encoder is not None:
+            # if self.target_col in df.columns and not hasattr(self, "model_fit"):
+            if self.target_col in df.columns: # if we have target values, we are in the fit stage and can fit the encoder on the training data (if not already fitted) and then transform the data for model fitting
+                self.cat_encoder.fit(df.drop(columns=[self.target_col]), df[self.target_col])
+
+                train_df = self.cat_encoder.transform(df.drop(columns=[self.target_col]))
+                return pd.concat([df[[self.target_col]], pd.DataFrame(train_df, index=df.index)], axis=1)
+            else: # if we do not have target values, we are in the forecast stage and can use the already fitted encoder to transform the data for forecasting
+                return self.cat_encoder.transform(df)
+        else:
+            raise ValueError("cat_variables specified but categorical_encoder is None. Please provide a categorical encoder or set cat_variables to None.")
 
     # ─────────────────────────────────────────────────────────────────────────
     # FIT
@@ -225,19 +240,9 @@ class arima:
         df : pd.DataFrame
             Training DataFrame containing the target and any feature columns.
         """
-        # Build categorical lookup for non-native-cat models
-        if self.cat_variables is not None and not self.target_encode:
-            self.cat_var = {
-                c: sorted(df[c].drop_duplicates().tolist())
-                for c in self.cat_variables
-            }
-            self.drop_categ_patterns = []
-            for c in self.cat_variables:
-                base = sorted(df[c].drop_duplicates().tolist())[0]
-                self.drop_categ_patterns.append(rf"^{re.escape(c)}_{re.escape(str(base))}$")
 
         model_df = self.data_prep(df)
-        self.X = model_df.drop(columns=[self.target_col]).to_numpy()
+        self.X = model_df.drop(columns=[self.target_col]).to_numpy(dtype=np.float64)
         self.y = model_df[self.target_col].to_numpy()
 
         self.model = ARIMA(order=self.order, seasonal_order=self.seasonal_order, season_length= self.seasonal_length)
@@ -344,16 +349,11 @@ class arima:
         np.ndarray
             Forecast values of length `H`.
         """
+        
         # ── Prepare exog ──────────────────────────────────────────────────────
         if exog is not None:
             if self.cat_variables is not None:
-                if self.target_encode:
-                    for col in self.cat_variables:
-                        encode_col = col + "_target_encoded"
-                        exog[encode_col] = target_encoder_for_test(self.df_encode, exog, col)
-                    exog = exog.drop(columns=self.cat_variables)
-                else:
-                    exog = self.data_prep(exog)
+                exog = self.data_prep(exog)
 
         # Rolling lag history
         lags = self.y.tolist()
@@ -400,7 +400,7 @@ class arima:
             forecasts = np.array(predictions)
         else:
             if exog is not None:
-                forecasts = self.model.predict(h=H, X=exog.to_numpy())["mean"]
+                forecasts = self.model.predict(h=H, X=exog.to_numpy(dtype=np.float64))["mean"]
             else:
                 forecasts = self.model.predict(h=H)["mean"]
 

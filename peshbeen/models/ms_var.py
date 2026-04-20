@@ -7,7 +7,6 @@ from typing import List, Dict, Optional, Callable, Tuple, Any, Union
 import numpy as np
 import pandas as pd
 import copy
-import statsmodels.api as sm
 from ..transformations import (box_cox_transform, back_box_cox_transform,
                                       rolling_quantile,
                         expanding_mean, expanding_std, expanding_quantile)
@@ -17,13 +16,10 @@ from ..statstools import lr_trend_model, forecast_trend
 # dot not show warnings
 import warnings
 warnings.filterwarnings("ignore")
-import copy
-import statsmodels.api as sm
 from scipy.stats import multivariate_normal
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from scipy.special import logsumexp
 from scipy.stats import t
-import re
 
 
 class ms_var:
@@ -44,6 +40,7 @@ class ms_var:
         box_cox_biasadj: Optional[Dict[str, bool]] = None,
         add_constant: bool = True,
         cat_variables: Optional[List[str]] = None,
+        categorical_encoder: Optional[Union[Dict[str, Any], Any]] = None,
         method: str = "posterior",
         covariance_type: str = "full",
         switching_cov: bool = True,
@@ -89,8 +86,10 @@ class ms_var:
             Dictionary specifying whether to apply bias adjustment when inverting the Box-Cox transformation for each target variable. The keys are target column names, and the values are booleans indicating whether to apply bias adjustment.
         add_constant : bool, default=True
             If True, a constant column will be added to the regressor matrix for each state.
-        cat_variables : Optional[List[str]], default=None
-            List of column names corresponding to categorical features that should be one-hot encoded.
+        cat_variables : Optional[List[str]], optional
+            List of categorical feature column names to encode. These will be shared across all target variables.
+        categorical_encoder : Optional[Union[Dict[str, Any], Any]], optional
+            A categorical encoder instance, or a single-entry dictionary mapping the target column to the encoder when the encoder requires access to the target variable during fitting (e.g. {target_col: MeanEncoder()}). If encoder requiring target access is provided directly without the dict format, first target column in target_cols will be used for fitting the encoder. For encoders that do not require target access, pass the encoder instance directly (e.g. OneHotEncoder()).
         method : str, default='posterior'
             Method for state assignment during the E-step. Options are 'posterior' for soft assignments based on posterior probabilities or 'viterbi' for hard assignments using the Viterbi algorithm.
         covariance_type : str, default='full'
@@ -123,6 +122,24 @@ class ms_var:
         self.N = n_components
         self.target_cols = target_cols
         self.cat_variables = cat_variables
+        if categorical_encoder is not None:
+            if isinstance(categorical_encoder, dict):
+                if len(categorical_encoder) != 1:
+                    raise ValueError("If categorical_encoder is a dict, it must contain exactly one entry mapping a target column to the encoder instance.")
+                encoder_target_col, encoder = next(iter(categorical_encoder.items())) # get the single key-value pair from the dict
+                if encoder_target_col not in self.target_cols:
+                    raise ValueError("The single key in categorical_encoder must be one of target_cols.")
+                self.cat_encoder_key = encoder_target_col
+                self.cat_encoder = encoder
+                self.cat_name = self.cat_encoder.__class__.__name__
+            else:
+                self.cat_encoder = categorical_encoder
+                self.cat_name = self.cat_encoder.__class__.__name__
+                self.cat_encoder_key = self.target_cols[0] # just get one of the target columns since we are not using the encoder in a target-specific way, but we will check for target access requirement later when we fit the encoder
+
+        else:
+            # self.cat_encoder_key = None
+            self.cat_encoder = None
         self.cons = add_constant
         self.method = method
         self.iter = n_iter
@@ -247,14 +264,7 @@ class ms_var:
 
         # ── categorical encoding ──────────────────────────────────────────────
         if self.cat_variables is not None:
-            for col, cats in self.cat_var.items():
-                dfc[col] = pd.Categorical(dfc[col], categories=cats)
-            dfc = pd.get_dummies(dfc, dtype=np.float64)
-
-            for pat in self.drop_categ_patterns:
-                cols = list(dfc.filter(regex=pat).columns)
-                if cols:
-                    dfc.drop(cols, axis=1, inplace=True)
+            dfc = self.create_encoded_features(dfc)
 
         if not all(col in dfc.columns for col in self.target_cols):
             return dfc.dropna()
@@ -346,7 +356,7 @@ class ms_var:
         df_clean = dfc.dropna()
         X = df_clean.drop(columns=self.target_cols)
         if self.cons:
-            X = sm.add_constant(X)
+            X.insert(0, 'const', 1)
         self.col_names = X.columns.tolist() if hasattr(X, 'columns') else [f"x{i}" for i in range(X.shape[1])]
         self.X = np.array(X)
         self.y = np.array(df_clean[self.target_cols])
@@ -498,6 +508,31 @@ class ms_var:
                 self.covs = [np.diag(np.diag(c)) for c in covs]
 
     # ─────────────────────────────────────────────────────────────────────────
+    # ENCODE CATEGORICAL FEATURES
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def create_encoded_features(self,
+                    df: pd.DataFrame
+                    ) -> pd.DataFrame:
+        
+        ## make sure categorical variables are treated as category dtype for encoding
+        for col in self.cat_variables:
+            df[col] = df[col].astype('category')
+        ## if fit has been called but forecat has not been called yet, we can fit the encoder on the training data and store it for use during forecasting
+
+        if self.cat_encoder is not None:
+            # if self.target_col in df.columns and not hasattr(self, "model_fit"):
+            if all(col in df.columns for col in self.target_cols): # if we have target values, we are in the fit stage and can fit the encoder on the training data (if not already fitted) and then transform the data for model fitting
+                self.cat_encoder.fit(df.drop(columns=self.target_cols), df[self.cat_encoder_key])
+
+                train_df = self.cat_encoder.transform(df.drop(columns=self.target_cols))
+                return pd.concat([df[self.target_cols], pd.DataFrame(train_df, index=df.index)], axis=1)
+            else: # if we do not have target values, we are in the forecast stage and can use the already fitted encoder to transform the data for forecasting
+                return self.cat_encoder.transform(df)
+        else:
+            raise ValueError("cat_variables is specified but cat_encoder is None. Please provide a categorical encoder instance to encode the categorical variables.")
+            
+    # ─────────────────────────────────────────────────────────────────────────
     # FIT (EM training)
     # ─────────────────────────────────────────────────────────────────────────
 
@@ -518,16 +553,6 @@ class ms_var:
         float
             Final log-likelihood after the additional EM iterations.
         """
-
-        if self.cat_variables is not None:
-            self.cat_var = {
-                c: sorted(df[c].drop_duplicates().tolist(), key=lambda x: str(x))
-                for c in self.cat_variables
-            }
-            self.drop_categ_patterns = []
-            for c in self.cat_variables:
-                base = sorted(df[c].drop_duplicates().tolist())[0]
-                self.drop_categ_patterns.append(rf"^{re.escape(c)}_{re.escape(str(base))}$")
 
         self.data_prep(df)
 
@@ -701,12 +726,10 @@ class ms_var:
 
         # ── Prepare exog ──────────────────────────────────────────────────────
         if exog is not None:
-            if self.cons:
-                if exog.shape[0] == 1:
-                    exog.insert(0, 'const', 1)
-                else:
-                    exog = sm.add_constant(exog)
-            exog = np.array(self.data_prep(exog))
+            exog = self.data_prep(exog)
+            exog = np.array(exog)
+        
+        cons = [1] if self.cons else []
 
         # ── Pre-compute trend forecasts ───────────────────────────────────────
         trend_forecasts: Dict[str, np.ndarray] = {}
@@ -736,10 +759,7 @@ class ms_var:
 
         for t in range(H):
             # Exogenous features for step t
-            if exog is not None:
-                exo_inp = exog[t].tolist()
-            else:
-                exo_inp = [1] if self.cons else []
+            exo_inp = exog[t].tolist() if exog is not None else []
 
             # Lag features
             inp_lag = []
@@ -754,7 +774,7 @@ class ms_var:
                     for func in funcs:
                         transform_lag.append(func(series_array, is_forecast=True).to_numpy()[-1])
 
-            inp = np.array(exo_inp + inp_lag + transform_lag)
+            inp = np.array(cons + exo_inp + inp_lag + transform_lag)
 
             # State-weighted prediction
             state_preds: Dict[str, np.ndarray] = {col: np.zeros(self.N) for col in self.target_cols}

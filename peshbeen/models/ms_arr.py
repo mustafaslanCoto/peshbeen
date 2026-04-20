@@ -7,7 +7,6 @@ from typing import List, Dict, Optional, Callable, Tuple, Any, Union
 import numpy as np
 import pandas as pd
 import copy
-import statsmodels.api as sm
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from ..transformations import (box_cox_transform, back_box_cox_transform,
                                       rolling_quantile, expanding_mean, expanding_std, expanding_quantile)
@@ -17,10 +16,8 @@ from ..statstools import lr_trend_model, forecast_trend
 # dot not show warnings
 import warnings
 warnings.filterwarnings("ignore")
-import statsmodels.api as sm
 from scipy.special import logsumexp
 from scipy.stats import t, norm
-import re
 
 
 import warnings
@@ -44,6 +41,7 @@ class ms_arr:
         box_cox_biasadj: bool = False,
         add_constant: bool = True,
         cat_variables: Optional[List[str]] = None,
+        categorical_encoder: Optional[Any] = None,
         method: str = 'posterior',
         switching_var: bool = True,
         startprob_prior: float = 1e3,
@@ -90,8 +88,10 @@ class ms_arr:
             Whether to apply bias adjustment when inverting Box-Cox transformation (default: False).
         add_constant : bool
             If True, prepend a constant column to the regressor matrix (default: True).
-        cat_variables : Optional[List[str]]
-            Categorical feature columns (one-hot encoded).
+        cat_variables : list of str, optional
+            List of categorical feature column names. If provided, these columns will be treated as categorical variables and encoded accordingly. Default is None (no categorical variables).
+        categorical_encoder : object, optional
+            Categorical encoder object (e.g. OneHotEncoder(), MeanEncoder(), etc.) to apply to the categorical variables specified in cat_variables. The encoder should have fit() and transform() methods that can be applied to the input DataFrame. Default is None (no categorical encoding) and if None, categorical variables can only be used if the model can handle them natively (e.g. LGBM or CatBoost).
         method : str
             State assignment method: 'posterior' (soft) or 'viterbi' (hard). Default: 'posterior'.
         switching_var : bool
@@ -127,6 +127,9 @@ class ms_arr:
         self.N = n_components
         self.target_col = target_col
         self.cat_variables = cat_variables
+        self.cat_encoder = categorical_encoder
+        if self.cat_encoder is not None:
+            self.cat_name = self.cat_encoder.__class__.__name__
         self.cons = add_constant
         self.method = method
         self.switching_var = switching_var
@@ -212,13 +215,7 @@ class ms_arr:
 
         # ── categorical encoding ──────────────────────────────────────────────
         if self.cat_variables is not None:
-            for col, cats in self.cat_var.items():
-                dfc[col] = pd.Categorical(dfc[col], categories=cats)
-            dfc = pd.get_dummies(dfc, dtype=np.float64)
-            for pat in self.drop_categ_patterns:
-                cols = list(dfc.filter(regex=pat).columns)
-                if cols:
-                    dfc.drop(cols, axis=1, inplace=True)
+            dfc = self.create_encoded_features(dfc)
 
         if self.target_col not in dfc.columns:
             return dfc.dropna()
@@ -296,7 +293,7 @@ class ms_arr:
         df_clean = dfc.dropna()
         X = df_clean.drop(columns=[self.target_col])
         if self.cons:
-            X = sm.add_constant(X)
+            X.insert(0, 'const', 1.0)
         self.col_names = X.columns.tolist() if hasattr(X, 'columns') else [f"x{i}" for i in range(X.shape[1])]
         self.X = np.array(X)
         self.y = np.array(df_clean[self.target_col])
@@ -438,6 +435,31 @@ class ms_arr:
         self.LL = loglik
 
     # ─────────────────────────────────────────────────────────────────────────
+    # ENCODE CATEGORICAL FEATURES
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def create_encoded_features(self,
+                    df: pd.DataFrame
+                    ) -> pd.DataFrame:
+        
+        ## make sure categorical variables are treated as category dtype for encoding
+        for col in self.cat_variables:
+            df[col] = df[col].astype('category')
+        ## if fit has been called but forecat has not been called yet, we can fit the encoder on the training data and store it for use during forecasting
+
+        if self.cat_encoder is not None:
+            # if self.target_col in df.columns and not hasattr(self, "model_fit"):
+            if self.target_col in df.columns: # if we have target values, we are in the fit stage and can fit the encoder on the training data (if not already fitted) and then transform the data for model fitting
+                self.cat_encoder.fit(df.drop(columns=[self.target_col]), df[self.target_col])
+
+                train_df = self.cat_encoder.transform(df.drop(columns=[self.target_col]))
+                return pd.concat([df[[self.target_col]], pd.DataFrame(train_df, index=df.index)], axis=1)
+            else: # if we do not have target values, we are in the forecast stage and can use the already fitted encoder to transform the data for forecasting
+                return self.cat_encoder.transform(df)
+        else:
+            raise ValueError("cat_variables specified but categorical_encoder is None. Please provide a categorical encoder or set cat_variables to None.")
+        
+    # ─────────────────────────────────────────────────────────────────────────
     # FIT (EM training)
     # ─────────────────────────────────────────────────────────────────────────
 
@@ -458,15 +480,7 @@ class ms_arr:
             Final log-likelihood after EM convergence.
 
         """
-        if self.cat_variables is not None:
-            self.cat_var = {
-                c: sorted(df[c].drop_duplicates().tolist(), key=lambda x: str(x))
-                for c in self.cat_variables
-            }
-            self.drop_categ_patterns = []
-            for c in self.cat_variables:
-                base = sorted(df[c].drop_duplicates().tolist())[0]
-                self.drop_categ_patterns.append(rf"^{re.escape(c)}_{re.escape(str(base))}$")
+
         self.data_prep(df)
 
         prev_ll = -np.inf
@@ -592,12 +606,10 @@ class ms_arr:
 
         # ── Prepare exog ──────────────────────────────────────────────────────
         if exog is not None:
-            if self.cons:
-                if exog.shape[0] == 1:
-                    exog.insert(0, 'const', 1)
-                else:
-                    exog = sm.add_constant(exog)
-            exog = np.array(self.data_prep(exog))
+            exog = self.data_prep(exog)
+            exog = np.array(exog)
+        
+        cons = [1] if self.cons else []
 
         # ── Pre-compute trend forecasts ───────────────────────────────────────
         if self.trend is not None:
@@ -625,10 +637,8 @@ class ms_arr:
 
         for t in range(H):
             # Exogenous features for step t
-            if exog is not None:
-                exo_inp = exog[t].tolist()
-            else:
-                exo_inp = [1] if self.cons else []
+            exo_inp = exog[t].tolist() if exog is not None else []
+            
 
             # Lag features
             inp_lag = [y_list[-l] for l in self.lags] if self.lags is not None else []
@@ -640,7 +650,7 @@ class ms_arr:
                 for func in self.lag_transform:
                     transform_lag.append(func(series_array, is_forecast=True).to_numpy()[-1])
 
-            inp = np.array(exo_inp + inp_lag + transform_lag)
+            inp = np.array(cons + exo_inp + inp_lag + transform_lag)
 
             # State-weighted prediction
             state_preds = np.array([np.dot(self.coeffs[j], inp) for j in range(self.N)])

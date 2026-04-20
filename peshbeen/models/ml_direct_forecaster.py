@@ -6,19 +6,16 @@ from typing import List, Dict, Optional, Callable, Tuple, Any, Union
 import numpy as np
 import pandas as pd
 import copy
-from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
+# from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
-from lightgbm import LGBMRegressor
 from ..model_selection import SplitTimeSeries
 from ..statstools import lr_trend_model, forecast_trend
-from catboost import CatBoostRegressor
 from ..transformations import (box_cox_transform, back_box_cox_transform,
                                       rolling_quantile, expanding_mean, expanding_std, expanding_quantile)
 from ..helpers import seasonal_diff, undiff_ts, invert_seasonal_diff
 # dot not show warnings
 import warnings
 warnings.filterwarnings("ignore")
-import re # for regex escaping to build drop patterns
 
 class ml_direct_forecaster:
 
@@ -38,7 +35,7 @@ class ml_direct_forecaster:
         box_cox: Union[bool, float, int] = False,
         box_cox_biasadj: bool = False,
         cat_variables: Optional[List[str]] = None,
-        target_encode: bool = False,
+        categorical_encoder: Optional[Any] = None
     ) -> None:
 
         """
@@ -75,12 +72,13 @@ class ml_direct_forecaster:
         box_cox_biasadj : bool, optional
             Bias adjustment when inverting Box-Cox. Default is False.
         cat_variables : list of str, optional
-            Categorical feature column names. Default is None.
-        target_encode : bool, optional
-            Use target encoding instead of one-hot encoding. Default is False.
+            List of categorical feature column names. If provided, these columns will be treated as categorical variables and encoded accordingly. Default is None (no categorical variables).
+        categorical_encoder : object, optional
+            Categorical encoder object (e.g. OneHotEncoder(), MeanEncoder(), etc.) to apply to the categorical variables specified in cat_variables. The encoder should have fit() and transform() methods that can be applied to the input DataFrame. Default is None (no categorical encoding) and if None, categorical variables can only be used if the model can handle them natively (e.g. LGBM or CatBoost).
         """
 
         self.model = model
+        self.model_name = self.model.__class__.__name__
         self.target_col = target_col
         if isinstance(H, int):
             self.H = list(range(1, H + 1))
@@ -91,7 +89,17 @@ class ml_direct_forecaster:
         else:
             raise TypeError("H must be an int or a list of ints.")
         self.cat_variables = cat_variables
-        self.target_encode = target_encode
+        self.cat_encoder = categorical_encoder
+        if self.cat_encoder is not None:
+            self.cat_name = self.cat_encoder.__class__.__name__
+
+        if self.cat_variables is not None and self.cat_encoder is None:
+            if self.model_name not in ["LGBMRegressor", "CatBoostRegressor"]:
+                raise ValueError(
+                    "Model must be LGBMRegressor or CatBoostRegressor to handle categorical variables without a specified encoder "
+                    "(or provide an encoder such as OneHotEncoder/MeanEncoder)."
+                )
+        
         self.cps = change_points
         self.pol = pol_degree
 
@@ -160,25 +168,7 @@ class ml_direct_forecaster:
 
         # ── categorical encoding ──────────────────────────────────────────────
         if self.cat_variables is not None:
-            if self.target_encode:
-                for col in self.cat_variables:
-                    encode_col = col + "_target_encoded"
-                    dfc[encode_col] = kfold_target_encoder(dfc, col, self.target_col, 36)
-                self.df_encode = dfc.copy()
-                dfc = dfc.drop(columns=self.cat_variables)
-            else:
-                if isinstance(self.model, (CatBoostRegressor, LGBMRegressor)):
-                    for col in self.cat_variables:
-                        dfc[col] = dfc[col].astype('category')
-                else:
-                    for col, cats in self.cat_var.items():
-                        dfc[col] = pd.Categorical(dfc[col], categories=cats)
-                    dfc = pd.get_dummies(dfc, dtype=float)
-                    if isinstance(self.model, (LinearRegression, Ridge, Lasso, ElasticNet)):
-                        for pat in self.drop_categ_patterns:
-                            cols = list(dfc.filter(regex=pat).columns)
-                            if cols:
-                                dfc.drop(cols, axis=1, inplace=True)
+            dfc = self.create_encoded_features(dfc)
 
         if self.target_col not in dfc.columns:
             return dfc.dropna()
@@ -248,6 +238,31 @@ class ml_direct_forecaster:
         return dfc.dropna()
 
     # ─────────────────────────────────────────────────────────────────────────
+    # ENCODE CATEGORICAL FEATURES
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def create_encoded_features(self,
+                    df: pd.DataFrame
+                    ) -> pd.DataFrame:
+        
+        ## make sure categorical variables are treated as category dtype for encoding
+        for col in self.cat_variables:
+            df[col] = df[col].astype('category')
+        ## if fit has been called but forecat has not been called yet, we can fit the encoder on the training data and store it for use during forecasting
+
+        if self.cat_encoder is not None:
+            # if self.target_col in df.columns and not hasattr(self, "model_fit"):
+            if self.target_col in df.columns: # if we have target values, we are in the fit stage and can fit the encoder on the training data (if not already fitted) and then transform the data for model fitting
+                self.cat_encoder.fit(df.drop(columns=[self.target_col]), df[self.target_col])
+
+                train_df = self.cat_encoder.transform(df.drop(columns=[self.target_col]))
+                return pd.concat([df[[self.target_col]], pd.DataFrame(train_df, index=df.index)], axis=1)
+            else: # if we do not have target values, we are in the forecast stage and can use the already fitted encoder to transform the data for forecasting
+                return self.cat_encoder.transform(df)
+        else:
+            return df
+        
+    # ─────────────────────────────────────────────────────────────────────────
     # FIT
     # Train one model per horizon h by shifting the target h steps forward
     # ─────────────────────────────────────────────────────────────────────────
@@ -264,18 +279,6 @@ class ml_direct_forecaster:
         df : pd.DataFrame
             Training DataFrame containing the target and any feature columns.
         """
-        # Build categorical lookup for non-native-cat models
-        if not isinstance(self.model, (CatBoostRegressor, LGBMRegressor)):
-            if self.cat_variables is not None and not self.target_encode:
-                self.cat_var = {
-                    c: sorted(df[c].drop_duplicates().tolist())
-                    for c in self.cat_variables
-                }
-                if isinstance(self.model, (LinearRegression, Ridge, Lasso, ElasticNet)):
-                    self.drop_categ_patterns = []
-                    for c in self.cat_variables:
-                        base = sorted(df[c].drop_duplicates().tolist())[0]
-                        self.drop_categ_patterns.append(rf"^{re.escape(c)}_{re.escape(str(base))}$")
 
         # Run data_prep once to get the transformed feature matrix (lags, transforms, etc.)
         # We reuse X across all horizons — only y changes (shifted per horizon h)
@@ -288,6 +291,13 @@ class ml_direct_forecaster:
 
         self.direct_models = {}
 
+        fit_kwargs = {}
+
+        if self.model_name == "LGBMRegressor" and self.cat_encoder is None:
+            fit_kwargs = {"categorical_feature": self.cat_variables}
+        elif self.model_name == "CatBoostRegressor" and self.cat_encoder is None:
+            fit_kwargs = {"cat_features": self.cat_variables, "verbose": False}
+
         for h in self.H:
             # Shift target h steps forward: row i now contains the value h steps ahead
             df_h = base_df.copy()
@@ -299,13 +309,7 @@ class ml_direct_forecaster:
 
             model_h = copy.deepcopy(self.model)
 
-            if isinstance(model_h, LGBMRegressor):
-                fitted_h = model_h.fit(X_h, y_h, categorical_feature=self.cat_variables)
-            elif isinstance(model_h, CatBoostRegressor):
-                fitted_h = model_h.fit(X_h, y_h, cat_features=self.cat_variables, verbose=False)
-            else:
-                fitted_h = model_h.fit(X_h, y_h)
-
+            fitted_h = model_h.fit(X_h, y_h, **fit_kwargs)
             self.direct_models[h] = fitted_h
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -354,15 +358,7 @@ class ml_direct_forecaster:
         # ── Prepare exog ──────────────────────────────────────────────────────
         if exog is not None:
             if self.cat_variables is not None:
-                if self.target_encode:
-                    for col in self.cat_variables:
-                        encode_col = col + "_target_encoded"
-                        exog[encode_col] = target_encoder_for_test(self.df_encode, exog, col)
-                    exog = exog.drop(columns=self.cat_variables)
-                else:
-                    if not isinstance(self.model, (CatBoostRegressor, LGBMRegressor)):
-                        exog = self.data_prep(exog)
-
+                exog = self.data_prep(exog)
         # ── Build input row from most recent lags ─────────────────────────────
         # Use the last row of the training feature matrix as the forecast input.
         # This contains the most recent lag values computed during fit.
@@ -399,7 +395,7 @@ class ml_direct_forecaster:
             else:
                 inp = last_features.copy()
 
-            if isinstance(self.model, (LGBMRegressor, CatBoostRegressor)):
+            if (self.model_name in ['LGBMRegressor', 'CatBoostRegressor']) and self.cat_encoder is None:
                 for c in inp.columns:
                     if c in (self.cat_variables or []):
                         inp[c] = inp[c].astype(int).astype('category')

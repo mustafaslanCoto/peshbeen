@@ -127,12 +127,14 @@ load_wales_admissions["day_of_month"] = load_wales_admissions.index.day # add da
 train = load_wales_admissions[:-30]
 test = load_wales_admissions[-30:]
 cat_variables = ["day_of_week", "month", "day_of_month"]
+from feature_engine.encoding import OneHotEncoder
+ohe = OneHotEncoder(drop_last=True)
 transforms = [rolling_mean(window_size= 28, shift=7), rolling_std(window_size=28), expanding_mean()] 
 # import linear regression from sklearn
 from sklearn.linear_model import LinearRegression
 ml_linear = ml_forecaster(model=XGBRegressor(),
               target_col='admissions', lags = 6,
-              cat_variables=cat_variables,
+              cat_variables=cat_variables, categorical_encoder=ohe,
               lag_transform=transforms)
 ml_linear.fit(train)
 forecasts = ml_linear.forecast(H=30, exog=test[cat_variables])
