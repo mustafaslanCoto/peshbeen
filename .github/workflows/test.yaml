@@ -4,37 +4,31 @@ on:  [workflow_dispatch, pull_request, push]
 jobs:
   test:
     runs-on: ubuntu-latest
+
     steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Fix execnb
         run: |
-          python -m pip install --no-cache-dir 'execnb>=0.1.7,<0.2.0'
+          python -m pip install --no-cache-dir "execnb>=0.1.7,<0.2.0"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev,all]"
+
       - uses: answerdotai/workflows/nbdev-ci@master
 
-# jobs:
-#   test:
-#     runs-on: ubuntu-latest
-#     steps:
-#       - uses: actions/checkout@v3
-#       - uses: actions/setup-python@v4
-#         with:
-#           python-version: '3.12'
-#       - name: Install nbdev cleanly
-#         run: |
-#           python -m pip uninstall -y execnb nbdev || true
-#           python -m pip install --no-cache-dir 'nbdev<3' 'execnb>=0.1.7,<0.2.0'
-#           python -c "from execnb.nbio import read_nb; print('execnb OK')"
-#       - name: Run nbdev CI
-#         run: |
-#           python -m nbdev.clean
-#           python -m nbdev.doclinks
-#           python -m pip install -e ".[dev]"
-#           python -m nbdev.test
+    # steps:
+    #   - name: Fix execnb
+    #     run: |
+    #       python -m pip install --no-cache-dir 'execnb>=0.1.7,<0.2.0'
+    #   - name: Install dependencies
+    #     run: |
+    #       pip install peshbeen[all]
+    #   - uses: answerdotai/workflows/nbdev-ci@master
 
-# jobs:
-#   test:
-#     runs-on: ubuntu-latest
-#     steps: [uses: answerdotai/workflows/nbdev-ci@master]
