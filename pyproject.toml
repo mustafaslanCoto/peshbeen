@@ -67,6 +67,9 @@ all = [
     "xgboost",
     "cubist",
     "openpyxl",
+    "lightgbm",
+    "catboost",
+    "feature-engine"
 ]
 
 [project.urls]
