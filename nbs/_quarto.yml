@@ -6,6 +6,7 @@
       theme: cosmo
       css: styles.css
       toc: true
+      toc-depth: 4
       keep-md: true
       toc-location: right # Keeps TOC on the right like your examples
       toc-title: "Table of Contents"
