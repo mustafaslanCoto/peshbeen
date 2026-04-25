@@ -15,31 +15,14 @@ def _sm_dataset(name: str) -> pd.DataFrame:
     import statsmodels.api as sm
     return getattr(sm.datasets, name).load_pandas().data
 
-# ─────────────────────────────────────────────────────────────────────────────
-# UNIVARIATE DATASETS
-# ─────────────────────────────────────────────────────────────────────────────
+# %% auto #0
+__all__ = ['load_airline_passengers', 'load_co2', 'load_sunspots', 'load_nile', 'load_macrodata', 'load_interest_inflation',
+           'load_elnino', 'load_livestock', 'load_wales_admissions', 'load_wales_calls', 'load_admission_calls',
+           'available_datasets']
 
-def admission_ts():
-    file_path = Path(peshbeen.__file__).parent / "data" / "wales_admissions.xlsx"
-    if not file_path.exists():
-        raise FileNotFoundError(f"Could not find dataset at: {file_path}")
-    return pd.read_excel(file_path).set_index("Date")
-
-def calls_ts():
-    file_path = Path(peshbeen.__file__).parent / "data" / "nhs_calls.xlsx"
-    if not file_path.exists():
-        raise FileNotFoundError(f"Could not find dataset at: {file_path}")
-    return pd.read_excel(file_path).set_index("Date")
-
-def admission_calls_ts() -> pd.DataFrame:
-    """Combined dataset of daily hospital admissions and emergency calls in Wales, UK"""
-    admissions = admission_ts()
-    calls = calls_ts()
-    return admissions.join(calls, how='inner')
-
-
+# %% ../nbs/modules/99_datasets.ipynb #ba80f2d4
 # airline passengers dataset
-def airline_passengers() -> pd.DataFrame:
+def load_airline_passengers() -> pd.DataFrame:
     """
     Monthly totals of international airline passengers (thousands) from
     January 1949 to December 1960 (144 observations).
@@ -79,8 +62,9 @@ def airline_passengers() -> pd.DataFrame:
     idx = pd.date_range(start='1949-01', periods=144, freq='MS')
     return pd.DataFrame({'passengers': _passengers}, index=idx)
 
-# CO2 dataset
-def load_co2_ts(
+
+# %% ../nbs/modules/99_datasets.ipynb #c971aad0
+def load_co2(
     interpolate: bool = True
 ) -> pd.DataFrame:
     """
@@ -115,8 +99,10 @@ def load_co2_ts(
     data.index.name = 'date'
     return data
 
-# sunspots dataset
-def load_sunspots_ts() -> pd.DataFrame:
+
+
+# %% ../nbs/modules/99_datasets.ipynb #e81135c9
+def load_sunspots() -> pd.DataFrame:
     """
     Annual sunspot activity from 1700 to 2008 (309 observations).
 
@@ -139,9 +125,8 @@ def load_sunspots_ts() -> pd.DataFrame:
     data = data.set_index('year')
     return data
 
-
-# nile dataset
-def load_nile_ts() -> pd.DataFrame:
+# %% ../nbs/modules/99_datasets.ipynb #09a4bec7
+def load_nile() -> pd.DataFrame:
     """
     Annual flow of the Nile river at Aswan from 1871 to 1970
     (100 observations, measured in 10^8 m³).
@@ -169,118 +154,8 @@ def load_nile_ts() -> pd.DataFrame:
     data = data.set_index('year')
     return data
 
-# births dataset
-def load_births_ts() -> pd.DataFrame:
-    """
-    Daily total of female births in California, 1959 (365 observations).
-
-    A classic univariate daily series with clear day-of-week effects,
-    originally from Newton (1988) and widely used in forecasting tutorials.
-
-    This dataset is fully hardcoded — no internet connection required.
-
-    Returns
-    -------
-    pd.DataFrame
-        DatetimeIndex (daily frequency 1959-01-01 to 1959-12-31),
-        columns ``'births'`` and ``'day_of_week'`` (0 = Monday).
-
-    Examples
-    --------
-    >>> from peshbeen.datasets import load_births
-    >>> df = load_births()
-    >>> df.head()
-    """
-    # Daily female births in California, 1959 — Newton (1988), public domain
-    _births = [
-        35, 32, 30, 31, 44, 29, 45, 43, 38, 27, 38, 33, 55, 47, 45, 37, 50,
-        43, 41, 52, 34, 53, 39, 32, 37, 43, 39, 35, 44, 38, 43, 38, 40, 39,
-        46, 33, 40, 40, 44, 37, 36, 41, 39, 37, 40, 39, 43, 33, 44, 42, 35,
-        38, 37, 45, 39, 41, 41, 43, 48, 40, 44, 46, 44, 49, 43, 35, 39, 40,
-        44, 36, 38, 44, 40, 43, 34, 39, 43, 38, 45, 37, 40, 39, 40, 41, 42,
-        40, 38, 40, 48, 43, 47, 46, 41, 42, 39, 44, 34, 40, 45, 34, 37, 36,
-        35, 41, 42, 43, 36, 39, 42, 44, 43, 41, 40, 42, 38, 32, 42, 37, 43,
-        38, 40, 40, 40, 34, 40, 37, 41, 36, 39, 37, 42, 44, 43, 44, 37, 44,
-        43, 42, 44, 39, 43, 37, 42, 38, 43, 41, 35, 40, 38, 40, 41, 40, 43,
-        39, 36, 43, 40, 38, 44, 37, 40, 40, 40, 43, 45, 38, 35, 40, 46, 40,
-        38, 43, 38, 43, 39, 43, 40, 43, 38, 41, 40, 41, 40, 44, 38, 41, 37,
-        42, 40, 41, 40, 37, 37, 40, 39, 42, 42, 39, 40, 38, 40, 43, 39, 42,
-        35, 41, 35, 42, 41, 44, 38, 43, 37, 39, 35, 39, 38, 41, 43, 43, 37,
-        42, 35, 35, 39, 39, 43, 40, 42, 44, 41, 43, 39, 40, 40, 46, 39, 44,
-        43, 43, 46, 42, 38, 37, 42, 40, 41, 44, 45, 44, 43, 45, 40, 44, 41,
-        44, 39, 43, 40, 40, 40, 41, 38, 43, 40, 42, 40, 41, 40, 40, 41, 40,
-        36, 42, 38, 36, 36, 40, 43, 39, 40, 40, 42, 40, 43, 42, 45, 39, 38,
-        39, 40, 40, 41, 38, 41, 41, 44, 40, 37, 36, 40, 44, 38, 41, 41, 44,
-        38, 42, 39, 41, 38, 39, 35, 45, 40, 36, 38, 42, 35, 43, 42, 46, 41,
-        44, 38, 44, 35, 38, 38, 44, 46, 44, 44, 38, 43, 43, 40, 42, 41, 43,
-        44, 38, 43, 43, 42, 44, 42, 42, 39, 40, 40, 40, 42, 38, 41, 44, 41,
-        41, 39, 43, 43, 42, 43, 38, 40,
-    ]
-    idx = pd.date_range('1959-01-01', periods=365, freq='D')
-    df = pd.DataFrame({'births': _births}, index=idx)
-    df['day_of_week'] = df.index.dayofweek
-    return df
-
-
-# elnino dataset
-
-def load_elnino_ts() -> pd.DataFrame:
-    """
-    Monthly average sea-surface temperature (°C) in the equatorial Pacific
-    (Niño 1+2 region, 0–10°S / 90–80°W) from January 1950 to December 2010
-    (732 observations).
-
-    Strong annual seasonality makes this a good univariate benchmark for
-    seasonal models (ETS, SARIMA, seasonal differencing).
-
-    Source: statsmodels built-in (sm.datasets.elnino). The raw data is stored
-    in wide format (61 rows × 12 month columns); this loader melts it into a
-    clean monthly time series.
-
-    Returns
-    -------
-    pd.DataFrame
-        DatetimeIndex (monthly frequency), single column ``'temperature'``.
-
-    Examples
-    --------
-    >>> from peshbeen.datasets import load_elnino
-    >>> df = load_elnino()
-    >>> df.head()
-    """
-    import statsmodels.api as sm
-    raw = sm.datasets.elnino.load_pandas().data
-
-    # The wide format has columns: YEAR, JAN, FEB, ..., DEC
-    month_map = {
-        'JAN': 1, 'FEB': 2, 'MAR': 3, 'APR': 4,
-        'MAY': 5, 'JUN': 6, 'JUL': 7, 'AUG': 8,
-        'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12
-    }
-    # Normalise column names (strip whitespace, upper-case)
-    raw.columns = [c.strip().upper() for c in raw.columns]
-    year_col = [c for c in raw.columns if 'YEAR' in c][0]
-    month_cols = [c for c in raw.columns if c in month_map]
-
-    records = []
-    for _, row in raw.iterrows():
-        year = int(row[year_col])
-        for mc in month_cols:
-            records.append({
-                'date': pd.Timestamp(year=year, month=month_map[mc], day=1),
-                'temperature': float(row[mc])
-            })
-
-    df = pd.DataFrame(records).set_index('date').sort_index()
-    df.index.freq = 'MS'
-    return df
-
-# ─────────────────────────────────────────────────────────────────────────────
-# MULTIVARIATE DATASETS
-# ─────────────────────────────────────────────────────────────────────────────
-
-# macrodata dataset
-def load_macrodata_ts(
+# %% ../nbs/modules/99_datasets.ipynb #fdf0a670
+def load_macrodata(
     columns: list = None
 ) -> pd.DataFrame:
     """
@@ -333,39 +208,10 @@ def load_macrodata_ts(
         data = data[columns]
     return data
 
-# interest and inflation dataset
-def load_interest_inflation_ts() -> pd.DataFrame:
-    """
-    Monthly West German interest and inflation rates from January 1972
-    to December 1998 (324 observations).
 
-    Columns
-    -------
-    Dp      First difference of CPI (used as inflation proxy)
-    R       Nominal short-term interest rate (%)
 
-    A standard bivariate VAR example from econometrics literature.
 
-    Source: statsmodels built-in (sm.datasets.interest_inflation).
-
-    Returns
-    -------
-    pd.DataFrame
-        DatetimeIndex (monthly frequency), columns ``'interest'`` and
-        ``'inflation'``.
-
-    Examples
-    --------
-    >>> from peshbeen.datasets import load_interest_inflation
-    >>> df = load_interest_inflation()
-    >>> df.head()
-    """
-    data = _sm_dataset('interest_inflation')
-    data = data.rename(columns={'Dp': 'inflation', 'R': 'interest'})
-    idx = pd.date_range(start='1972-01', periods=len(data), freq='MS')
-    data.index = idx
-    return data[['interest', 'inflation']]
-
+# %% ../nbs/modules/99_datasets.ipynb #772682fc
 def load_interest_inflation() -> pd.DataFrame:
     """
     Monthly West German interest and inflation rates from January 1972
@@ -398,8 +244,61 @@ def load_interest_inflation() -> pd.DataFrame:
     data.index = idx
     return data[['interest', 'inflation']]
 
-# livestock dataset
-def load_livestock_ts(columns: list = None) -> pd.DataFrame:
+# %% ../nbs/modules/99_datasets.ipynb #2604e19d
+def load_elnino() -> pd.DataFrame:
+    """
+    Monthly average sea-surface temperature (°C) in the equatorial Pacific
+    (Niño 1+2 region, 0–10°S / 90–80°W) from January 1950 to December 2010
+    (732 observations).
+
+    Strong annual seasonality makes this a good univariate benchmark for
+    seasonal models (ETS, SARIMA, seasonal differencing).
+
+    Source: statsmodels built-in (sm.datasets.elnino). The raw data is stored
+    in wide format (61 rows × 12 month columns); this loader melts it into a
+    clean monthly time series.
+
+    Returns
+    -------
+    pd.DataFrame
+        DatetimeIndex (monthly frequency), single column ``'temperature'``.
+
+    Examples
+    --------
+    >>> from peshbeen.datasets import load_elnino
+    >>> df = load_elnino()
+    >>> df.head()
+    """
+    import statsmodels.api as sm
+    raw = sm.datasets.elnino.load_pandas().data
+
+    # The wide format has columns: YEAR, JAN, FEB, ..., DEC
+    month_map = {
+        'JAN': 1, 'FEB': 2, 'MAR': 3, 'APR': 4,
+        'MAY': 5, 'JUN': 6, 'JUL': 7, 'AUG': 8,
+        'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12
+    }
+    # Normalise column names (strip whitespace, upper-case)
+    raw.columns = [c.strip().upper() for c in raw.columns]
+    year_col = [c for c in raw.columns if 'YEAR' in c][0]
+    month_cols = [c for c in raw.columns if c in month_map]
+
+    records = []
+    for _, row in raw.iterrows():
+        year = int(row[year_col])
+        for mc in month_cols:
+            records.append({
+                'date': pd.Timestamp(year=year, month=month_map[mc], day=1),
+                'temperature': float(row[mc])
+            })
+
+    df = pd.DataFrame(records).set_index('date').sort_index()
+    df.index.freq = 'MS'
+    return df
+
+
+# %% ../nbs/modules/99_datasets.ipynb #9654ff11
+def load_livestock(columns: list = None) -> pd.DataFrame:
     """
     Annual livestock counts in Australia from 1970 to 2007 (38 observations).
 
@@ -461,47 +360,26 @@ def load_livestock_ts(columns: list = None) -> pd.DataFrame:
         df = df[columns]
     return df
 
-
-
-# %% auto #0
-__all__ = ['load_airline_passengers', 'load_co2', 'load_sunspots', 'load_nile', 'load_macrodata', 'load_interest_inflation',
-           'load_elnino', 'load_livestock', 'load_wales_admissions', 'load_wales_calls', 'load_admission_calls',
-           'admission_ts', 'calls_ts', 'admission_calls_ts', 'airline_passengers', 'load_co2_ts', 'load_sunspots_ts',
-           'load_nile_ts', 'load_births_ts', 'load_elnino_ts', 'load_macrodata_ts', 'load_interest_inflation_ts',
-           'load_livestock_ts', 'available_datasets']
-
-# %% ../nbs/modules/99_datasets.ipynb #ba80f2d4
-load_airline_passengers = airline_passengers()
-
-# %% ../nbs/modules/99_datasets.ipynb #c971aad0
-load_co2 = load_co2_ts()
-
-# %% ../nbs/modules/99_datasets.ipynb #e81135c9
-load_sunspots = load_sunspots_ts()
-
-# %% ../nbs/modules/99_datasets.ipynb #09a4bec7
-load_nile = load_nile_ts()
-
-# %% ../nbs/modules/99_datasets.ipynb #fdf0a670
-load_macrodata = load_macrodata_ts()
-
-# %% ../nbs/modules/99_datasets.ipynb #772682fc
-load_interest_inflation = load_interest_inflation_ts()
-
-# %% ../nbs/modules/99_datasets.ipynb #2604e19d
-load_elnino = load_elnino_ts()
-
-# %% ../nbs/modules/99_datasets.ipynb #9654ff11
-load_livestock = load_livestock_ts()
-
 # %% ../nbs/modules/99_datasets.ipynb #de0d3bca
-load_wales_admissions = admission_ts()
+def load_wales_admissions():
+    file_path = Path(peshbeen.__file__).parent / "data" / "wales_admissions.xlsx"
+    if not file_path.exists():
+        raise FileNotFoundError(f"Could not find dataset at: {file_path}")
+    return pd.read_excel(file_path).set_index("Date")
 
 # %% ../nbs/modules/99_datasets.ipynb #9b5da161
-load_wales_calls = calls_ts()
+def load_wales_calls():
+    file_path = Path(peshbeen.__file__).parent / "data" / "nhs_calls.xlsx"
+    if not file_path.exists():
+        raise FileNotFoundError(f"Could not find dataset at: {file_path}")
+    return pd.read_excel(file_path).set_index("Date")
 
 # %% ../nbs/modules/99_datasets.ipynb #8aab60b8
-load_admission_calls = admission_calls_ts()
+def load_admission_calls() -> pd.DataFrame:
+    """Combined dataset of daily hospital admissions and emergency calls in Wales, UK"""
+    admissions = load_wales_admissions()
+    calls = load_wales_calls()
+    return admissions.join(calls, how='inner')
 
 # %% ../nbs/modules/99_datasets.ipynb #8040662b
 # ─────────────────────────────────────────────────────────────────────────────

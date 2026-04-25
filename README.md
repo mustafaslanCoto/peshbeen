@@ -120,12 +120,14 @@ from peshbeen.datasets import load_wales_admissions # addmissions to E&A hospita
 from peshbeen.models import ml_forecaster
 from peshbeen.transformations import rolling_mean, rolling_std, expanding_mean
 from xgboost import XGBRegressor
-load_wales_admissions["day_of_week"] = load_wales_admissions.index.dayofweek # add day of week as a feature
-load_wales_admissions["month"] = load_wales_admissions.index.month # add month as a feature to capture seasonality
-load_wales_admissions["day_of_month"] = load_wales_admissions.index.day # add day of month as a feature to capture seasonality
+
+wales_admissions = load_wales_admissions()
+wales_admissions["day_of_week"] = wales_admissions.index.dayofweek # add day of week as a feature
+wales_admissions["month"] = wales_admissions.index.month # add month as a feature to capture seasonality
+wales_admissions["day_of_month"] = wales_admissions.index.day # add day of month as a feature to capture seasonality
 # split the data into train and test sets
-train = load_wales_admissions[:-30]
-test = load_wales_admissions[-30:]
+train = wales_admissions[:-30]
+test = wales_admissions[-30:]
 cat_variables = ["day_of_week", "month", "day_of_month"]
 from sklearn.preprocessing import OneHotEncoder
 ohe = OneHotEncoder(drop='first', sparse_output=False, handle_unknown="ignore")
@@ -143,7 +145,7 @@ forecasts = ml_linear.forecast(H=30, exog=test[cat_variables])
 ``` python
 ## Plot the historical data
 import matplotlib.pyplot as plt
-load_wales_admissions["admissions"].plot(figsize=(10, 6), label='Admissions')
+wales_admissions["admissions"].plot(figsize=(10, 6), label='Admissions')
 plt.title("Daily Admissions to E&A Hospitals in Wales")
 plt.xlabel("Date")
 plt.ylabel("Number of Admissions")

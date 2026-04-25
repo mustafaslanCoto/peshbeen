@@ -657,12 +657,28 @@ class ms_var:
     # STATE INFERENCE
     # ─────────────────────────────────────────────────────────────────────────
 
+    # def predict_states(self) -> np.ndarray:
+    #     """Return the most likely state at each time step (hard assignment)."""
+    #     return np.argmax(self.posterior, axis=0)
+
+    # def predict_proba(self) -> np.ndarray:
+    #     """Return the full posterior probability matrix (N x T)."""
+    #     return self.posterior
+    
     def predict_states(self) -> np.ndarray:
         """Return the most likely state at each time step (hard assignment)."""
+        # the length of the posterior may be shorter than the original data due to lag features, so we add NaNs for the initial periods where posterior is not available
+        if self.posterior.shape[1] < self.orig_target.shape[0] and not np.isnan(self.posterior).any(): # and if predict proba has not been called yet to add the NaN padding, we add it here so that the posterior and state predictions are aligned with the original data length
+            padding = np.full((self.N, self.orig_target.shape[0] - self.posterior.shape[1]), np.nan)
+            self.posterior = np.hstack([padding, self.posterior])
         return np.argmax(self.posterior, axis=0)
 
     def predict_proba(self) -> np.ndarray:
         """Return the full posterior probability matrix (N x T)."""
+        # posterior is N x T matrix of state probabilities at each time step but should be same length as original data, so we add NaNs for the initial periods where posterior is not available due to lag features
+        if self.posterior.shape[1] < self.orig_target.shape[0] and not np.isnan(self.posterior).any():
+            padding = np.full((self.N, self.orig_target.shape[0] - self.posterior.shape[1]), np.nan)
+            self.posterior = np.hstack([padding, self.posterior])
         return self.posterior
 
     # ─────────────────────────────────────────────────────────────────────────
