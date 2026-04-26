@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>ets – peshbeen</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<link href="../../images/peshbeen_favicon_64.png" rel="icon" type="image/png">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-7f8f88aac4f3542376d5c11b86a4c14d.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-016858bc5032cd0bbf4616ccf5146fbd.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="../../styles.css">
+</head>
+
+<body class="nav-sidebar docked quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item">API Reference</li><li class="breadcrumb-item"><a href="../../modules/02_models/08_naive.html">models</a></li><li class="breadcrumb-item"><a href="../../modules/02_models/07_ets.html">ets</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+      <a href="../../index.html" class="sidebar-logo-link">
+      <img src="../../images/peshbeen_logo_transparent.png" alt="" class="sidebar-logo light-content py-0 d-lg-inline d-none">
+      <img src="../../images/peshbeen_logo_transparent.png" alt="" class="sidebar-logo dark-content py-0 d-lg-inline d-none">
+      </a>
+      <div class="sidebar-tools-main">
+    <a href="https://github.com/mustafaslanCoto/peshbeen" title="" class="quarto-navigation-tool px-1" aria-label=""><i class="bi bi-github"></i></a>
+</div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Quick Start</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../user_guide.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">User Guide</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../guide/01_model_zoo.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Model Zoo</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../guide/02_stationarity_detrending.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Stationarity &amp; Detrending Strategies</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../guide/03_auto_transformation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Automatic Transformations</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../guide/04_prob_forecasting.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Probabilistic Forecasting</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../guide/05_hyperparameter_tuning.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Hyperparameter Tuning</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">API Reference</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">models</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth2 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../modules/02_models/08_naive.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">naive</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../modules/02_models/07_ets.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">ets</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../modules/02_models/06_arima.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">arima</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../modules/02_models/01_ml_forecast.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ml_forecaster</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../modules/02_models/02_ms_arr.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">MsHmmRegression</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../modules/02_models/09_glm.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">glm</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../modules/02_models/03_ml_mv_forecast.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ml_bidirect_forecaster</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../modules/02_models/04_var.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">VARModel</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../modules/02_models/05_ms_var.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">MsHmmVar</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../modules/02_models/10_direct_ml.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ml_direct_forecaster</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../modules/02_models/90_herne_pesh.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ensemble</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../modules/03_model_selection.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">model_selection</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../modules/04_prob_forecast.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">probabilistic_forecasting</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../modules/transformations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">transformations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../modules/metrics.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">metrics</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of Contents</h2>
+   
+  <ul>
+  <li><a href="#ets" id="toc-ets" class="nav-link active" data-scroll-target="#ets">ets</a></li>
+  <li><a href="#ets.fit" id="toc-ets.fit" class="nav-link" data-scroll-target="#ets.fit">ets.fit</a></li>
+  <li><a href="#ets.forecast" id="toc-ets.forecast" class="nav-link" data-scroll-target="#ets.forecast">ets.forecast</a></li>
+  <li><a href="#ets.cross_validate" id="toc-ets.cross_validate" class="nav-link" data-scroll-target="#ets.cross_validate">ets.cross_validate</a></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="07_ets.md"><i class="bi bi-file-code"></i>CommonMark</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item">API Reference</li><li class="breadcrumb-item"><a href="../../modules/02_models/08_naive.html">models</a></li><li class="breadcrumb-item"><a href="../../modules/02_models/07_ets.html">ets</a></li></ol></nav></header>
+
+
+
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<hr>
+<p><a href="https://github.com/mustafaslanCoto/peshbeen/blob/main/peshbeen/models/ets.py#L16" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="ets" class="level3">
+<h3 class="anchored" data-anchor-id="ets">ets</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> ets(</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    target_col:<span class="bu">str</span>, <span class="co"># Name of the target variable column.</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    trend:Optional[<span class="bu">str</span>]<span class="op">=</span><span class="va">None</span>, <span class="co"># Trend component type.</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    damped_trend:<span class="bu">bool</span><span class="op">=</span><span class="va">False</span>, <span class="co"># Whether to damp the trend.  Only meaningful when ``trend`` is not `None`.</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    seasonal:Optional[<span class="bu">str</span>]<span class="op">=</span><span class="va">None</span>, <span class="co"># Seasonal component type.</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    seasonal_periods:Optional[<span class="bu">int</span>]<span class="op">=</span><span class="va">None</span>, <span class="co"># Number of periods in a complete seasonal cycle — e.g. 12 for monthly data with an annual cycle.  Required when ``seasonal`` is not ``None``.</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    initialization_method:Optional[<span class="bu">str</span>]<span class="op">=</span><span class="st">'estimated'</span>, <span class="co"># How to initialise the recursions.  When `"known"` is chosen, `initial_level` (and `initial_trend` / `initial_seasonal` where applicable) must also be provided.</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    initial_level:Optional[<span class="bu">float</span>]<span class="op">=</span><span class="va">None</span>, <span class="co"># Initial level value.  Required when `initialization_method=`"known"`.</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    initial_trend:Optional[<span class="bu">float</span>]<span class="op">=</span><span class="va">None</span>, <span class="co"># Initial trend value.  Required when `initialization_method=`"known"` and the model has a trend component.</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    initial_seasonal:Optional[<span class="bu">list</span>]<span class="op">=</span><span class="va">None</span>, <span class="co"># Initial seasonal factors (length `seasonal_periods` or ``seasonal_periods - 1``).  Required when ``initialization_method="known"`` and the model is seasonal.</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    bounds:Optional[<span class="bu">dict</span>]<span class="op">=</span><span class="va">None</span>, <span class="co"># Parameter bounds passed to ``ExponentialSmoothing``, e.g. `{"smoothing_level": (0, 1)}`.</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    dates:NoneType<span class="op">=</span><span class="va">None</span>, <span class="co"># Datetime index for the series.  Inferred automatically when `endog` is a Pandas object with a `DatetimeIndex`.</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    freq:Optional[<span class="bu">str</span>]<span class="op">=</span><span class="va">None</span>, <span class="co"># Frequency of the time series (e.g. ``"M"``, ``"D"``).  Optional when `dates` is provided.</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    missing:<span class="bu">str</span><span class="op">=</span><span class="st">'none'</span>, <span class="co"># How to handle ``NaN`` values in the input series.</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    optimized:<span class="bu">bool</span><span class="op">=</span><span class="va">True</span>, <span class="co"># Estimate smoothing parameters by maximising the log-likelihood.</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    smoothing_level:Optional[<span class="bu">float</span>]<span class="op">=</span><span class="va">None</span>, <span class="co"># Fixed alpha value.  When set, this value is used directly and not optimised.</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    smoothing_trend:Optional[<span class="bu">float</span>]<span class="op">=</span><span class="va">None</span>, <span class="co"># Fixed beta value.  Only used when the model has a trend component.</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    smoothing_seasonal:Optional[<span class="bu">float</span>]<span class="op">=</span><span class="va">None</span>, <span class="co"># Fixed gamma value.  Only used when the model is seasonal.</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    damping_trend:Optional[<span class="bu">float</span>]<span class="op">=</span><span class="va">None</span>, <span class="co"># Fixed phi (damping) value.  Only used when ``damped_trend=True``.</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    remove_bias:<span class="bu">bool</span><span class="op">=</span><span class="va">False</span>, <span class="co"># Remove bias from forecast values by enforcing that the mean residual is zero.</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    start_params:NoneType<span class="op">=</span><span class="va">None</span>, <span class="co"># Starting parameter values for the optimiser.</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    method:Optional[<span class="bu">str</span>]<span class="op">=</span><span class="va">None</span>, <span class="co"># Optimisation method — one of `"L-BFGS-B"` (default), `"TNC"`, `"SLSQP"`, `"Powell"`, `"trust-constr"`, `"basinhopping"` (alias `"bh"`), or `"least_squares"` (alias `"ls"`).</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    minimize_kwargs:Optional[<span class="bu">dict</span>]<span class="op">=</span><span class="va">None</span>, <span class="co"># Extra keyword arguments forwarded to the chosen SciPy minimiser.</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    use_brute:<span class="bu">bool</span><span class="op">=</span><span class="va">True</span>, <span class="co"># Search for good starting values with a brute-force grid search before running the main optimiser.</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    box_cox:Union[<span class="bu">bool</span>, <span class="bu">float</span>]<span class="op">=</span><span class="va">False</span>, <span class="co"># Whether to apply Box-Cox transformation to the target variable. If a float value is provided, it will be used as the lambda parameter for the Box-Cox transformation. If True, the lambda parameter will be estimated from the data.</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    box_cox_biasadj:<span class="bu">bool</span><span class="op">=</span><span class="va">False</span>, <span class="co"># Bias adjustment when inverting the manual Box-Cox on forecasts.</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>    fit_kwargs:Optional[<span class="bu">dict</span>]<span class="op">=</span><span class="va">None</span>, <span class="co"># Any additional keyword arguments forwarded verbatim to `ExponentialSmoothing.fit`.</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="va">None</span>: <span class="co"># Fitted model object with a ``forecast`` method for making predictions and properties for information criteria scores (AIC, BIC, etc.)</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Holt-Winters Exponential Smoothing forecaster.</em></p>
+<p>A thin wrapper around <code>statsmodels.tsa.holtwinters.ExponentialSmoothing</code>.</p>
+<div id="40d58bff" class="cell">
+<div class="cell-output cell-output-display cell-output-markdown">
+<table class="caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 25%">
+<col style="width: 34%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>target_col</td>
+<td>str</td>
+<td></td>
+<td>Name of the target variable column.</td>
+</tr>
+<tr class="even">
+<td>trend</td>
+<td>Optional[str]</td>
+<td>None</td>
+<td>Trend component type.</td>
+</tr>
+<tr class="odd">
+<td>damped_trend</td>
+<td>bool</td>
+<td>False</td>
+<td>Whether to damp the trend. Only meaningful when <code>trend</code> is not <code>None</code>.</td>
+</tr>
+<tr class="even">
+<td>seasonal</td>
+<td>Optional[str]</td>
+<td>None</td>
+<td>Seasonal component type.</td>
+</tr>
+<tr class="odd">
+<td>seasonal_periods</td>
+<td>Optional[int]</td>
+<td>None</td>
+<td>Number of periods in a complete seasonal cycle — e.g.&nbsp;12 for monthly data with an annual cycle. Required when <code>seasonal</code> is not <code>None</code>.</td>
+</tr>
+<tr class="even">
+<td>initialization_method</td>
+<td>Optional[str]</td>
+<td>estimated</td>
+<td>How to initialise the recursions. When <code>"known"</code> is chosen, <code>initial_level</code> (and <code>initial_trend</code> / <code>initial_seasonal</code> where applicable) must also be provided.</td>
+</tr>
+<tr class="odd">
+<td>initial_level</td>
+<td>Optional[float]</td>
+<td>None</td>
+<td>Initial level value. Required when <code>initialization_method=</code>“known”<code>. | | initial_trend | Optional[float] | None | Initial trend value.  Required when</code>initialization_method=<code>"known"</code> and the model has a trend component.</td>
+</tr>
+<tr class="even">
+<td>initial_seasonal</td>
+<td>Optional[list]</td>
+<td>None</td>
+<td>Initial seasonal factors (length <code>seasonal_periods</code> or <code>seasonal_periods - 1</code>). Required when <code>initialization_method="known"</code> and the model is seasonal.</td>
+</tr>
+<tr class="odd">
+<td>bounds</td>
+<td>Optional[dict]</td>
+<td>None</td>
+<td>Parameter bounds passed to <code>ExponentialSmoothing</code>, e.g.&nbsp;<code>{"smoothing_level": (0, 1)}</code>.</td>
+</tr>
+<tr class="even">
+<td>dates</td>
+<td>NoneType</td>
+<td>None</td>
+<td>Datetime index for the series. Inferred automatically when <code>endog</code> is a Pandas object with a <code>DatetimeIndex</code>.</td>
+</tr>
+<tr class="odd">
+<td>freq</td>
+<td>Optional[str]</td>
+<td>None</td>
+<td>Frequency of the time series (e.g.&nbsp;<code>"M"</code>, <code>"D"</code>). Optional when <code>dates</code> is provided.</td>
+</tr>
+<tr class="even">
+<td>missing</td>
+<td>str</td>
+<td>none</td>
+<td>How to handle <code>NaN</code> values in the input series.</td>
+</tr>
+<tr class="odd">
+<td>optimized</td>
+<td>bool</td>
+<td>True</td>
+<td>Estimate smoothing parameters by maximising the log-likelihood.</td>
+</tr>
+<tr class="even">
+<td>smoothing_level</td>
+<td>Optional[float]</td>
+<td>None</td>
+<td>Fixed alpha value. When set, this value is used directly and not optimised.</td>
+</tr>
+<tr class="odd">
+<td>smoothing_trend</td>
+<td>Optional[float]</td>
+<td>None</td>
+<td>Fixed beta value. Only used when the model has a trend component.</td>
+</tr>
+<tr class="even">
+<td>smoothing_seasonal</td>
+<td>Optional[float]</td>
+<td>None</td>
+<td>Fixed gamma value. Only used when the model is seasonal.</td>
+</tr>
+<tr class="odd">
+<td>damping_trend</td>
+<td>Optional[float]</td>
+<td>None</td>
+<td>Fixed phi (damping) value. Only used when <code>damped_trend=True</code>.</td>
+</tr>
+<tr class="even">
+<td>remove_bias</td>
+<td>bool</td>
+<td>False</td>
+<td>Remove bias from forecast values by enforcing that the mean residual is zero.</td>
+</tr>
+<tr class="odd">
+<td>start_params</td>
+<td>NoneType</td>
+<td>None</td>
+<td>Starting parameter values for the optimiser.</td>
+</tr>
+<tr class="even">
+<td>method</td>
+<td>Optional[str]</td>
+<td>None</td>
+<td>Optimisation method — one of <code>"L-BFGS-B"</code> (default), <code>"TNC"</code>, <code>"SLSQP"</code>, <code>"Powell"</code>, <code>"trust-constr"</code>, <code>"basinhopping"</code> (alias <code>"bh"</code>), or <code>"least_squares"</code> (alias <code>"ls"</code>).</td>
+</tr>
+<tr class="odd">
+<td>minimize_kwargs</td>
+<td>Optional[dict]</td>
+<td>None</td>
+<td>Extra keyword arguments forwarded to the chosen SciPy minimiser.</td>
+</tr>
+<tr class="even">
+<td>use_brute</td>
+<td>bool</td>
+<td>True</td>
+<td>Search for good starting values with a brute-force grid search before running the main optimiser.</td>
+</tr>
+<tr class="odd">
+<td>box_cox</td>
+<td>Union[bool, float]</td>
+<td>False</td>
+<td>Whether to apply Box-Cox transformation to the target variable. If a float value is provided, it will be used as the lambda parameter for the Box-Cox transformation. If True, the lambda parameter will be estimated from the data.</td>
+</tr>
+<tr class="even">
+<td>box_cox_biasadj</td>
+<td>bool</td>
+<td>False</td>
+<td>Bias adjustment when inverting the manual Box-Cox on forecasts.</td>
+</tr>
+<tr class="odd">
+<td>fit_kwargs</td>
+<td>Optional[dict]</td>
+<td>None</td>
+<td>Any additional keyword arguments forwarded verbatim to <code>ExponentialSmoothing.fit</code>.</td>
+</tr>
+<tr class="even">
+<td><strong>Returns</strong></td>
+<td><strong>None</strong></td>
+<td></td>
+<td><strong>Fitted model object with a <code>forecast</code> method for making predictions and properties for information criteria scores (AIC, BIC, etc.)</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<hr>
+<p><a href="https://github.com/mustafaslanCoto/peshbeen/blob/main/peshbeen/models/ets.py#L191" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="ets.fit" class="level3">
+<h3 class="anchored" data-anchor-id="ets.fit">ets.fit</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> fit(</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    df:pd.DataFrame, <span class="co"># Training DataFrame containing the target column</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="va">None</span>:</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Fit <code>ExponentialSmoothing</code> to the training data.</em></p>
+<div id="7bb5fbd8" class="cell">
+<div class="cell-output cell-output-display cell-output-markdown">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>df</td>
+<td>pd.DataFrame</td>
+<td>Training DataFrame containing the target column</td>
+</tr>
+<tr class="even">
+<td><strong>Returns</strong></td>
+<td><strong>None</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<hr>
+<p><a href="https://github.com/mustafaslanCoto/peshbeen/blob/main/peshbeen/models/ets.py#L351" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="ets.forecast" class="level3">
+<h3 class="anchored" data-anchor-id="ets.forecast">ets.forecast</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> forecast(</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    H:<span class="bu">int</span>, <span class="co"># Forecast horizon.</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    exog:Optional[pd.DataFrame]<span class="op">=</span><span class="va">None</span>, <span class="co"># Accepted for API consistency with other models but silently ignored — ETS forecasts do not use exogenous variables.</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span>np.ndarray: <span class="co"># Forecast values of length `H`.</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Multi-step forecast.</em></p>
+<div id="cb439284" class="cell">
+<div class="cell-output cell-output-display cell-output-markdown">
+<table class="caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 25%">
+<col style="width: 34%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>H</td>
+<td>int</td>
+<td></td>
+<td>Forecast horizon.</td>
+</tr>
+<tr class="even">
+<td>exog</td>
+<td>Optional[pd.DataFrame]</td>
+<td>None</td>
+<td>Accepted for API consistency with other models but silently ignored — ETS forecasts do not use exogenous variables.</td>
+</tr>
+<tr class="odd">
+<td><strong>Returns</strong></td>
+<td><strong>np.ndarray</strong></td>
+<td></td>
+<td><strong>Forecast values of length <code>H</code>.</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<hr>
+<p><a href="https://github.com/mustafaslanCoto/peshbeen/blob/main/peshbeen/models/ets.py#L389" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="ets.cross_validate" class="level3">
+<h3 class="anchored" data-anchor-id="ets.cross_validate">ets.cross_validate</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> cross_validate(</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    df:pd.DataFrame, <span class="co"># Full dataset</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    cv_split:<span class="bu">int</span>, <span class="co"># Number of CV folds.</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    test_size:<span class="bu">int</span>, <span class="co"># Test window size per fold.</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    metrics:List[Callable], <span class="co"># Metric functions (e.g. ``[MAE, RMSE]``) used to evaluate forecast accuracy across folds. Call ``.cv_summary()`` after cross-validation to retrieve the aggregated scores.</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    step_size:<span class="bu">int</span><span class="op">=</span><span class="dv">1</span>, <span class="co"># Step size to advance the test window each fold.</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    h_split_point:Optional[<span class="bu">int</span>]<span class="op">=</span><span class="va">None</span>, <span class="co"># Split the test window into two sub-horizons for separate short- and long-term evaluation.</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span>Tuple[pd.DataFrame, pd.DataFrame]: <span class="co"># Summary DataFrame with mean metric scores across folds, and (optionally) a fold-level DataFrame with true vs. predicted values for each fold.</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Run time-series cross-validation.</em></p>
+<div id="8cc8a79e" class="cell">
+<div class="cell-output cell-output-display cell-output-markdown">
+<table class="caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 25%">
+<col style="width: 34%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>df</td>
+<td>pd.DataFrame</td>
+<td></td>
+<td>Full dataset</td>
+</tr>
+<tr class="even">
+<td>cv_split</td>
+<td>int</td>
+<td></td>
+<td>Number of CV folds.</td>
+</tr>
+<tr class="odd">
+<td>test_size</td>
+<td>int</td>
+<td></td>
+<td>Test window size per fold.</td>
+</tr>
+<tr class="even">
+<td>metrics</td>
+<td>List[Callable]</td>
+<td></td>
+<td>Metric functions (e.g.&nbsp;<code>[MAE, RMSE]</code>) used to evaluate forecast accuracy across folds. Call <code>.cv_summary()</code> after cross-validation to retrieve the aggregated scores.</td>
+</tr>
+<tr class="odd">
+<td>step_size</td>
+<td>int</td>
+<td>1</td>
+<td>Step size to advance the test window each fold.</td>
+</tr>
+<tr class="even">
+<td>h_split_point</td>
+<td>Optional[int]</td>
+<td>None</td>
+<td>Split the test window into two sub-horizons for separate short- and long-term evaluation.</td>
+</tr>
+<tr class="odd">
+<td><strong>Returns</strong></td>
+<td><strong>Tuple[pd.DataFrame, pd.DataFrame]</strong></td>
+<td></td>
+<td><strong>Summary DataFrame with mean metric scores across folds, and (optionally) a fold-level DataFrame with true vs.&nbsp;predicted values for each fold.</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/mustafaslanCoto\.github\.io\/peshbeen");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+      &nbsp;
+    </div>   
+    <div class="nav-footer-center">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item">
+ About
+  </li>  
+    <li class="nav-item">
+ License
+  </li>  
+    <li class="nav-item">
+ Trademark
+  </li>  
+</ul>
+    </div>
+    <div class="nav-footer-right">
+      &nbsp;
+    </div>
+  </div>
+</footer>
+
+
+
+
+</body></html>

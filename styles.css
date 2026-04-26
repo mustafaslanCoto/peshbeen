@@ -1,0 +1,317 @@
+.cell {
+  margin-bottom: 1rem;
+}
+
+.cell > .sourceCode {
+  margin-bottom: 0;
+}
+
+.cell-output > pre {
+  margin-bottom: 0;
+}
+
+.cell-output > pre, .cell-output > .sourceCode > pre, .cell-output-stdout > pre {
+  margin-left: 0.8rem;
+  margin-top: 0;
+  background: none;
+  border-left: 2px solid lightsalmon;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.cell-output > .sourceCode {
+  border: none;
+}
+
+.cell-output > .sourceCode {
+  background: none;
+  margin-top: 0;
+}
+
+div.description {
+  padding-left: 2px;
+  padding-top: 5px;
+  font-style: italic;
+  font-size: 135%;
+  opacity: 70%;
+}
+
+
+/* 1. Targets the main sidebar background */
+.quarto-sidebar, 
+#quarto-sidebar-sidebar {
+    background-color: #FBFAF4 !important;
+}
+
+/* 2. Targets the container inside the sidebar */
+.sidebar-navigation,
+.sidebar-item-container {
+    background-color: #FBFAF4 !important;
+}
+
+/* 3. Ensures the 'Welcome' or 'Peshbeen' header area matches */
+.sidebar-header {
+    background-color: #FBFAF4 !important;
+}
+
+/* Targets the right sidebar (Table of Contents) */
+#quarto-margin-sidebar,
+.toc-actions,
+.sidebar-margin-content {
+    background-color: #FBFAF4 !important;
+}
+
+/* Ensure the 'On this page' nav element itself is also styled */
+nav[role="doc-toc"],
+.nav.toc-active {
+    background-color: #FBFAF4 !important;
+}
+
+/* Optional: If there is still a white gap on the very far right margin */
+.quarto-margin-content {
+    background-color: #FBFAF4 !important;
+}
+
+.navbar-brand img {
+  max-height: 50px !important;
+  height: 50px;
+}
+
+.sidebar-logo img {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+/* background-color: #FBFAF4 */
+/* button colors and links: #20808D */
+/* hover color for buttons and links: #20B8CD */
+/* navbar hover color: #1FB8CD */
+
+/* For all button-like links */
+/* --- Custom Button Colors --- */
+/* Force social buttons to use your custom colors */
+.btn-outline-primary,
+.btn-outline-primary:visited {
+  background-color: #FBFAF4 !important;
+  color: #20808D !important;
+  border: 1px solid #20808D !important;
+  box-shadow: none !important;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus,
+.btn-outline-primary:active {
+  background-color: #20B8CD !important;
+  color: #FBFAF4 !important;
+  border: 1px solid #20B8CD !important;
+  text-decoration: none !important;
+}
+
+/* Force icons inside buttons to match text color */
+.btn-outline-primary i,
+.btn-outline-primary svg {
+  color: #20808D !important;
+  fill: #20808D !important;
+}
+
+
+/* Icon color inside .btn-outline-primary when hovered */
+.btn-outline-primary:hover i,
+.btn-outline-primary:focus i,
+.btn-outline-primary:active i,
+.btn-outline-primary:hover svg,
+.btn-outline-primary:focus svg,
+.btn-outline-primary:active svg {
+  color: #FBFAF4 !important;
+  fill:#20B8CD !important;
+}
+
+
+
+
+/* Style Quarto about page social buttons */
+.about-link {
+  background-color:#FBFAF4 !important;
+  color: #20808D !important;
+  border: 1px solid #20808D !important;
+  /* border: none !important; */
+  border-radius: 5px;
+  padding: 1px 4px !important;  
+  margin: 1px !important;
+  display: inline-block;
+  font-weight: 500;
+  font-size: 12px !important; 
+  text-decoration: none !important;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+/* Style the icon inside the button */
+.about-link .bi, .about-link .fa, .about-link svg {
+  color: #20808D !important;
+  fill: #20808D !important;
+  font-size: 14px;  
+  margin-right: 1px !important; /* Add space between icon and text */
+}
+
+/* Additional selectors to target the social buttons container and spacing */
+.about-links {
+  display: flex !important;
+  gap: 10px !important; /* Control space between buttons */
+  flex-wrap: wrap !important;
+}
+
+
+/* Hover effect */
+.about-link:hover, .about-link:focus {
+  border-color: #20B8CD !important;
+  color: #20B8CD !important;
+  background-color: #FBFAF4 !important;
+  text-decoration: none !important;
+}
+
+
+/* Style the about-link button and its icon on hover */
+
+/* Change the icon color on hover (Bootstrap Icons, Font Awesome, SVG) */
+.about-link:hover .bi,
+.about-link:focus .bi,
+.about-link:hover .fa,
+.about-link:focus .fa,
+.about-link:hover svg,
+.about-link:focus svg {
+  color: #20B8CD !important;
+  fill: #20B8CD !important;
+}
+
+
+
+
+/* Only style links inside paragraphs */
+p a, p a:visited {
+  color: #20808D !important;
+  text-decoration: none !important;
+}
+
+/* Optional: Add underline on hover for clarity, or keep it off */
+p a:hover, p a:focus {
+  color:#20B8CD !important;
+  text-decoration: underline !important; /* Or 'none' if you never want underline */
+}
+
+
+.navbar {
+  background-color:	#FBFAF4 !important; /* Replace with your preferred color */
+}
+
+
+/* Navbar text links */
+.navbar .nav-link,
+.navbar-nav .nav-link {
+  transition: color 0.2s, text-decoration 0.2s;
+  /* color: #091717 !important; */
+}
+
+
+/* Hover effect for navbar text links */
+.navbar .nav-link:hover,
+.navbar-nav .nav-link:hover,
+.navbar .nav-link:focus,
+.navbar-nav .nav-link:focus {
+  color: #1FB8CD !important;
+  text-decoration: none !important; /* Optional: underline on hover */
+}
+
+/* Hover effect for navbar tools (icons) - Multiple selectors to cover different structures */
+.navbar .navbar-nav .nav-item .nav-link i:hover,
+.navbar-nav .nav-item .nav-link:hover i,
+.navbar .navbar-nav .nav-item .nav-link:focus i,
+.navbar-nav .nav-item .nav-link:focus i {
+  color: #1FB8CD !important;
+}
+
+/* Target tools section specifically */
+.navbar-nav .navbar-tools .nav-item .nav-link:hover,
+.navbar-tools .nav-item .nav-link:hover,
+.navbar-tools .nav-link:hover {
+  color: #1FB8CD !important;
+}
+
+/* Target Bootstrap icons specifically */
+.navbar .bi:hover,
+.navbar-nav .bi:hover,
+.navbar-tools .bi:hover {
+  color: #1FB8CD !important;
+}
+
+
+
+/* Target all possible tool link structures for tools */
+.navbar .navbar-nav .nav-item .nav-link[href^="mailto:"]:hover,
+.navbar .navbar-nav .nav-item .nav-link[href*="github"]:hover,
+.navbar .navbar-nav .nav-item .nav-link[href*="linkedin"]:hover,
+.navbar-tools .nav-item .nav-link:hover,
+.navbar-tools a:hover {
+  color: #1FB8CD !important;
+}
+
+/* Fallback - target any anchor with these specific hrefs */
+a[href^="mailto:"]:hover,
+a[href*="github.com"]:hover,
+a[href*="linkedin.com"]:hover {
+  color: #1FB8CD !important;
+}
+
+
+/* Highlight the active navbar link */
+.navbar .navbar-nav .nav-link.active {
+  color: #20808D !important;
+  font-weight: bold;
+  /* Optional: add underline or background for more emphasis */
+  /* text-decoration: underline; */
+  /* background-color: #fbe6ec; */
+}
+
+/* Highlight the active TOC link */
+.toc-active .nav-link.active,
+#TOC .nav-link.active,
+#TOC .toc-active > .nav-link {
+  color: #20808D !important;
+  font-weight: bold;
+  /* Optional: add underline or background */
+  /* text-decoration: underline; */
+  /* background-color: #fbe6ec; */
+}
+
+#TOC a:hover,
+#TOC a:focus {
+  color:#20B8CD !important;
+  text-decoration: none; 
+}
+
+
+
+/* Home link (site title) in the navbar */
+.navbar .navbar-brand {
+  transition: color 0.2s;
+}
+
+/* Hover effect for Home link */
+.navbar .navbar-brand:hover,
+.navbar .navbar-brand:focus {
+  color: #1FB8CD !important;
+  text-decoration: none; /* Optional: underline on hover */
+}
+
+body {
+  background-color: #FBFAF4 /* Example: a light grey. Change to any color you like */
+}
+
+
+.nav-footer {
+    background-color: #FBFAF4 !important;
+}
+
+
+.sidebar nav[role="doc-toc"] ul > li > a.active {
+  border-left: 1px solid #20808D !important; /* Replace with your color */
+}
