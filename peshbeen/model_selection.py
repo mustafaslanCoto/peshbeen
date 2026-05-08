@@ -135,7 +135,7 @@ def hyperopt_tune(
 
     target_col = model.target_col
     mod_name = model.model.__class__.__name__ if hasattr(model, "model") else model.get_name()
-    _skip = {"box_cox", "lags", "box_cox_biasadj", "pareto_cutoff"}
+    _skip = {"box_cox", "lags", "box_cox_biasadj", "pareto_cutoff", "lag_transform"} 
     
     tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
     total_len = len(df)
@@ -150,10 +150,10 @@ def hyperopt_tune(
         
         # A. Apply Forecasting Meta-Params
         if "lags" in params:
-            lags = params["lags"]
-            m.n_lag = list(range(1, lags + 1)) if isinstance(lags, int) else list(lags)
+            m.n_lag = list(range(1, params["lags"] + 1)) if isinstance(params["lags"], int) else list(params["lags"])
         if "box_cox" in params: m.box_cox = params["box_cox"]
         if "box_cox_biasadj" in params: m.biasadj = params["box_cox_biasadj"]
+        if "lag_transform" in params: m.lag_transform = params["lag_transform"]
 
         fit_params = {k: v for k, v in params.items() if k not in _skip}
 
@@ -244,7 +244,7 @@ def hyperopt_tune(
     
     best_p_threshold = all_best.pop("pareto_cutoff", pareto_bounds if isinstance(pareto_bounds, float) else 0.99)
     best_lags = all_best.pop("lags", None)
-    other_args = {k: all_best.pop(k) for k in ["box_cox", "box_cox_biasadj"] if k in all_best}
+    other_args = {k: all_best.pop(k) for k in ["box_cox", "box_cox_biasadj", "lag_transform"] if k in all_best}
     best_hparams = all_best 
 
     # --- 5. FINAL FEATURE EXTRACTION ---
@@ -263,7 +263,7 @@ def hyperopt_tune(
             final_ranker.n_lag = list(range(1, best_lags + 1)) if isinstance(best_lags, int) else list(best_lags)
         final_ranker.box_cox = other_args.get("box_cox", final_ranker.box_cox)
         final_ranker.biasadj = other_args.get("box_cox_biasadj", final_ranker.biasadj)
-
+        final_ranker.lag_transform = other_args.get("lag_transform", final_ranker.lag_transform)
         if mod_name in ("LinearRegression", "Lasso", "Ridge", "ElasticNet"):
             num_cols = [col for col in df.columns if col not in permanent_cat_vars and col != target_col]
             dfl_final = df.copy()
@@ -289,6 +289,9 @@ def hyperopt_tune(
         
         if not best_features and candidate_exog:
             best_features = [candidate_exog[np.argmax(cand_scores)]]
+            
+        if "lag_transform" in other_args and other_args["lag_transform"] is not None:
+            other_args["lag_transform"] = [tr.get_name() for tr in other_args["lag_transform"]]
 
     return best_hparams, best_lags, other_args, best_features
 
@@ -363,7 +366,7 @@ def optuna_tune(
     target_col = model.target_col
     mod_name = model.model.__class__.__name__ if hasattr(model, "model") else model.get_name()
 
-    _skip = {"box_cox", "lags", "box_cox_biasadj"}
+    _skip = {"box_cox", "lags", "box_cox_biasadj", "pareto_cutoff", "lag_transform"}  # Parameters to skip when setting model params, as they are handled separately
 
     def _fit_params(params: dict) -> Optional[dict]:
         base_model = getattr(model, "model", None) # Check if the model has a 'model' attribute (like ARIMA or ETS), otherwise use the model itself (like LinearRegression)
@@ -397,8 +400,8 @@ def optuna_tune(
             if hasattr(temp_ranker.model, "set_params"):
                 temp_ranker.model.set_params(**fit_params)
             if "lags" in params:
-                lags = params["lags"]
-                temp_ranker.n_lag = list(range(1, lags + 1)) if isinstance(lags, int) else list(lags)
+                temp_ranker.n_lag = list(range(1, params["lags"] + 1)) if isinstance(params["lags"], int) else list(params["lags"]) # Ensure lags are in the correct format
+            if 'lag_transform' in params: temp_ranker.lag_transform = params['lag_transform']
             if "box_cox"         in params: temp_ranker.box_cox = params["box_cox"]
             if "box_cox_biasadj" in params: temp_ranker.biasadj = params["box_cox_biasadj"]
             
@@ -462,8 +465,8 @@ def optuna_tune(
 
         # Update Model State with Hyperparameters
         if "lags" in params:
-            lags = params["lags"]
-            model.n_lag = list(range(1, lags + 1)) if isinstance(lags, int) else list(lags)
+            model.n_lag = list(range(1, params["lags"] + 1)) if isinstance(params["lags"], int) else list(params["lags"])
+        if 'lag_transform' in params: model.lag_transform = params['lag_transform']
         if "box_cox"         in params: model.box_cox = params["box_cox"]
         if "box_cox_biasadj" in params: model.biasadj = params["box_cox_biasadj"]
 
@@ -520,7 +523,7 @@ def optuna_tune(
 
     # Extract Box-Cox Args
     other_args = {}
-    for k in ["box_cox", "box_cox_biasadj"]:
+    for k in ["box_cox", "box_cox_biasadj", "lag_transform"]:
         if k in best_results:
             other_args[k] = best_results.pop(k)
 
@@ -543,6 +546,7 @@ def optuna_tune(
         
         final_ranker.box_cox = other_args.get("box_cox", final_ranker.box_cox)
         final_ranker.biasadj = other_args.get("box_cox_biasadj", final_ranker.biasadj)
+        final_ranker.lag_transform = other_args.get("lag_transform", final_ranker.lag_transform)
         
         # --- 3. UNIVERSAL IMPORTANCE LOGIC ---
         if mod_name in ("LinearRegression", "Lasso", "Ridge", "ElasticNet"):
@@ -586,6 +590,8 @@ def optuna_tune(
         elif len(candidate_exog) > 0:
             best_features = [candidate_exog[np.argmax(candidate_scores)]]
 
+        if "lag_transform" in other_args and other_args["lag_transform"] is not None:
+            other_args["lag_transform"] = [tr.get_name() for tr in other_args["lag_transform"]]
     return best_hparams, best_lags, other_args, best_features
 
 # %% ../nbs/modules/03_model_selection.ipynb #d2e7cb3d
