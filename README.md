@@ -11,16 +11,16 @@
 [![GitHub
 stars](https://img.shields.io/github/stars/mustafaslanCoto/peshbeen.png)](https://github.com/mustafaslanCoto/peshbeen/stargazers)
 
-**peshbeen** is a Python forecasting library built around a single idea:
+**Peshbeen** is a Python forecasting library built around a single idea:
 the forecasting workflow should be the same regardless of the model. The
 name draws from Kurdish — pesh (“front”) and been (“to see/be”) —
 combining to mean foresight. The library provides a unified interface
 spanning a wide range of models: from ARIMA and Vector Autoregressions
-to scikit-learn regressors and gradient-boosted trees (XGBoost,
-LightGBM, CatBoost). Whether you’re working with univariate or
-multivariate time series, peshbeen automates the heavy lifting — feature
-engineering, lag generation, and stationarity transformations — so you
-can focus on forecasting.
+to scikit-learn regressors, gradient-boosted trees (XGBoost, LightGBM,
+CatBoost), and TabPFN (Tabular Foundation Models). Whether you’re
+working with univariate or multivariate time series, peshbeen automates
+the heavy lifting — feature engineering, lag generation, and
+stationarity transformations — so you can focus on forecasting.
 
 ## Key Features
 

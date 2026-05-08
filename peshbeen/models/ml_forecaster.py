@@ -510,6 +510,7 @@ class ml_forecaster:
             DataFrame containing overall performance metrics averaged across splits, and a DataFrame with predictions and true values for each split.
         """
 
+        # self.get_feature_importance = pd.DataFrame()
         cv_df_ = pd.DataFrame()
         tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
         metrics_dict = {m.__name__: [] for m in metrics}
@@ -548,6 +549,12 @@ class ml_forecaster:
                             "split": np.repeat(f"fold_{idx+1}", len(test)), "y_true": y_test, "y_pred": bb_forecast}
             cv_df_ = pd.concat([cv_df_, pd.DataFrame(split_results)], ignore_index=True)
 
+            ## get feature importance for this split if available and store in dataframe
+            # feature_importance_df = pd.DataFrame({'feature': self.model_fit.feature_names_in_, 'importance': self.model_fit.feature_importances_})
+            # feature_importance_df = feature_importance_df.sort_values('importance', ascending=False)
+            # feature_importance_df['split'] = f"fold_{idx+1}"
+            # self.get_feature_importance = pd.concat([self.get_feature_importance, feature_importance_df], ignore_index=True)
+
         overall_performance = [[m.__name__, np.mean(metrics_dict[m.__name__])] for m in metrics]
         overall_performance = pd.DataFrame(overall_performance).rename(columns={0: "eval_metric", 1: "score"})
         if h_split_point is not None and isinstance(h_split_point, int):
@@ -558,8 +565,26 @@ class ml_forecaster:
             perf_2_df = pd.DataFrame(performance_2).rename(columns={0: "eval_metric", 1: f"score_after_{h_split_point}"})
             # merge all three dataframes
             overall_performance = overall_performance.merge(perf_1_df, on="eval_metric").merge(perf_2_df, on="eval_metric")
+
         self.cv_summary = overall_performance
         return cv_df_
+    
+    def get_cross_validated_features(self,) -> pd.DataFrame:
+        """
+        Retrieve feature importance for each validation fold after cross-validation.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing feature importance scores for each fold.
+        """
+        if not hasattr(self, "cv_summary"):
+            raise ValueError("Cross-validation has not been run yet. Call .cross_validate() before get_cross_validated_features().")
+        if self.model_name in ["LGBMRegressor", "CatBoostRegressor"]:
+            feature_importance_df = pd.DataFrame(self.model_fit.feature_importances_, index=self.X.columns, columns=["importance"])
+            return feature_importance_df.sort_values(by="importance", ascending=False)
+        else:
+            raise ValueError(f"Feature importance retrieval not implemented for model type '{self.model_name}'.")
     
     # a name for the class that is more descriptive of its purpose
     def get_name(self):
