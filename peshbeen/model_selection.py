@@ -71,154 +71,227 @@ from typing import List, Dict, Optional, Callable, Tuple, Any, Union
 from sklearn.preprocessing import StandardScaler
 
 def hyperopt_tune(
-    model: object,
+    model: Any,
     df: pd.DataFrame,
     cv_split: int,
     test_size: int,
     eval_metric: Callable,
-    param_space: dict,
+    param_space: Dict[str, Any],
     step_size: int = None,
-    eval_num=100,
-    verbose=False
-    ) -> Tuple[Dict[str, Any], List[int], List[str]]:
+    eval_num: int = 100,
+    candidate_exog: List[str] = None,
+    pareto_bounds: Union[float, Tuple[float, float]] = (0.5, 0.999),
+    verbose: bool = False,
+) -> Tuple[Dict[str, Any], Any, Dict[str, Any], List[str]]:
 
     """
-    Tune forecasting model hyperparameters using time series cross-validation and hyperopt.
-
+    Tune forecasting model hyperparameters using time series cross-validation and Hyperopt.
+ 
     Parameters
     ----------
     model : object
-        Forecasting model object with .fit and .forecast methods and relevant attributes.
+        Forecasting model with .fit and .forecast methods.
     df : pd.DataFrame
-        Time series data with a datetime index and a target column and optionally exogenous features.
+        Time series data (datetime index, target column, optional exogenous features).
     cv_split : int
         Number of cross-validation splits.
     test_size : int
-        Number of samples in each test set. For ml_direct_forecaster, this will be overridden to be the maximum horizon in model.H.
+        Number of samples in each test fold. For ml_direct_forecaster, this will be overridden to be the maximum horizon in model.H.
     eval_metric : Callable
-        Evaluation metric function.
-    step_size : int, optional
-        Step size to move the test window forward in each split.
+        Metric function to minimise.
     param_space : dict
-        Hyperparameter search space for the forecasting model.
+        Each value must be a callable that accepts a Hyperopt `trial` and returns a value.
+    step_size : int, optional
+        Step size between CV folds.
     eval_num : int, optional
-        Number of hyperparameter combinations to evaluate. Default is 100.
+        Number of Hyperopt trials. Default 100.
+    candidate_exog : List[str], optional
+        List of exogenous feature names to consider for feature importance-based selection. If None, no feature selection is performed.
+    pareto_bounds : Union[float, Tuple[float, float]], optional
+        If a float is provided, it is used as a fixed cutoff for cumulative importance (e.g., 0.8 means keep features that explain 80% of variance). If a tuple is provided, it defines the lower and upper bounds for tuning the Pareto cutoff. Default is (0.5, 0.999), meaning the cutoff will be tuned between 50% and 99.9% of cumulative importance.
     verbose : bool, optional
-        Whether to print the evaluation metric for each hyperparameter combination. Default is False.
-    
+        Print score for every trial. Default False.
+ 
     Returns
     -------
-    Tuple[Dict[str, Any], List[int], List[str]]
-        A tuple containing the best hyperparameters, selected lags, and selected transforms.
+    Tuple[Dict[str, Any], Any, Dict[str, Any], List[str]]
+        Best hyperparameters and best lags (if 'lags' is in param_space).
     """
 
     try:
-        from hyperopt import fmin, tpe, Trials, STATUS_OK, space_eval
+        from hyperopt import fmin, tpe, Trials, STATUS_OK, space_eval, hp
     except ImportError:
         raise ImportError("hyperopt is required. Install with: pip install hyperopt or pip install peshbeen[tuning]")
     
-    
+    # 1. SETUP DIMENSIONS
     if model.get_name() == "ml_direct_forecaster":
         test_size = max(model.H)
         eval_indices = [h - 1 for h in model.H]
     else:
         test_size = test_size
 
-    # Function to index the target array for ml_direct_forecaster based on the specified horizons
     def index_target(target_array):
-        if model.get_name() == "ml_direct_forecaster":
-            return target_array[eval_indices]
-        else:
-            return target_array
+        return target_array[eval_indices] if model.get_name() == "ml_direct_forecaster" else target_array
 
+    target_col = model.target_col
+    mod_name = model.model.__class__.__name__ if hasattr(model, "model") else model.get_name()
+    _skip = {"box_cox", "lags", "box_cox_biasadj", "pareto_cutoff"}
+    
     tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
-    _skip = {"box_cox", "lags", "box_cox_biasadj"}
- 
-    def _set_model_params(params: dict):
+    total_len = len(df)
+    first_end = total_len - cv_split * (step_size or test_size)
+
+    if mod_name != "ets":
+        permanent_cat_vars = model.cat_variables if model.cat_variables is not None else []
+
+    # 2. DEFINE OBJECTIVE
+    def objective(params):
+        m = model.copy()
+        
+        # A. Apply Forecasting Meta-Params
         if "lags" in params:
             lags = params["lags"]
-            model.n_lag = list(range(1, lags + 1)) if isinstance(lags, int) else list(lags)
-        if "box_cox"         in params: model.box_cox = params["box_cox"]
-        if "box_cox_biasadj" in params: model.biasadj = params["box_cox_biasadj"]
- 
-    def _fit_params(params: dict) -> Optional[dict]:
-        base_model = getattr(model, "model", None) # Check if the model has a 'model' attribute (like ARIMA or ETS), otherwise use the model itself (like LinearRegression)
-        is_lr = isinstance(base_model, LinearRegression) # Determine if the base model is LinearRegression, which does not require hyperparameter tuning
+            m.n_lag = list(range(1, lags + 1)) if isinstance(lags, int) else list(lags)
+        if "box_cox" in params: m.box_cox = params["box_cox"]
+        if "box_cox_biasadj" in params: m.biasadj = params["box_cox_biasadj"]
 
-        if is_lr:
-            return {}  # Return an empty dict for LinearRegression, as it does not have hyperparameters to tune
-        return {k: v for k, v in params.items() if k not in _skip}
-    
+        fit_params = {k: v for k, v in params.items() if k not in _skip}
 
-    def objective(params):
-        _set_model_params(params)
-        fit_params = _fit_params(params)
-
-        if fit_params is not None:
-            if model.get_name() == "arima" or model.get_name() == "ets":
-                model.set_params(params=fit_params)
-            else:
-                model.model.set_params(**fit_params)
-
-        metrics = []
-        for train_index, test_index in tscv.split(df):
-            train, test = df.iloc[train_index], df.iloc[test_index]
-            x_test = test.drop(columns=[model.target_col])
-            y_test = np.array(test[model.target_col])
-            y_test = index_target(y_test)
-
-            model.fit(train)
+        # B. Robust Feature Selection
+        active_exog = []
+        if candidate_exog is not None:
+            temp_ranker = m.copy()
             
-            exog_test = x_test if x_test.shape[1] > 0 else None
-            y_pred = model.forecast(len(y_test), exog_test)
+            # --- SAFE PARAMETER SETTING FOR RANKER ---
+            if fit_params:
+                if temp_ranker.get_name() in ("arima", "ets"):
+                    temp_ranker.set_params(params=fit_params)
+                elif hasattr(temp_ranker.model, "set_params"):
+                    temp_ranker.model.set_params(**fit_params)
 
-            #Evaluate using the specified metric
-            if eval_metric.__name__ in ["MASE", "SMAE", "SRMSE", "RMSSE"]:
-                score = eval_metric(y_test,
-                                    y_pred,
-                                    train[model.target_col])
+            # Universal Importance (Scale if Linear)
+            if mod_name in ("LinearRegression", "Lasso", "Ridge", "ElasticNet"):
+                num_cols = [col for col in df.columns if col not in permanent_cat_vars and col != target_col]
+                scaler = StandardScaler()
+                dfl = df.copy()
+                dfl[num_cols] = scaler.fit_transform(dfl[num_cols])
+                temp_ranker.fit(dfl.iloc[:first_end])
+                importances = np.abs(temp_ranker.model.coef_).flatten()
             else:
-                score = eval_metric(y_test,y_pred)
-            metrics.append(score)
+                temp_ranker.fit(df.iloc[:first_end])
+                importances = temp_ranker.model.feature_importances_
+            
+            imp_dict = dict(zip(temp_ranker.X.columns, importances))
+            p_threshold = params.get("pareto_cutoff", pareto_bounds if isinstance(pareto_bounds, float) else 0.99)
 
-        mean_score = np.mean(metrics)
-        if verbose:
-            print("Score:", mean_score)
-        return {"loss": mean_score, "status": STATUS_OK}
+            all_scores_sorted = np.sort(importances)[::-1]
+            cumulative_imp = np.cumsum(all_scores_sorted) / (np.sum(all_scores_sorted) + 1e-8)
+            cutoff_idx = min(np.searchsorted(cumulative_imp, p_threshold), len(all_scores_sorted) - 1)
+            importance_cutoff = all_scores_sorted[cutoff_idx]
+
+            candidate_scores = []
+            for feat in candidate_exog:
+                score = sum(v for k, v in imp_dict.items() if k == feat)
+                candidate_scores.append(score)
+                if score >= importance_cutoff and score > 0:
+                    active_exog.append(feat)
+
+            if not active_exog and len(candidate_exog) > 0:
+                active_exog = [candidate_exog[np.argmax(candidate_scores)]]
+
+            df_trial = df[[target_col] + permanent_cat_vars + active_exog]
+        else:
+            df_trial = df.copy()
+        
+        # --- SAFE PARAMETER SETTING FOR CV MODEL ---
+        if fit_params:
+            if m.get_name() in ("arima", "ets"):
+                m.set_params(params=fit_params)
+            elif hasattr(m.model, "set_params"):
+                filtered_final = {k: v for k, v in fit_params.items() if k not in _skip}
+                m.model.set_params(**filtered_final)
+
+        # CV Loop
+        cv_scores = []
+        for train_idx, test_idx in tscv.split(df_trial):
+            train_fold, test_fold = df_trial.iloc[train_idx], df_trial.iloc[test_idx]
+            y_true = index_target(np.array(test_fold[target_col]))
+            exog_t = test_fold.drop(columns=[target_col]) if test_fold.shape[1] > 1 else None
+
+            fold_model = m.copy()
+            fold_model.fit(train_fold)
+            y_pred = fold_model.forecast(H=len(y_true), exog=exog_t)
+
+            if eval_metric.__name__ in ("MASE", "SMAE", "SRMSE", "RMSSE"):
+                score = eval_metric(y_true, y_pred, train_fold[target_col])
+            else:
+                score = eval_metric(y_true, y_pred)
+            cv_scores.append(score)
+
+        return {"loss": np.mean(cv_scores), "status": STATUS_OK}
+
+    # 3. RUN HYPEROPT
+    full_space = param_space.copy()
+    if isinstance(pareto_bounds, tuple):
+        full_space["pareto_cutoff"] = hp.uniform("pareto_cutoff", pareto_bounds[0], pareto_bounds[1])
 
     trials = Trials()
-    best_hyperparams = fmin(
-        fn=objective,
-        space=param_space,
-        algo=tpe.suggest,
-        max_evals=eval_num,
-        trials=trials,
-    )
+    best_raw = fmin(fn=objective, space=full_space, algo=tpe.suggest, max_evals=eval_num, trials=trials, verbose=verbose)
 
-    # if lags are in the param space, extract the best lags and extract remain parameters for the model
-    if "lags" in param_space:
-        if not isinstance(space_eval(param_space, best_hyperparams)["lags"], int):
-            best_lags = list(space_eval(param_space, best_hyperparams)["lags"])
+    # 4. EXTRACT BEST RESULTS
+    best_results = space_eval(full_space, best_raw)
+    all_best = best_results.copy()
+    
+    best_p_threshold = all_best.pop("pareto_cutoff", pareto_bounds if isinstance(pareto_bounds, float) else 0.99)
+    best_lags = all_best.pop("lags", None)
+    other_args = {k: all_best.pop(k) for k in ["box_cox", "box_cox_biasadj"] if k in all_best}
+    best_hparams = all_best 
+
+    # --- 5. FINAL FEATURE EXTRACTION ---
+    best_features = []
+    if candidate_exog is not None:
+        final_ranker = model.copy()
+        
+        if best_hparams:
+            if final_ranker.get_name() in ("arima", "ets"):
+                final_ranker.set_params(params=best_hparams)
+            elif hasattr(final_ranker.model, "set_params"):
+                filtered_hparams = {k: v for k, v in best_hparams.items() if k not in _skip}
+                final_ranker.model.set_params(**filtered_hparams)
+
+        if best_lags:
+            final_ranker.n_lag = list(range(1, best_lags + 1)) if isinstance(best_lags, int) else list(best_lags)
+        final_ranker.box_cox = other_args.get("box_cox", final_ranker.box_cox)
+        final_ranker.biasadj = other_args.get("box_cox_biasadj", final_ranker.biasadj)
+
+        if mod_name in ("LinearRegression", "Lasso", "Ridge", "ElasticNet"):
+            num_cols = [col for col in df.columns if col not in permanent_cat_vars and col != target_col]
+            dfl_final = df.copy()
+            scaler = StandardScaler()
+            dfl_final[num_cols] = scaler.fit_transform(dfl_final[num_cols])
+            final_ranker.fit(dfl_final.iloc[:first_end])
+            importances = np.abs(final_ranker.model.coef_).flatten()
         else:
-            best_lags = space_eval(param_space, best_hyperparams)["lags"]
-        model_parameters = {k: v for k, v in space_eval(param_space, best_hyperparams).items() if k != "lags"}
-    else:
-        best_lags = None
-        model_parameters = space_eval(param_space, best_hyperparams)
+            final_ranker.fit(df.iloc[:first_end])
+            importances = final_ranker.model.feature_importances_
+            
+        imp_dict = dict(zip(final_ranker.X.columns, importances))
+        all_sorted = np.sort(importances)[::-1]
+        cumulative = np.cumsum(all_sorted) / (np.sum(all_sorted) + 1e-8)
+        cutoff_val = all_sorted[min(np.searchsorted(cumulative, best_p_threshold), len(all_sorted)-1)]
 
-    other_ags = {}
-    if "box_cox" in param_space:
-        best_box_cox = space_eval(param_space, best_hyperparams)["box_cox"]
-        other_ags["box_cox"] = best_box_cox
-        model_parameters = {k: v for k, v in model_parameters.items() if k != "box_cox"}
-    if "box_cox_biasadj" in param_space:
-        best_box_cox_biasadj = space_eval(param_space, best_hyperparams)["box_cox_biasadj"]
-        other_ags["box_cox_biasadj"] = best_box_cox_biasadj
-        model_parameters = {k: v for k, v in model_parameters.items() if k != "box_cox_biasadj"}
+        cand_scores = []
+        for feat in candidate_exog:
+            score = sum(v for k, v in imp_dict.items() if k == feat)
+            cand_scores.append(score)
+            if score >= cutoff_val and score > 0:
+                best_features.append(feat)
+        
+        if not best_features and candidate_exog:
+            best_features = [candidate_exog[np.argmax(cand_scores)]]
 
- 
-    # return model_parameters, best_lags, other_ags
-    return model_parameters, best_lags, other_ags
+    return best_hparams, best_lags, other_args, best_features
+
 
 # %% ../nbs/modules/03_model_selection.ipynb #42ad67aa
 def optuna_tune(
@@ -304,7 +377,9 @@ def optuna_tune(
     total_len = len(df) # We will use this for indexing the temp_ranker fit
     first_end = total_len - cv_split * (step_size or test_size) # End of the first fold's train split
     # Capture the permanent cat variables from the model's initial state
-    permanent_cat_vars = model.cat_variables if model.cat_variables is not None else []
+    # if mod_name is not arima or ets, there is not cat_variables
+    if mod_name != "ets":
+        permanent_cat_vars = model.cat_variables if model.cat_variables is not None else []
     def objective(trial: optuna.Trial) -> float:
         # A. Hyperparameter Sampling
         params = {name: suggest_fn(trial) for name, suggest_fn in param_space.items()}
@@ -328,13 +403,9 @@ def optuna_tune(
             if "box_cox_biasadj" in params: temp_ranker.biasadj = params["box_cox_biasadj"]
             
             # FIT RANKER
-            # If the model is Linear, we must scale to get valid importance
-            # temp_ranker.fit(df.head(20)) ## fit on a small sample to get the importance scores quickly
-            # is_linear = hasattr(temp_ranker.model, "coef_")
             
             if mod_name in ("LinearRegression", "Lasso", "Ridge", "ElasticNet"):
                 # 1. Identify Numeric vs Categorical in the current slice
-                ## exclude cat variables if there are any
                 num_cols = [col for col in df.columns if col not in permanent_cat_vars]
                 # num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
                 
@@ -439,7 +510,7 @@ def optuna_tune(
     best_results = study.best_params.copy()
     
     # Extract Pareto Cutoff
-    if isinstance(pareto_bounds, tuple):
+    if isinstance(pareto_bounds, tuple) and candidate_exog is not None:
         best_p_threshold = best_results.pop("pareto_cutoff", 0.99)
     else:
         best_p_threshold = pareto_bounds
@@ -463,9 +534,7 @@ def optuna_tune(
         
         # Safe Model Parameter Setting
         if hasattr(final_ranker.model, "set_params"):
-            # Only pass keys that actually exist in the underlying model
-            valid_keys = final_ranker.model.get_params().keys()
-            filtered_hparams = {k: v for k, v in best_hparams.items() if k in valid_keys}
+            filtered_hparams = {k: v for k, v in best_hparams.items() if k not in _skip}
             final_ranker.model.set_params(**filtered_hparams)
 
         # Sync Forecasting State for the ranker
