@@ -18,4 +18,4 @@ from .naive import naive
 from .ets import ets
 from .glm import glm
 from .pesh import pesh
-from . import ml_direct_forecaster
+from .ml_direct_forecaster import ml_direct_forecaster
