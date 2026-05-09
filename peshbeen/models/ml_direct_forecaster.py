@@ -36,7 +36,8 @@ class ml_direct_forecaster:
         box_cox: Union[bool, float, int] = False,
         box_cox_biasadj: bool = False,
         cat_variables: Optional[List[str]] = None,
-        categorical_encoder: Optional[Any] = None
+        categorical_encoder: Optional[Any] = None,
+        future_exog_cols: Optional[List[str]] = None
     ) -> None:
 
         """
@@ -76,6 +77,8 @@ class ml_direct_forecaster:
             List of categorical feature column names. If provided, these columns will be treated as categorical variables and encoded accordingly. Default is None (no categorical variables).
         categorical_encoder : object, optional
             Categorical encoder object (e.g. OneHotEncoder(), MeanEncoder(), etc.) to apply to the categorical variables specified in cat_variables. The encoder should have fit() and transform() methods that can be applied to the input DataFrame. Default is None (no categorical encoding) and if None, categorical variables can only be used if the model can handle them natively (e.g. LGBM or CatBoost).
+        future_exog_cols : list of str, optional
+            List of column names for future exogenous variables that needs to be considered for each horizons. Those columns will be considered when exogenous variables, including those future values, are provided during forecasting.
         """
 
         self.model = model
@@ -99,6 +102,7 @@ class ml_direct_forecaster:
                     "(or provide an encoder such as OneHotEncoder/MeanEncoder)."
                 )
         
+        self.future_exog = future_exog_cols
         self.cps = change_points
         self.pol = pol_degree
 
@@ -290,6 +294,18 @@ class ml_direct_forecaster:
         # Run data_prep once to get the transformed feature matrix (lags, transforms, etc.)
         # We reuse X across all horizons — only y changes (shifted per horizon h)
         base_df = self.data_prep(df)
+
+
+        # resolve future_exog column names after encoding
+        if self.future_exog is not None:
+            # find all columns in base_df that originated from future_exog_cols
+            # after encoding, original col names may expand to multiple dummy cols
+            self.future_exog_enc = [
+                c for c in base_df.columns
+                if any(c == col or c.startswith(f"{col}_") for col in self.future_exog)]
+        else:
+            self.future_exog_enc = None
+            
         self.X = base_df.drop(columns=[self.target_col])  # features are horizon-agnostic
         self.feature_cols = self.X.columns.tolist()
 
@@ -309,6 +325,10 @@ class ml_direct_forecaster:
             # Shift target h steps forward: row i now contains the value h steps ahead
             df_h = base_df.copy()
             df_h[self.target_col] = base_df[self.target_col].shift(-h)
+
+            if self.future_exog_enc is not None:
+                for col in self.future_exog_enc:
+                    df_h[col] = base_df[col].shift(-h)
             df_h = df_h.dropna()
 
             X_h = df_h.drop(columns=[self.target_col])
@@ -337,42 +357,32 @@ class ml_direct_forecaster:
         Parameters
         ----------
         H : int
-            Forecast horizon. Must be <= self.H (models are only trained up to self.H).
+            Forecast horizon. No need to specify any horizons.
         exog : pd.DataFrame or None
-            Optional future exogenous variables (H rows).
+            Optional future exogenous variables for the forecast period. Must contain the columns specified in future_exog_cols during initialization, and should be aligned with the forecast horizon (i.e. row 0 corresponds to t+1, row 1 to t+2, etc.). If the model was not initialized with future_exog_cols, providing exog will raise an error.
 
         Returns
         -------
         np.ndarray
             Forecast values of length H.
         """
-        if isinstance(H, int):
-            if H > max(self.H):
-                raise ValueError(
-                    f"H={H} exceeds the training horizon self.H={max(self.H)}. "
-                    f"Re-fit with a larger H to forecast further ahead."
-                )
-        elif isinstance(H, list):
-            if not all(h <= max(self.H) for h in H):
-                raise ValueError(
-                    f"Some horizons in H={H} exceed the training horizon self.H={max(self.H)}. "
-                    f"Re-fit with a larger H to forecast further ahead."
-                )
 
         if not self.direct_models:
             raise ValueError("Model has not been fitted yet. Call .fit() before .forecast().")
 
         # ── Prepare exog ──────────────────────────────────────────────────────
+
         if exog is not None:
-            if self.cat_variables is not None:
-                exog = self.data_prep(exog)
-        # ── Build input row from most recent lags ─────────────────────────────
-        # Use the last row of the training feature matrix as the forecast input.
-        # This contains the most recent lag values computed during fit.
-            cols = exog.columns.tolist()
-            last_features = self.X.iloc[[-1]].drop(columns=cols)
-        else:
-            last_features = self.X.iloc[[-1]]
+            if self.future_exog is not None:
+                missing_cols = [col for col in self.future_exog if col not in exog.columns]
+                if missing_cols:
+                    raise ValueError(f"Exogenous data is missing required future columns: {missing_cols}")
+            else:
+                raise ValueError("Model was not initialized to use future exogenous variables, but exog data was provided. Please initialize the model with future_exog_cols or remove exog from forecast input.")
+            exog = self.data_prep(exog)
+            # reset index to ensure alignment with horizons
+            exog = exog.reset_index(drop=True)
+        last_features = self.X.iloc[[-1]]
 
 
         # ── Pre-compute trend forecasts ───────────────────────────────────────
@@ -393,14 +403,16 @@ class ml_direct_forecaster:
         predictions = []
 
         for h in self.H:
-            # Merge exog features for this step if provided
-            if exog is not None:
-                exog_row = exog.iloc[h - 1:h]  # get the row for horizon h (0-indexed)
-                inp = pd.concat(
-                    [exog_row.reset_index(drop=True), last_features.reset_index(drop=True)], axis=1
-                ).set_index(exog_row.index)
-            else:
-                inp = last_features.copy()
+            inp = last_features.copy()
+            if self.future_exog_enc is not None:
+                # Merge exog features for this step if provided
+                if exog is None:
+                    raise ValueError(
+                        "future_exog_cols were specified but no exog DataFrame was passed to forecast(). "
+                        "Please provide a DataFrame with future values for: "
+                        f"{self.future_exogs}")
+                exog_row = exog.iloc[h - 1:h]  # get the row for horizon h (0-indexed) feature values
+                inp.loc[:, self.future_exog_enc] = exog_row[self.future_exog_enc].values
 
             if (self.model_name in ['LGBMRegressor', 'CatBoostRegressor']) and self.cat_encoder is None:
                 for c in inp.columns:
