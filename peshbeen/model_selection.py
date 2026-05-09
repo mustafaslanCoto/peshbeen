@@ -176,11 +176,11 @@ def hyperopt_tune(
                 dfl = df.copy()
                 dfl[num_cols] = scaler.fit_transform(dfl[num_cols])
                 temp_ranker.fit(dfl.iloc[:first_end])
-                importances = np.abs(temp_ranker.direct_models[0].coef_).flatten() if model.get_name() == "ml_direct_forecaster" else np.abs(temp_ranker.model.coef_).flatten()
+                importances = np.abs(temp_ranker.direct_models[test_size].coef_).flatten() if model.get_name() == "ml_direct_forecaster" else np.abs(temp_ranker.model.coef_).flatten()
                 
             else:
                 temp_ranker.fit(df.iloc[:first_end])
-                importances = temp_ranker.direct_models[0].feature_importances_ if model.get_name() == "ml_direct_forecaster" else temp_ranker.model.feature_importances_
+                importances = temp_ranker.direct_models[test_size].feature_importances_ if model.get_name() == "ml_direct_forecaster" else temp_ranker.model.feature_importances_
             
             imp_dict = dict(zip(temp_ranker.X.columns, importances))
             p_threshold = params.get("pareto_cutoff", pareto_bounds if isinstance(pareto_bounds, float) else 0.99)
@@ -271,11 +271,11 @@ def hyperopt_tune(
             scaler = StandardScaler()
             dfl_final[num_cols] = scaler.fit_transform(dfl_final[num_cols])
             final_ranker.fit(dfl_final.iloc[:first_end])
-            importances = np.abs(final_ranker.direct_models[0].coef_).flatten() if model.get_name() == "ml_direct_forecaster" else np.abs(final_ranker.model.coef_).flatten()
+            importances = np.abs(final_ranker.direct_models[test_size].coef_).flatten() if model.get_name() == "ml_direct_forecaster" else np.abs(final_ranker.model.coef_).flatten()
         else:
             final_ranker.fit(df.iloc[:first_end])
-            importances = final_ranker.direct_models[0].feature_importances_ if model.get_name() == "ml_direct_forecaster" else final_ranker.model.feature_importances_
-            
+            importances = final_ranker.direct_models[test_size].feature_importances_ if model.get_name() == "ml_direct_forecaster" else final_ranker.model.feature_importances_
+
         imp_dict = dict(zip(final_ranker.X.columns, importances))
         all_sorted = np.sort(importances)[::-1]
         cumulative = np.cumsum(all_sorted) / (np.sum(all_sorted) + 1e-8)
@@ -420,11 +420,11 @@ def optuna_tune(
                 
                 # 3. Fit the raw model on the scaled prep-data
                 temp_ranker.fit(dfl.iloc[:first_end])
-                importances = np.abs(temp_ranker.direct_models[0].coef_).flatten() if model.get_name() == "ml_direct_forecaster" else np.abs(temp_ranker.model.coef_).flatten()
+                importances = np.abs(temp_ranker.direct_models[test_size].coef_).flatten() if model.get_name() == "ml_direct_forecaster" else np.abs(temp_ranker.model.coef_).flatten()
             else:
                 # Tree-based models handle unscaled data fine
                 temp_ranker.fit(df.iloc[:first_end])
-                importances = temp_ranker.direct_models[0].feature_importances_ if model.get_name() == "ml_direct_forecaster" else temp_ranker.model.feature_importances_
+                importances = temp_ranker.direct_models[test_size].feature_importances_ if model.get_name() == "ml_direct_forecaster" else temp_ranker.model.feature_importances_
             # importances = temp_ranker.model.feature_importances_
             feature_names = temp_ranker.X.columns 
             imp_dict = dict(zip(feature_names, importances))
@@ -558,11 +558,11 @@ def optuna_tune(
             dfl_final[num_cols] = scaler.fit_transform(dfl_final[num_cols])
             
             final_ranker.fit(dfl_final.iloc[:first_end])
-            importances = np.abs(final_ranker.direct_models[0].coef_).flatten() if model.get_name() == "ml_direct_forecaster" else np.abs(final_ranker.model.coef_).flatten()
+            importances = np.abs(final_ranker.direct_models[test_size].coef_).flatten() if model.get_name() == "ml_direct_forecaster" else np.abs(final_ranker.model.coef_).flatten()
         else:
             # Tree-based: fit normally
             final_ranker.fit(df.iloc[:first_end])   
-            importances = final_ranker.direct_models[0].feature_importances_ if model.get_name() == "ml_direct_forecaster" else final_ranker.model.feature_importances_
+            importances = final_ranker.direct_models[test_size].feature_importances_ if model.get_name() == "ml_direct_forecaster" else final_ranker.model.feature_importances_
             
         feature_names = final_ranker.X.columns
         imp_dict = dict(zip(feature_names, importances))
