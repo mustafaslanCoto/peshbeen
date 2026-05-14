@@ -43,42 +43,8 @@
           file: guide/04_prob_forecasting.ipynb
         - text: "Hyperparameter Tuning"
           file: guide/05_hyperparameter_tuning.ipynb
-        - section: "API Reference"
-          contents:
-            - section: "models"
-              contents:
-                - text: "naive"
-                  file: modules/02_models/08_naive.ipynb
-                - text: "ets"
-                  file: modules/02_models/07_ets.ipynb
-                - text: "arima"
-                  file: modules/02_models/06_arima.ipynb
-                - text: "ml_forecaster"
-                  file: modules/02_models/01_ml_forecast.ipynb
-                - text: "MsHmmRegression"
-                  file: modules/02_models/02_ms_arr.ipynb
-                - text: "glm"
-                  file: modules/02_models/09_glm.ipynb
-                - text: "ml_bidirect_forecaster"
-                  file: modules/02_models/03_ml_mv_forecast.ipynb
-                - text: "VARModel"
-                  file: modules/02_models/04_var.ipynb
-                - text: "MsHmmVar"
-                  file: modules/02_models/05_ms_var.ipynb
-                - text: "ml_direct_forecaster"
-                  file: modules/02_models/10_direct_ml.ipynb
-                - text: "ensemble"
-                  file: modules/02_models/90_herne_pesh.ipynb
-            # - section: "model_selection"
-              # contents:
-            - text: "model_selection"
-              file: modules/03_model_selection.ipynb
-            - text: "probabilistic_forecasting"
-              file: modules/04_prob_forecast.ipynb
-            - text: "transformations"
-              file: modules/05_transformations.ipynb
-            - text: "metrics"
-              file: modules/01_metrics.ipynb
+        - text: "API Reference"
+          file: api/api.ipynb
 
       tools: 
         - icon: github
