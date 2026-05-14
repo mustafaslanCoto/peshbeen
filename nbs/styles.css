@@ -315,3 +315,18 @@ body {
 .sidebar nav[role="doc-toc"] ul > li > a.active {
   border-left: 1px solid #20808D !important; /* Replace with your color */
 }
+
+/* Highlight the active link in the Left Sidebar */
+.sidebar-navigation .sidebar-link.active,
+.sidebar-navigation .sidebar-item-text.active,
+.sidebar-navigation .active > .sidebar-link {
+  color: #20808D !important;
+  font-weight: bold !important;
+}
+
+/* Hover effect for Left Sidebar links */
+.sidebar-navigation .sidebar-link:hover,
+.sidebar-navigation .sidebar-item-text:hover {
+  color: #20B8CD !important;
+  text-decoration: none !important;
+}
