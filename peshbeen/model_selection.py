@@ -81,6 +81,7 @@ def hyperopt_tune(
     eval_num: int = 100,
     candidate_exog: List[str] = None,
     pareto_bounds: Union[float, Tuple[float, float]] = (0.5, 0.999),
+    eval_horizons: Union[None, int] = None,
     verbose: bool = False,
 ) -> Tuple[Dict[str, Any], Any, Dict[str, Any], List[str]]:
 
@@ -109,6 +110,8 @@ def hyperopt_tune(
         List of exogenous feature names to consider for feature importance-based selection. If None, no feature selection is performed.
     pareto_bounds : Union[float, Tuple[float, float]], optional
         If a float is provided, it is used as a fixed cutoff for cumulative importance (e.g., 0.8 means keep features that explain 80% of variance). If a tuple is provided, it defines the lower and upper bounds for tuning the Pareto cutoff. Default is (0.5, 0.999), meaning the cutoff will be tuned between 50% and 99.9% of cumulative importance.
+    eval_horizons : Union[None, int], optional
+        If an integer is provided, the evaluation metric will be calculated starting from that horizon onward (e.g., if 5 is passed, the metric will be calculated on horizons 5, 6, 7, etc.). If None, the metric will be calculated on all horizons.
     verbose : bool, optional
         Print score for every trial. Default False.
  
@@ -147,6 +150,12 @@ def hyperopt_tune(
     if mod_name != "ets":
         permanent_cat_vars = model.cat_variables if model.cat_variables is not None else []
 
+    if eval_horizons is not None:
+        # it is not valid for direct forecaster to have eval_horizons greater than the max horizon, we will raise an error in that case
+        if model.get_name() == "ml_direct_forecaster":
+            raise ValueError(f"eval_horizons is only applicavle for recursive models, it should be None for direct forecaster. Please set eval_horizons to None.")
+        if test_size <= eval_horizons:
+            raise ValueError(f"eval_horizons cannot be greater than or equal to test_size ({test_size}) for recursive models, as there would be no predictions to evaluate. Please set eval_horizons to a value less than {test_size} or set eval_horizons to None.")
     # 2. DEFINE OBJECTIVE
     def objective(params):
         m = model.copy()
@@ -229,6 +238,10 @@ def hyperopt_tune(
             fold_model = m.copy()
             fold_model.fit(train_fold)
             y_pred = fold_model.forecast(H=len(y_true), exog=exog_t)
+
+            if eval_horizons is not None:
+                y_true = y_true[eval_horizons - 1:] # -1 because of zero indexing. If start from horizon 5, we want to include the 5th horizon which is at index 4
+                y_pred = y_pred[eval_horizons - 1:]
 
             if eval_metric.__name__ in ("MASE", "SMAE", "SRMSE", "RMSSE"):
                 score = eval_metric(y_true, y_pred, train_fold[target_col])
@@ -326,8 +339,9 @@ def optuna_tune(
     param_space: Dict[str, Any],
     step_size: int = None,
     eval_num: int = 100,
-    candidate_exog: List[str] = None,  # The 800+ features to optimize
-    pareto_bounds: Union[float, Tuple[float, float]] = (0.5, 0.999),  # Global Pareto bounds for feature importance. if float is passed we will use that as a fixed cutoff, if tuple is passed to be tuned
+    candidate_exog: List[str] = None,
+    pareto_bounds: Union[float, Tuple[float, float]] = (0.5, 0.999),
+    eval_horizons: Union[None, int] = None,
     verbose: bool = False,
 ) -> Tuple[Dict[str, Any], Any, Dict[str, Any], List[str]]:
 
@@ -356,6 +370,8 @@ def optuna_tune(
         List of exogenous feature names to consider for feature importance-based selection. If None, no feature selection is performed.
     pareto_bounds : Union[float, Tuple[float, float]], optional
         If a float is provided, it is used as a fixed cutoff for cumulative importance (e.g., 0.8 means keep features that explain 80% of variance). If a tuple is provided, it defines the lower and upper bounds for tuning the Pareto cutoff. Default is (0.5, 0.999), meaning the cutoff will be tuned between 50% and 99.9% of cumulative importance.
+    eval_horizons : Union[None, int], optional
+        If an integer is provided, the evaluation metric will be calculated starting from that horizon onward (e.g., if 5 is passed, the metric will be calculated on horizons 5, 6, 7, etc.). If None, the metric will be calculated on all horizons.
     verbose : bool, optional
         Print score for every trial. Default False.
  
@@ -403,6 +419,15 @@ def optuna_tune(
     # if mod_name is not arima or ets, there is not cat_variables
     if mod_name != "ets":
         permanent_cat_vars = model.cat_variables if model.cat_variables is not None else []
+    
+    if eval_horizons is not None:
+        # it is not valid for direct forecaster to have eval_horizons greater than the max horizon, we will raise an error in that case
+        if model.get_name() == "ml_direct_forecaster":
+            raise ValueError(f"eval_horizons is only applicavle for recursive models, it should be None for direct forecaster. Please set eval_horizons to None.")
+
+        if test_size <= eval_horizons:
+            raise ValueError(f"eval_horizons cannot be greater than or equal to test_size ({test_size}) for recursive models, as there would be no predictions to evaluate. Please set eval_horizons to a value less than {test_size} or set eval_horizons to None.")
+        
     def objective(trial: optuna.Trial) -> float:
         # A. Hyperparameter Sampling
         params = {name: suggest_fn(trial) for name, suggest_fn in param_space.items()}
@@ -526,7 +551,11 @@ def optuna_tune(
             model_.fit(train)
             
             y_pred = model_.forecast(H=len(test), exog=exog_t)
-    
+
+            if eval_horizons is not None:
+                y_true = y_true[eval_horizons - 1:] # -1 because of zero indexing. If start from horizon 5, we want to include the 5th horizon which is at index 4
+                y_pred = y_pred[eval_horizons - 1:]
+
             if eval_metric.__name__ in ("MASE", "SMAE", "SRMSE", "RMSSE"):
                 score = eval_metric(y_true, y_pred, train[target_col])
             else:
