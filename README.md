@@ -84,9 +84,27 @@ stationarity transformations — so you can focus on forecasting.
     residuals. By calculating nonconformity scores based on the
     residuals and using them to determine prediction intervals.
 
-- **Hyperparameter Tuning:** Provides built-in support for
-  hyperparameter tuning using Hyperopt and Optuna, allowing users to
-  optimize model performance with minimal effort.
+- **Hyperparameter Tuning:** Peshbeen facilitates the path from raw data
+  to a high-accuracy model. We automate the most labor-intensive parts
+  of forecasting—feature selection and hyperparameter tuning—into a
+  single, unified workflow.
+
+  - **Integrated Intelligence:** Unlike traditional pipelines that
+    require you to select features before tuning, Peshbeen performs
+    feature-aware optimization. The engine automatically determines
+    which exogenous variables and lag structures actually drive
+    performance for your specific model, ensuring your final forecast
+    relies only on meaningful signals rather than noise.
+  - **Optimizer-Driven Selection:** Peshbeen leverages state-of-the-art
+    optimization frameworks (Optuna and Hyperopt) to identify the “sweet
+    spot” where your model’s parameters meet the most predictive feature
+    subset. This removes the guesswork from manual feature engineering
+    and dramatically reduces the time spent on trial-and-error.
+  - **Unified Tuning API:** You don’t need separate scripts for tuning;
+    the same clean `.fit()` workflow applies to your optimized models.
+    Simply define your search space (or/and features to be evaluated),
+    and peshbeen handles the heavy lifting, providing a transparent and
+    reproducible way to reach your best model configuration.
 
 ## Installation
 

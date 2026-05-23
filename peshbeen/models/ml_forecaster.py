@@ -532,8 +532,8 @@ class ml_forecaster:
                     eval_val = m(y_test, bb_forecast)
                 metrics_dict[m.__name__].append(eval_val)
             if h_split_point is not None and isinstance(h_split_point, int):
-                y_test_1, y_test_2 = y_test[:h_split_point], y_test[h_split_point:]
-                bb_forecast_1, bb_forecast_2 = bb_forecast[:h_split_point], bb_forecast[h_split_point:]
+                y_test_1, y_test_2 = y_test[:h_split_point-1], y_test[h_split_point-1:] # split true values into two parts based on h_split_point. -1 is subtracted from h_split_point to account for zero-based indexing and to ensure the split is done at the correct point in the array
+                bb_forecast_1, bb_forecast_2 = bb_forecast[:h_split_point-1], bb_forecast[h_split_point-1:]
                 for m in metrics:
                     if m.__name__ in ['MASE', 'SMAE', 'SRMSE', 'RMSSE']:
                         eval_val1 = m(y_test_1, bb_forecast_1, np.array(train[self.target_col]))

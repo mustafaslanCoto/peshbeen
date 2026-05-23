@@ -147,8 +147,7 @@ def hyperopt_tune(
     total_len = len(df)
     first_end = total_len - cv_split * (step_size or test_size)
 
-    if mod_name != "ets":
-        permanent_cat_vars = model.cat_variables if model.cat_variables is not None else []
+    permanent_cat_vars = model.cat_variables if mod_name != "ets" and model.cat_variables is not None else []
 
     if eval_horizons is not None:
         # it is not valid for direct forecaster to have eval_horizons greater than the max horizon, we will raise an error in that case
@@ -172,8 +171,6 @@ def hyperopt_tune(
         # B. Robust Feature Selection
         active_exog = []
         if candidate_exog is not None:
-            # --- 1. THE BINARY MASK ---
-            active_exog_mask = [col for col in candidate_exog if params.get(f"feat_{col}", False)]
             temp_ranker = m.copy()
             
             # --- SAFE PARAMETER SETTING FOR RANKER ---
@@ -185,7 +182,7 @@ def hyperopt_tune(
 
             # Universal Importance (Scale if Linear)
             # --- 2. FIT RANKER ON MASKED DATA ---
-            dfl = df.drop(columns=[col for col in candidate_exog if col not in active_exog_mask])
+            dfl = df.copy()
             if mod_name in ("LinearRegression", "Lasso", "Ridge", "ElasticNet"):
                 num_cols = [col for col in dfl.columns if col not in permanent_cat_vars]
                 scaler = StandardScaler()
@@ -212,9 +209,9 @@ def hyperopt_tune(
                 if score >= importance_cutoff and score > 0:
                     active_exog.append(feat)
 
-            if not active_exog and active_exog_mask:
+            if not active_exog:
                 # Fallback to best from the masked set
-                active_exog = [active_exog_mask[0]]
+                active_exog = [candidate_exog[np.argmax([imp_dict.get(col, 0) for col in candidate_exog])]] # if candidate_exog else []
 
             df_trial = df[[target_col] + permanent_cat_vars + active_exog]
         else:
@@ -253,11 +250,6 @@ def hyperopt_tune(
 
     # 3. RUN HYPEROPT
     full_space = param_space.copy()
-    if candidate_exog is not None:
-        feat_cols = []
-        for col in candidate_exog:
-            full_space[f"feat_{col}"] = hp.choice(f"feat_{col}", [True, False])
-            feat_cols.append(f"feat_{col}")
     
     if isinstance(pareto_bounds, tuple):
         full_space["pareto_cutoff"] = hp.uniform("pareto_cutoff", pareto_bounds[0], pareto_bounds[1])
@@ -279,9 +271,6 @@ def hyperopt_tune(
     best_features = []
     if candidate_exog is not None:
 
-        # RECONSTRUCT MASK
-        active_exog_mask = [col for col in candidate_exog if best_results.get(f"feat_{col}", False)]
-        if not active_exog_mask: active_exog_mask = [candidate_exog[0]]
         final_ranker = model.copy()
         
         if best_hparams:
@@ -297,7 +286,7 @@ def hyperopt_tune(
         final_ranker.biasadj = other_args.get("box_cox_biasadj", final_ranker.biasadj)
         final_ranker.lag_transform = other_args.get("lag_transform", final_ranker.lag_transform)
         # FIT FINAL RANKER ON MASKED DATA
-        dfl_final = df.drop(columns=[col for col in candidate_exog if col not in active_exog_mask])
+        dfl_final = df.copy()
         if mod_name in ("LinearRegression", "Lasso", "Ridge", "ElasticNet"):
             num_cols = [col for col in dfl_final.columns if col not in permanent_cat_vars]
             scaler = StandardScaler()
@@ -320,8 +309,8 @@ def hyperopt_tune(
             if score >= cutoff_val and score > 0:
                 best_features.append(feat)
         
-        if not best_features and active_exog_mask:
-            best_features = [active_exog_mask[0]]
+        if not best_features:
+            best_features = [candidate_exog[np.argmax(cand_scores)]] if candidate_exog else []
             
     if "lag_transform" in other_args and other_args["lag_transform"] is not None:
         other_args["lag_transform"] = [tr.get_name() for tr in other_args["lag_transform"]]
@@ -330,6 +319,7 @@ def hyperopt_tune(
 
 
 # %% ../nbs/modules/03_model_selection.ipynb #42ad67aa
+from optuna import study
 def optuna_tune(
     model: Any,
     df: pd.DataFrame,
@@ -339,6 +329,7 @@ def optuna_tune(
     param_space: Dict[str, Any],
     step_size: int = None,
     eval_num: int = 100,
+    warm_up_steps: int = 10,
     candidate_exog: List[str] = None,
     pareto_bounds: Union[float, Tuple[float, float]] = (0.5, 0.999),
     eval_horizons: Union[None, int] = None,
@@ -366,6 +357,8 @@ def optuna_tune(
         Step size between CV folds.
     eval_num : int, optional
         Number of Optuna trials. Default 100.
+    warm_up_steps : int, optional
+        The number of initial CV folds to complete before the Optuna pruner begins evaluating trial performance. This "warm-up" period prevents the pruner from prematurely terminating promising trials due to high variance or noise present in the earliest (smallest) cross-validation folds. Default 10.
     candidate_exog : List[str], optional
         List of exogenous feature names to consider for feature importance-based selection. If None, no feature selection is performed.
     pareto_bounds : Union[float, Tuple[float, float]], optional
@@ -417,8 +410,7 @@ def optuna_tune(
     first_end = total_len - cv_split * (step_size or test_size) # End of the first fold's train split
     # Capture the permanent cat variables from the model's initial state
     # if mod_name is not arima or ets, there is not cat_variables
-    if mod_name != "ets":
-        permanent_cat_vars = model.cat_variables if model.cat_variables is not None else []
+    permanent_cat_vars = model.cat_variables if mod_name != "ets" and model.cat_variables is not None else []
     
     if eval_horizons is not None:
         # it is not valid for direct forecaster to have eval_horizons greater than the max horizon, we will raise an error in that case
@@ -436,102 +428,60 @@ def optuna_tune(
          # We need to make sure permanent cat variables are always included in df_
         
         active_exog = []
-        if candidate_exog is not None:
-
-            # --- 1. THE BINARY MASK (Selection Gate) ---
-            # Every one of the 800+ features gets an independent On/Off switch
-            keep_mask = [
-                trial.suggest_categorical(f"feat_{col}", [True, False]) 
-                for col in candidate_exog
-            ]
-            # Identify which features the optimizer has "Activated"
-            active_exog_mask = [col for col, keep in zip(candidate_exog, keep_mask) if keep]
-
-            # Fallback: If the optimizer turns EVERYTHING off, we must pick at least one
-            # to avoid a model crash. We'll pick the first one as a safety.
-            # if activated_candidates empty
-            if not active_exog_mask:
-                active_exog_mask = [candidate_exog[0]] # Ensure at least one feature is active to prevent model failure
-            # 1. TEMPORary RANKER setup
-            # We need to see which features the model likes UNDER THESE HYPERPARAMETERS
+        if candidate_exog is not None and len(candidate_exog) > 0:
             temp_ranker = model.copy()
             
-            # Apply the current trial's hyperparameters to the internal model
             if hasattr(temp_ranker.model, "set_params"):
                 temp_ranker.model.set_params(**fit_params)
             if "lags" in params:
-                temp_ranker.n_lag = list(range(1, params["lags"] + 1)) if isinstance(params["lags"], int) else list(params["lags"]) # Ensure lags are in the correct format
+                temp_ranker.n_lag = list(range(1, params["lags"] + 1)) if isinstance(params["lags"], int) else list(params["lags"])
             if 'lag_transform' in params: temp_ranker.lag_transform = params['lag_transform']
-            if "box_cox"         in params: temp_ranker.box_cox = params["box_cox"]
+            if "box_cox" in params: temp_ranker.box_cox = params["box_cox"]
             if "box_cox_biasadj" in params: temp_ranker.biasadj = params["box_cox_biasadj"]
         
-            # FIT RANKER
-            dfl = df.drop(columns=[col for col in candidate_exog if col not in active_exog_mask])  # Drop the candidate exogenous features that are not active for this trial
-            # 1. Identify Numeric vs Categorical in the current slice
-            num_cols = [col for col in dfl.columns if col not in permanent_cat_vars]
+            dfl = df.copy()
             
             if mod_name in ("LinearRegression", "Lasso", "Ridge", "ElasticNet"):
-                # num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-                
-                # 2. Scale only the numeric columns
+                num_cols = [col for col in dfl.columns if col not in permanent_cat_vars]
                 scaler = StandardScaler()
                 dfl[num_cols] = scaler.fit_transform(dfl[num_cols])
-                
-                # 3. Fit the raw model on the scaled prep-data
                 temp_ranker.fit(dfl.iloc[:first_end])
                 importances = np.abs(temp_ranker.direct_models[test_size].coef_).flatten() if model.get_name() == "ml_direct_forecaster" else np.abs(temp_ranker.model.coef_).flatten()
             else:
-                # Tree-based models handle unscaled data fine
                 temp_ranker.fit(dfl.iloc[:first_end])
                 importances = temp_ranker.direct_models[test_size].feature_importances_ if model.get_name() == "ml_direct_forecaster" else temp_ranker.model.feature_importances_
-            # importances = temp_ranker.model.feature_importances_
-            feature_names = temp_ranker.X.columns 
-            imp_dict = dict(zip(feature_names, importances))
+            
+            imp_dict = dict(zip(temp_ranker.X.columns, importances))
 
-            # NEW: TUNE PARETO CUTOFF ---
-            # Suggesting the threshold: 0.8 means keep features that explain 80% of variance
-            if isinstance(pareto_bounds, tuple):
-                p_threshold = trial.suggest_float("pareto_cutoff", pareto_bounds[0], pareto_bounds[1])
-            else:
-                p_threshold = pareto_bounds
+            p_threshold = trial.suggest_float("pareto_cutoff", pareto_bounds[0], pareto_bounds[1]) if isinstance(pareto_bounds, tuple) else pareto_bounds
 
-            # Calculate Global Pareto Threshold (Top 99% of EVERYTHING)
             all_scores_sorted = np.sort(importances)[::-1]
             cumulative_imp = np.cumsum(all_scores_sorted) / (np.sum(all_scores_sorted) + 1e-8)
-            cutoff_idx = np.searchsorted(cumulative_imp, p_threshold)
-            cutoff_idx = min(cutoff_idx, len(all_scores_sorted) - 1)
+            cutoff_idx = min(np.searchsorted(cumulative_imp, p_threshold), len(all_scores_sorted) - 1)
             importance_cutoff = all_scores_sorted[cutoff_idx]
 
-            # Identify which Candidates survive the Global Pareto Threshold
             candidate_scores = []
-            pareto_eligible_exog = []
             for feat in candidate_exog:
                 score = sum(v for k, v in imp_dict.items() if k == feat)
                 candidate_scores.append(score)
-                # Only eligible if score is at or above the 99% global cutoff
                 if score >= importance_cutoff and score > 0:
-                    pareto_eligible_exog.append(feat)
+                    active_exog.append(feat)
 
-            active_exog = pareto_eligible_exog  # For simplicity, we can just use the Pareto-eligible features directly without the additional alpha and N tuning for this example
-
-            if not active_exog and len(candidate_exog) > 0:
+            if not active_exog:
                 active_exog = [candidate_exog[np.argmax(candidate_scores)]]
 
-            # --- Combine Permanent Categoricals + Selected Optimized Features ---
             cols_to_use = [target_col] + permanent_cat_vars + active_exog
             df_ = df[cols_to_use]
         else:
             df_ = df.copy()
 
-        # Update Model State with Hyperparameters
         if "lags" in params:
             model.n_lag = list(range(1, params["lags"] + 1)) if isinstance(params["lags"], int) else list(params["lags"])
         if 'lag_transform' in params: model.lag_transform = params['lag_transform']
-        if "box_cox"         in params: model.box_cox = params["box_cox"]
+        if "box_cox" in params: model.box_cox = params["box_cox"]
         if "box_cox_biasadj" in params: model.biasadj = params["box_cox_biasadj"]
-
     
-        if model.get_name() == "arima" or model.get_name() == "ets":
+        if model.get_name() in ("arima", "ets"):
             model.set_params(params=fit_params)
         else:
             model.model.set_params(**fit_params)
@@ -539,7 +489,7 @@ def optuna_tune(
         # C. CV Loop
         cv_scores = []
 
-        for train_idx, test_idx in tscv.split(df):
+        for step_idx, (train_idx, test_idx) in enumerate(tscv.split(df_)):
             train = df_.iloc[train_idx]
             test = df_.iloc[test_idx]
             
@@ -562,126 +512,78 @@ def optuna_tune(
                 score = eval_metric(y_true, y_pred)
                 
             cv_scores.append(score)
-
-        mean_score = np.mean(cv_scores)
         
-        
-        return mean_score
+            # EARLY PRUNING: Tell Optuna the intermediate score
+            trial.report(np.mean(cv_scores), step_idx)
+            if trial.should_prune():
+                raise optuna.TrialPruned()
 
-    # Run optimization
-    study = optuna.create_study(direction="minimize")
+        return np.mean(cv_scores)
 
-
-    # 1. Block Optuna's default internal handler
     optuna.logging.set_verbosity(optuna.logging.WARNING)
+    study = optuna.create_study(direction="minimize", pruner=optuna.pruners.MedianPruner(n_warmup_steps=warm_up_steps)
+                                )
 
     if verbose:
-        # 2. Define a clean, concise callback for logging
         def optuna_print_callback(study, trial):
-            # Print only what you care about
-            print(f"Trial {trial.number:3} | Trial Value: {trial.value:.6f} | Best trial: {study.best_trial.number:3} | Best Value: {study.best_value:.6f}")
-
+            # Check the state of the trial
+            if trial.state == optuna.trial.TrialState.PRUNED:
+                print(f"Trial {trial.number:3} | Status: PRUNED | Pruned at step: {list(trial.intermediate_values.keys())[-1] if trial.intermediate_values else 'N/A'}")
+            else:
+                print(f"Trial {trial.number:3} | Status: {trial.state.name:8} | Value: {trial.value:.6f} | Best trial: {study.best_trial.number:3} | Best Value: {study.best_value:.6f}")
         study.optimize(objective, n_trials=eval_num, callbacks=[optuna_print_callback])
     else:
         study.optimize(objective, n_trials=eval_num)
 
 
     best_results = study.best_params.copy()
-    
-    # Extract Pareto Cutoff
-    if isinstance(pareto_bounds, tuple) and candidate_exog is not None:
-        best_p_threshold = best_results.pop("pareto_cutoff", 0.99)
-    else:
-        best_p_threshold = pareto_bounds
-
-    # Extract Lags
+    best_p_threshold = best_results.pop("pareto_cutoff", pareto_bounds if not isinstance(pareto_bounds, tuple) else 0.99)
     best_lags = best_results.pop("lags", None)
 
-    # Extract Box-Cox Args
-    other_args = {}
-    for k in ["box_cox", "box_cox_biasadj", "lag_transform"]:
-        if k in best_results:
-            other_args[k] = best_results.pop(k)
-
-    # What remains in best_results are pure model hyperparameters (e.g. learning_rate, fit_intercept)
+    other_args = {k: best_results.pop(k) for k in ["box_cox", "box_cox_biasadj", "lag_transform"] if k in best_results}
     best_hparams = best_results 
 
-    # --- 2. EXTRACT BEST FEATURE SET ---
     best_features = []
-    if candidate_exog is not None:
-
-        # Reconstruct the Binary Mask from best_params
-        # We look for keys starting with 'feat_' to rebuild our activated pool
-        active_exog_mask = [
-            col for col in candidate_exog 
-            if study.best_params.get(f"feat_{col}", False)
-        ]
-
-        # Safety fallback if the mask turned everything off
-        if not active_exog_mask:
-            active_exog_mask = [candidate_exog[0]] # 
-
-        # Remove the mask flags from best_hparams so they don't go to the model fit
-        for col in candidate_exog:
-            best_hparams.pop(f"feat_{col}", None)
-
+    if candidate_exog is not None and len(candidate_exog) > 0:
         final_ranker = model.copy()
-
         
-        # Safe Model Parameter Setting
         if hasattr(final_ranker.model, "set_params"):
-            filtered_hparams = {k: v for k, v in best_hparams.items() if k not in _skip}
-            final_ranker.model.set_params(**filtered_hparams)
+            final_ranker.model.set_params(**{k: v for k, v in best_hparams.items() if k not in _skip})
 
-        # Sync Forecasting State for the ranker
         if best_lags:
             final_ranker.n_lag = list(range(1, best_lags + 1)) if isinstance(best_lags, int) else list(best_lags)
         
-        final_ranker.box_cox = other_args.get("box_cox", final_ranker.box_cox)
-        final_ranker.biasadj = other_args.get("box_cox_biasadj", final_ranker.biasadj)
-        final_ranker.lag_transform = other_args.get("lag_transform", final_ranker.lag_transform)
-        
-        # --- 3. UNIVERSAL IMPORTANCE LOGIC ---
-        dfl_final = df.drop(columns=[col for col in candidate_exog if col not in active_exog_mask]) # Apply the final selected features to the dataset for importance extraction
+        for arg in ["box_cox", "box_cox_biasadj", "lag_transform"]:
+            if arg in other_args:
+                setattr(final_ranker, arg.replace("box_cox_biasadj", "biasadj"), other_args[arg])
+
+        dfl_final = df.copy()
         num_cols = [col for col in dfl_final.columns if col not in permanent_cat_vars]
+        
         if mod_name in ("LinearRegression", "Lasso", "Ridge", "ElasticNet"):
-            # Scale numeric columns for fair coefficient comparison
-            num_cols = [col for col in dfl_final.columns if col not in permanent_cat_vars]
             scaler = StandardScaler()
             dfl_final[num_cols] = scaler.fit_transform(dfl_final[num_cols])
-            
             final_ranker.fit(dfl_final.iloc[:first_end])
             importances = np.abs(final_ranker.direct_models[test_size].coef_).flatten() if model.get_name() == "ml_direct_forecaster" else np.abs(final_ranker.model.coef_).flatten()
         else:
-            # Tree-based: fit normally
             final_ranker.fit(dfl_final.iloc[:first_end])   
             importances = final_ranker.direct_models[test_size].feature_importances_ if model.get_name() == "ml_direct_forecaster" else final_ranker.model.feature_importances_
             
-        feature_names = final_ranker.X.columns
-        imp_dict = dict(zip(feature_names, importances))
+        imp_dict = dict(zip(final_ranker.X.columns, importances))
         
-        # --- 4. GLOBAL PARETO SELECTION ---
         all_scores_sorted = np.sort(importances)[::-1]
         cumulative_imp = np.cumsum(all_scores_sorted) / (np.sum(all_scores_sorted) + 1e-8)
-        
-        # Find index for best_p_threshold and clip to bounds
-        cutoff_idx = np.searchsorted(cumulative_imp, best_p_threshold)
-        cutoff_idx = min(cutoff_idx, len(all_scores_sorted) - 1)
+        cutoff_idx = min(np.searchsorted(cumulative_imp, best_p_threshold), len(all_scores_sorted) - 1)
         importance_cutoff = all_scores_sorted[cutoff_idx]
 
-        pareto_eligible_exog = []
         candidate_scores = []
         for feat in candidate_exog:
-            # Sum importance for parent feature (handles dummies/encoded names)
             score = sum(v for k, v in imp_dict.items() if k == feat)
             candidate_scores.append(score)
             if score >= importance_cutoff and score > 0:
-                pareto_eligible_exog.append(feat)
+                best_features.append(feat)
         
-        # Final set (with fallback to top 1 feature if Pareto was too aggressive)
-        if pareto_eligible_exog:
-            best_features = pareto_eligible_exog
-        elif len(candidate_exog) > 0:
+        if not best_features:
             best_features = [candidate_exog[np.argmax(candidate_scores)]]
 
     if "lag_transform" in other_args and other_args["lag_transform"] is not None:
