@@ -146,7 +146,21 @@ def hyperopt_tune(
     tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
     total_len = len(df)
     first_end = total_len - cv_split * (step_size or test_size)
-
+    # NEW: Helper function to consistently apply ml_forecaster specific configurations safely
+    def _apply_forecaster_params(target_model, params):
+        if "lags" in params:
+            target_model.n_lag = list(range(1, params["lags"] + 1)) if isinstance(params["lags"], int) else list(params["lags"])
+        if 'lag_transform' in params: 
+            target_model.lag_transform = params['lag_transform']
+        if "box_cox" in params:
+            if isinstance(params["box_cox"], bool):
+                target_model.box_cox = params["box_cox"]
+                target_model.lamda = None # Force estimation if boolean True
+            else:
+                target_model.box_cox = True
+                target_model.lamda = params["box_cox"]
+        if "box_cox_biasadj" in params: target_model.biasadj = params["box_cox_biasadj"]
+        
     permanent_cat_vars = model.cat_variables if mod_name != "ets" and model.cat_variables is not None else []
 
     if eval_horizons is not None:
@@ -160,11 +174,7 @@ def hyperopt_tune(
         m = model.copy()
         
         # A. Apply Forecasting Meta-Params
-        if "lags" in params:
-            m.n_lag = list(range(1, params["lags"] + 1)) if isinstance(params["lags"], int) else list(params["lags"])
-        if "box_cox" in params: m.box_cox = params["box_cox"]
-        if "box_cox_biasadj" in params: m.biasadj = params["box_cox_biasadj"]
-        if "lag_transform" in params: m.lag_transform = params["lag_transform"]
+        _apply_forecaster_params(m, params)
 
         fit_params = {k: v for k, v in params.items() if k not in _skip}
 
@@ -282,8 +292,15 @@ def hyperopt_tune(
 
         if best_lags:
             final_ranker.n_lag = list(range(1, best_lags + 1)) if isinstance(best_lags, int) else list(best_lags)
-        final_ranker.box_cox = other_args.get("box_cox", final_ranker.box_cox)
-        final_ranker.biasadj = other_args.get("box_cox_biasadj", final_ranker.biasadj)
+        
+        if "box_cox" in other_args:
+            final_ranker.box_cox = other_args["box_cox"]
+            if isinstance(other_args["box_cox"], bool):
+                final_ranker.lamda = None
+            else:
+                final_ranker.lamda = other_args["box_cox"]
+        if "box_cox_biasadj" in other_args:
+            final_ranker.biasadj = other_args["box_cox_biasadj"]
         final_ranker.lag_transform = other_args.get("lag_transform", final_ranker.lag_transform)
         # FIT FINAL RANKER ON MASKED DATA
         dfl_final = df.copy()
@@ -380,12 +397,11 @@ def optuna_tune(
         raise ImportError("optuna is required.")
     
     if model.get_name() == "ml_direct_forecaster":
-        test_size = max(model.H) # it is a list of horizons, we take the max to ensure we have enough test samples for the largest horizon
+        test_size = max(model.H) 
         eval_indices = [h - 1 for h in model.H]
     else:
         test_size = test_size
 
-    # Function to index the target array for ml_direct_forecaster based on the specified horizons
     def index_target(target_array):
         if model.get_name() == "ml_direct_forecaster":
             return target_array[eval_indices]
@@ -395,49 +411,61 @@ def optuna_tune(
     target_col = model.target_col
     mod_name = model.model.__class__.__name__ if hasattr(model, "model") else model.get_name()
 
-    _skip = {"box_cox", "lags", "box_cox_biasadj", "pareto_cutoff", "lag_transform"}  # Parameters to skip when setting model params, as they are handled separately
+    # FIXED: Added all ml_forecaster native parameters so they are not passed to base models
+    _forecaster_keys = [
+        "box_cox", "lags", "box_cox_biasadj", "lag_transform"
+    ]
+    _skip = set(_forecaster_keys).union({"pareto_cutoff"})
 
     def _fit_params(params: dict) -> Optional[dict]:
-        base_model = getattr(model, "model", None) # Check if the model has a 'model' attribute (like ARIMA or ETS), otherwise use the model itself (like LinearRegression)
-        is_lr = isinstance(base_model, LinearRegression) # Determine if the base model is LinearRegression, which does not require hyperparameter tuning
+        base_model = getattr(model, "model", None) 
+        is_lr = isinstance(base_model, LinearRegression) 
 
         if is_lr:
-            return {}  # Return an empty dict for LinearRegression, as it does not have hyperparameters to tune
+            return {}  
         return {k: v for k, v in params.items() if k not in _skip}
+        
+    # NEW: Helper function to consistently apply ml_forecaster specific configurations safely
+    def _apply_forecaster_params(target_model, params):
+        if "lags" in params:
+            target_model.n_lag = list(range(1, params["lags"] + 1)) if isinstance(params["lags"], int) else list(params["lags"])
+        if 'lag_transform' in params: 
+            target_model.lag_transform = params['lag_transform']
+        if "box_cox" in params:
+            if isinstance(params["box_cox"], bool):
+                target_model.box_cox = params["box_cox"]
+                target_model.lamda = None # Force estimation if boolean True
+            else:
+                target_model.box_cox = True
+                target_model.lamda = params["box_cox"]
+        if "box_cox_biasadj" in params: target_model.biasadj = params["box_cox_biasadj"]
     
     tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
-    total_len = len(df) # We will use this for indexing the temp_ranker fit
-    first_end = total_len - cv_split * (step_size or test_size) # End of the first fold's train split
-    # Capture the permanent cat variables from the model's initial state
-    # if mod_name is not arima or ets, there is not cat_variables
+    total_len = len(df) 
+    first_end = total_len - cv_split * (step_size or test_size) 
     permanent_cat_vars = model.cat_variables if mod_name != "ets" and model.cat_variables is not None else []
     
     if eval_horizons is not None:
-        # it is not valid for direct forecaster to have eval_horizons greater than the max horizon, we will raise an error in that case
         if model.get_name() == "ml_direct_forecaster":
-            raise ValueError(f"eval_horizons is only applicavle for recursive models, it should be None for direct forecaster. Please set eval_horizons to None.")
+            raise ValueError(f"eval_horizons is only applicable for recursive models, it should be None for direct forecaster. Please set eval_horizons to None.")
 
         if test_size <= eval_horizons:
             raise ValueError(f"eval_horizons cannot be greater than or equal to test_size ({test_size}) for recursive models, as there would be no predictions to evaluate. Please set eval_horizons to a value less than {test_size} or set eval_horizons to None.")
         
     def objective(trial: optuna.Trial) -> float:
-        # A. Hyperparameter Sampling
         params = {name: suggest_fn(trial) for name, suggest_fn in param_space.items()}
         fit_params = _fit_params(params)
     
-         # We need to make sure permanent cat variables are always included in df_
-        
         active_exog = []
         if candidate_exog is not None and len(candidate_exog) > 0:
             temp_ranker = model.copy()
             
-            if hasattr(temp_ranker.model, "set_params"):
+            if temp_ranker.get_name() in ("arima", "ets"):
+                temp_ranker.set_params(params=fit_params)
+            elif hasattr(temp_ranker, "model") and hasattr(temp_ranker.model, "set_params"):
                 temp_ranker.model.set_params(**fit_params)
-            if "lags" in params:
-                temp_ranker.n_lag = list(range(1, params["lags"] + 1)) if isinstance(params["lags"], int) else list(params["lags"])
-            if 'lag_transform' in params: temp_ranker.lag_transform = params['lag_transform']
-            if "box_cox" in params: temp_ranker.box_cox = params["box_cox"]
-            if "box_cox_biasadj" in params: temp_ranker.biasadj = params["box_cox_biasadj"]
+                
+            _apply_forecaster_params(temp_ranker, params)
         
             dfl = df.copy()
             
@@ -475,35 +503,32 @@ def optuna_tune(
         else:
             df_ = df.copy()
 
-        if "lags" in params:
-            model.n_lag = list(range(1, params["lags"] + 1)) if isinstance(params["lags"], int) else list(params["lags"])
-        if 'lag_transform' in params: model.lag_transform = params['lag_transform']
-        if "box_cox" in params: model.box_cox = params["box_cox"]
-        if "box_cox_biasadj" in params: model.biasadj = params["box_cox_biasadj"]
-    
-        if model.get_name() in ("arima", "ets"):
-            model.set_params(params=fit_params)
-        else:
-            model.model.set_params(**fit_params)
-
-        # C. CV Loop
         cv_scores = []
 
+        model_ = model.copy()
+        _apply_forecaster_params(model_, params)
         for step_idx, (train_idx, test_idx) in enumerate(tscv.split(df_)):
             train = df_.iloc[train_idx]
             test = df_.iloc[test_idx]
             
             y_true = test[target_col].values
-            y_true = index_target(y_true) # Handle ml_direct_forecaster indexing
+            y_true = index_target(y_true) 
             exog_t = test.drop(columns=[target_col]) if test.shape[1] > 1 else None
 
-            model_ = model.copy()  # Ensure we start fresh for each fold
+            
+            
+        
+            if model_.get_name() in ("arima", "ets"):
+                model_.set_params(params=fit_params)
+            else:
+                model_.model.set_params(**fit_params)
+
             model_.fit(train)
             
             y_pred = model_.forecast(H=len(test), exog=exog_t)
 
             if eval_horizons is not None:
-                y_true = y_true[eval_horizons - 1:] # -1 because of zero indexing. If start from horizon 5, we want to include the 5th horizon which is at index 4
+                y_true = y_true[eval_horizons - 1:] 
                 y_pred = y_pred[eval_horizons - 1:]
 
             if eval_metric.__name__ in ("MASE", "SMAE", "SRMSE", "RMSSE"):
@@ -513,7 +538,6 @@ def optuna_tune(
                 
             cv_scores.append(score)
         
-            # EARLY PRUNING: Tell Optuna the intermediate score
             trial.report(np.mean(cv_scores), step_idx)
             if trial.should_prune():
                 raise optuna.TrialPruned()
@@ -521,12 +545,10 @@ def optuna_tune(
         return np.mean(cv_scores)
 
     optuna.logging.set_verbosity(optuna.logging.WARNING)
-    study = optuna.create_study(direction="minimize", pruner=optuna.pruners.MedianPruner(n_warmup_steps=warm_up_steps)
-                                )
+    study = optuna.create_study(direction="minimize", pruner=optuna.pruners.MedianPruner(n_warmup_steps=warm_up_steps))
 
     if verbose:
         def optuna_print_callback(study, trial):
-            # Check the state of the trial
             if trial.state == optuna.trial.TrialState.PRUNED:
                 print(f"Trial {trial.number:3} | Status: PRUNED | Pruned at step: {list(trial.intermediate_values.keys())[-1] if trial.intermediate_values else 'N/A'}")
             else:
@@ -535,27 +557,25 @@ def optuna_tune(
     else:
         study.optimize(objective, n_trials=eval_num)
 
-
     best_results = study.best_params.copy()
     best_p_threshold = best_results.pop("pareto_cutoff", pareto_bounds if not isinstance(pareto_bounds, tuple) else 0.99)
     best_lags = best_results.pop("lags", None)
 
-    other_args = {k: best_results.pop(k) for k in ["box_cox", "box_cox_biasadj", "lag_transform"] if k in best_results}
+    # FIXED: Now securely captures ALL wrapper properties so they aren't incorrectly mapped to the base model
+    other_args = {k: best_results.pop(k) for k in _forecaster_keys if k in best_results}
     best_hparams = best_results 
 
     best_features = []
     if candidate_exog is not None and len(candidate_exog) > 0:
         final_ranker = model.copy()
         
-        if hasattr(final_ranker.model, "set_params"):
+        if final_ranker.get_name() in ("arima", "ets"):
+            final_ranker.set_params(params={k: v for k, v in best_hparams.items() if k not in _skip})
+        elif hasattr(final_ranker, "model") and hasattr(final_ranker.model, "set_params"):
             final_ranker.model.set_params(**{k: v for k, v in best_hparams.items() if k not in _skip})
 
-        if best_lags:
-            final_ranker.n_lag = list(range(1, best_lags + 1)) if isinstance(best_lags, int) else list(best_lags)
-        
-        for arg in ["box_cox", "box_cox_biasadj", "lag_transform"]:
-            if arg in other_args:
-                setattr(final_ranker, arg.replace("box_cox_biasadj", "biasadj"), other_args[arg])
+        # Process the wrapper configurations identical to the objective function
+        _apply_forecaster_params(final_ranker, study.best_params)
 
         dfl_final = df.copy()
         num_cols = [col for col in dfl_final.columns if col not in permanent_cat_vars]
