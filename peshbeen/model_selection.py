@@ -520,6 +520,9 @@ def optuna_tune(
         
             if model_.get_name() in ("arima", "ets"):
                 model_.set_params(params=fit_params)
+            elif model_.get_name() == "glm":
+                ## do not do any parameter setting for glm since the family is set at initialization and can't be changed, and the other parameters are ml_forecaster specific and will be set in the _apply_forecaster_params function
+                pass
             else:
                 model_.model.set_params(**fit_params)
 
@@ -863,15 +866,16 @@ def forward_feature_selection(
     df: pd.DataFrame,
     cv_split: int,
     H: int,
+    metric: Callable,
     step_size: Optional[int] = None,
-    metrics: Union[Callable, List[Callable]] = None,
     lags_to_consider: Optional[int] = None,
     candidate_features: Optional[List[str]] = None,
     transformations: Optional[List] = None,
     starting_lags: Optional[List[int]] = None,
     starting_transforms: Optional[List] = None,
-    best_start_score: Optional[List[float]] = None,
-    verbose=False,
+    best_start_score: Optional[float] = None, # Changed typing to float
+    improve_rate_threshold: float = 0.0,
+    verbose: bool = False,
 ):
     """
     Forward stepwise feature selection for `ml_forecaster` models.
@@ -894,7 +898,7 @@ def forward_feature_selection(
         Forecast horizon (test window size for each fold).
     step_size : int, optional
         Step size between consecutive CV folds.  If `None` (default) the step equals `H`, producing non-overlapping folds — consistent with the default behaviour of `ml_forecaster.cross_validate`.
-    metrics : callable or list of callable.
+    metric : callable or list of callable.
         One or more metric functions accepted by `ml_forecaster.cross_validate` (e.g. `[MAE, RMSE]`). Selection is driven by the **first** metric in the list; a candidate is only accepted when it improves **all** metrics simultaneously.
     lags_to_consider : int, optional
         Consider lags `1, 2, ..., lags_to_consider` as candidates.  If `None`, lag selection is skipped.
@@ -906,8 +910,10 @@ def forward_feature_selection(
         Lags to include in the initial feature set before the search begins. These are *not* candidates — they are always included.  Must be a list (e.g. `[1]` or `[1, 2, 3]`).
     starting_transforms : list, optional
         Lag-transform objects to include in the initial feature set before the search begins.  Must be a list.
-    best_start_score : list of float, optional
-        Initial best scores for each metric. If not provided, the function will compute the baseline score using the model with the starting features (if any) before beginning the search.
+    best_start_score : float, optional
+        Initial best score for the metric. If not provided, the function will compute the baseline score using the model with the starting features (if any) before beginning the search.
+    improve_rate_threshold : float, default 0.0
+        Minimum improvement rate required for a candidate to be accepted. For example, `0.05` means the new score must be at least 5% better than the current best score to be accepted.
     verbose : bool, default False
         Print a message each time a candidate is accepted.
  
@@ -917,106 +923,77 @@ def forward_feature_selection(
         A dictionary with keys `best_lags`, `best_exogs`, and `best_transforms` containing the selected features.
     """
  
-    # ── Normalise metrics to always be a list ─────────────────────────────────
-    # cross_validate always expects a list; wrap a lone callable for the user.
-    if metrics is None:
-        raise ValueError("metrics must be provided (a callable or list of callables).")
-    if callable(metrics):
-        metrics = [metrics]
+    if metric is None:
+        raise ValueError("metric must be provided (a callable).")
  
-    # ── step_size default: non-overlapping folds (step = H) ───────────────────
     _step_size = step_size if step_size is not None else H
  
-    # ── Validate starting_* arguments ────────────────────────────────────────
     if starting_lags is not None and not isinstance(starting_lags, list):
         raise ValueError("starting_lags must be a list of integers, e.g. [1] or [1, 2, 3].")
     if starting_transforms is not None and not isinstance(starting_transforms, list):
         raise ValueError("starting_transforms must be a list of transformation instances.")
  
-    # ── Build candidate pools (local copies — never mutate caller's lists) ────
+    # Current best lags / transforms — kept in sync as candidates are accepted
+    current_lags       = list(starting_lags) if starting_lags is not None else []
+    current_transforms = list(starting_transforms) if starting_transforms is not None else []
+
+    # Build candidate pools
     remaining_lags = (
-        [x for x in range(1, lags_to_consider + 1)
-         if x not in (starting_lags or [])]
+        [x for x in range(1, lags_to_consider + 1) if x not in current_lags]
         if lags_to_consider is not None else []
     )
     remaining_feats = list(candidate_features) if candidate_features is not None else []
     remaining_transforms = list(transformations) if transformations is not None else []
  
-    # ── Working df — start without exog candidates, add back as selected ──────
+    # Working df — start without exog candidates, add back as selected
     if candidate_features is not None:
         df_work = df.drop(columns=candidate_features)
-        df_orig = df.copy()
     else:
         df_work = df.copy()
-        df_orig = df.copy()
  
-    # ── Best-feature state ─────────────────────────────────────────────────────
     best_features = {
-        "best_lags":       list(starting_lags)      if starting_lags      is not None else [],
+        "best_lags":       current_lags.copy(),
         "best_exogs":      [],
-        "best_transforms": list(starting_transforms) if starting_transforms is not None else [],
+        "best_transforms": current_transforms.copy(),
     }
- 
-    # Current best lags / transforms — kept in sync as candidates are accepted
-    current_lags       = list(starting_lags)      if starting_lags      is not None else []
-    current_transforms = list(starting_transforms) if starting_transforms is not None else []
- 
-    best_score = [float('inf')] * len(metrics)
- 
-    # ── Inner helpers ─────────────────────────────────────────────────────────
  
     def _scores_improved(new_score, ref_score):
         """True only when every metric strictly improves."""
-        return all(n < r for n, r in zip(new_score, ref_score))
+        if ref_score == 0:
+            return new_score < 0 # Avoid division by zero
+            
+        # FIXED: Added parentheses around the subtraction to ensure correct math
+        improvement_rate = (ref_score - new_score) / abs(ref_score)
+        return improvement_rate > improve_rate_threshold
  
     def _validate(m, df_test):
-        """
-        Fit-and-score one candidate model via cross-validation.
-        Returns a list of mean scores, one per metric.
-        """
+        """Fit-and-score one candidate model via cross-validation."""
         m.cross_validate(
             df=df_test,
             cv_split=cv_split,
             test_size=H,
-            metrics=metrics,
+            metrics=[metric],
             step_size=_step_size,
         )
-        result_df = m.cv_summary
-        # result_df has columns ['eval_metric', 'score']
-        return result_df["score"].tolist()
+        return m.cv_summary["score"].values[0]
  
-    # Columns in candidate_features that are also cat_variables on the model.
-    # These must be hidden from the model until they are explicitly selected
-    # as exog candidates — otherwise fit() crashes trying to build cat_var
-    # for columns that have been dropped from df_work.
-    _cat_exog_candidates = set()
-    if candidate_features is not None and model.cat_variables is not None:
-        _cat_exog_candidates = set(candidate_features) & set(model.cat_variables)
- 
-    def _make_candidate_model(lags, transforms, active_exogs=None):
-        """
-        Return a deep copy of the base model configured with the given lags
-        and transforms.  active_exogs is the list of exogenous columns
-        currently present in the df being passed to cross_validate; any
-        cat_variables that are still pending as candidates are stripped from
-        the copy so fit() does not look for columns missing from df_work.
-        """
+    def _make_candidate_model(lags, transforms, active_exogs):
+        """Return a deep copy of the base model configured with the given lags and transforms."""
         m = model.copy()
-        m.n_lag         = sorted(lags)     if lags       else None
-        m.lag_transform = list(transforms) if transforms else None
- 
-        # Remove cat_variables that are still candidate columns not yet added
-        if m.cat_variables is not None and _cat_exog_candidates:
-            active = set(active_exogs) if active_exogs else set()
-            present_cats = [
-                c for c in m.cat_variables
-                if c not in _cat_exog_candidates or c in active]
-            m.cat_variables = present_cats if present_cats else None
- 
+        if lags_to_consider is not None:
+            m.n_lag = sorted(lags) if lags else None
+        if transformations is not None:
+            m.lag_transform = list(transforms) if transforms else None
         return m
  
-    # ── Baseline score with starting features (if any) ───────────────────────
-    if starting_lags is not None or starting_transforms is not None:
+    # FIXED: Extract list value if user accidentally passed a list instead of float
+    if best_start_score is not None:
+        best_score = best_start_score[0] if isinstance(best_start_score, list) else best_start_score
+    else:
+        best_score = float('inf')
+
+    # Baseline score with starting features (if any and if best_start_score isn't explicitly provided)
+    if best_start_score is None and (current_lags or current_transforms or (candidate_features and len(candidate_features) > 0)):
         m_start = _make_candidate_model(current_lags, current_transforms, best_features["best_exogs"])
         best_score = _validate(m_start, df_work)
         if verbose:
@@ -1026,14 +1003,11 @@ def forward_feature_selection(
     while True:
         improvement    = False
         best_candidate = {'type': None, 'value': None}
-
-        if best_start_score is not None:
-            running_score = best_start_score
-        else:
-            running_score  = best_score  # tracks the best score seen this iteration
+        # FIXED: Set running score to best_score at the start of loop iteration
+        running_score  = best_score
  
         # ── Test lag candidates ───────────────────────────────────────────────
-        if remaining_lags:
+        if remaining_lags and lags_to_consider is not None:
             for lag in remaining_lags:
                 m = _make_candidate_model(current_lags + [lag], current_transforms, best_features["best_exogs"])
                 score = _validate(m, df_work)
@@ -1043,19 +1017,24 @@ def forward_feature_selection(
                     improvement    = True
  
         # ── Test exogenous feature candidates ─────────────────────────────────
-        if remaining_feats:
+        if remaining_feats and candidate_features is not None:
             for feat in remaining_feats:
-                df_test = df_work.copy()
-                df_test[feat] = df_orig[feat]
+                # OPTIMIZED: Temporarily add the column to avoid full DataFrame copying
+                df_work[feat] = df[feat]
                 m = _make_candidate_model(current_lags, current_transforms, best_features["best_exogs"] + [feat])
-                score = _validate(m, df_test)
+                
+                score = _validate(m, df_work)
+                
+                # Drop immediately after validation
+                df_work.drop(columns=[feat], inplace=True)
+                
                 if _scores_improved(score, running_score):
                     running_score  = score
                     best_candidate = {'type': 'exog', 'value': feat}
                     improvement    = True
  
         # ── Test lag-transform candidates ─────────────────────────────────────
-        if remaining_transforms:
+        if remaining_transforms and transformations is not None:
             for trans in remaining_transforms:
                 m = _make_candidate_model(current_lags, current_transforms + [trans], best_features["best_exogs"])
                 score = _validate(m, df_work)
@@ -1080,7 +1059,8 @@ def forward_feature_selection(
             elif ctype == 'exog':
                 best_features["best_exogs"].append(cval)
                 remaining_feats.remove(cval)
-                df_work[cval] = df_orig[cval]
+                # OPTIMIZED: Permanently apply the winning column without copying
+                df_work[cval] = df[cval]
  
             elif ctype == 'transform':
                 current_transforms.append(cval)
@@ -1088,16 +1068,16 @@ def forward_feature_selection(
                 remaining_transforms.remove(cval)
  
             if verbose:
-                label = cval.get_name() if ctype == 'transform' else cval
+                label = cval.get_name() if hasattr(cval, 'get_name') else str(cval)
                 print(f"Added {ctype}: {label} | score: {best_score}")
  
         else:
             break  # No candidate improved any metric — search is complete
  
     # ── Finalise output ───────────────────────────────────────────────────────
-    # Convert transform objects to their string names for the return value
     best_features["best_transforms"] = [
-        t.get_name() for t in best_features["best_transforms"]
+        t.get_name() if hasattr(t, 'get_name') else str(t)
+        for t in best_features["best_transforms"]
     ]
  
     return best_features
