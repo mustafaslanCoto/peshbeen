@@ -44,7 +44,7 @@ class pesh:
     # ─────────────────────────────────────────────────────────────────────────
 
     def fit(self,
-            df: pd.DataFrame
+            df: Union[pd.DataFrame, dict]
             ) -> None:
         
         """
@@ -52,13 +52,19 @@ class pesh:
 
         Parameters
         ----------
-        df : pd.DataFrame
-            Training DataFrame containing the target and any feature columns.
+        df : pd.DataFrame | dict
+            Training DataFrame or dictionary containing the target and any feature columns specified for the models. If a dictionary is provided, it should have the same keys as the models dictionary, with each value being the corresponding DataFrame for that model.
         """
 
-        for model in self.models.values():
-            model.fit(df)
-            
+        
+        if isinstance(df, dict):
+            for name, model in self.models.items():
+                if name in df:
+                    model.fit(df[name])
+        else:
+            for model in self.models.values():
+                model.fit(df)
+
     def copy(self):
         return copy.deepcopy(self)
 
@@ -69,8 +75,8 @@ class pesh:
     def forecast(
         self,
         H: int,
-        exog: Optional[pd.DataFrame] = None,
-    ) -> np.ndarray:
+        exog: Optional[Union[pd.DataFrame, dict]] = None
+    ) -> pd.DataFrame:
         """
         Recursive multi-step forecast.
 
@@ -78,15 +84,33 @@ class pesh:
         ----------
         H : int
             Forecast horizon.
-        exog : pd.DataFrame | None, default None
-            Optional dataframe of future regressors. Must have the same columns as the exogenous variables used during training and at least `H` rows.
+        exog : pd.DataFrame | dict | None, default None
+            Optional dataframe or dictionary of dataframes containing exogenous variables for the forecast period. If a dictionary is provided, it should have the same keys as the models dictionary, with each value being the corresponding DataFrame for that model.
 
         Returns
         -------
-        np.ndarray
-            Forecast values of length `H`.
+        pd.DataFrame
+            Forecast values for each model and the combined 'pesh' forecast.
         """
-        forecasts = {name: model.forecast(H=H, exog=exog) if exog is not None else model.forecast(H=H) for name, model in self.models.items()}
+
+        if exog is not None:
+            if isinstance(exog, dict):
+                for name in self.models.keys():
+                    if name in exog and exog[name] is not None and exog[name].shape[1] > 0:
+                        if exog[name].shape[0] < H:
+                            raise ValueError(f"Exogenous dataframe for model '{name}' must have at least H rows.")
+            else:
+                if exog.shape[0] < H:
+                    raise ValueError("The exogenous dataframe must have at least H rows.")
+                
+        forecasts = {}
+        for name, model in self.models.items():
+            model_exog = exog.get(name) if isinstance(exog, dict) else exog
+            if model_exog is not None and model_exog.shape[1] > 0:
+                forecasts[name] = model.forecast(H=H, exog=model_exog)
+            else:
+                forecasts[name] = model.forecast(H=H)
+
         # add mean of forecasts as final forecast add as as hybrid forecast to dictionary
         if self.weighting_scheme is not None:
             # check if all models have weights specified, if not raise error
@@ -103,7 +127,7 @@ class pesh:
 
     def cross_validate(
         self,
-        df: pd.DataFrame,
+        df: Union[pd.DataFrame, dict],
         cv_split: int,
         test_size: int,
         metrics: List[Callable],
@@ -118,8 +142,8 @@ class pesh:
 
         Parameters
         ----------
-        df : pd.DataFrame
-            The input DataFrame containing the target and any feature columns.
+        df : pd.DataFrame | dict
+            The input DataFrame or dictionary containing the target and any feature columns.
         cv_split : int
             The number of cross-validation splits.
         test_size : int
@@ -152,25 +176,38 @@ class pesh:
         tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
         target_col = list(self.models.values())[0].target_col
 
-        for idx, (train_index, test_index) in enumerate(tscv.split(df)):
-            train, test = df.iloc[train_index], df.iloc[test_index]
-            x_test = test.drop(columns=[target_col], errors="ignore")
-            y_test = test[target_col].to_numpy()
+        for idx, (train_index, test_index) in enumerate(tscv.split(df if not isinstance(df, dict) else df[list(self.models.keys())[0]])): # if df is a dict, use the first model's dataframe for splitting
+            train = df.iloc[train_index] if not isinstance(df, dict) else {name: df[name].iloc[train_index] for name in self.models.keys()}
+            test = df.iloc[test_index] if not isinstance(df, dict) else {name: df[name].iloc[test_index] for name in self.models.keys()}
+            x_test = test.drop(columns=target_col) if not isinstance(test, dict) else {name: test[name].drop(columns=target_col) for name in self.models.keys()}
+            y_test = test[target_col].to_numpy() if not isinstance(test, dict) else {name: test[name][target_col].to_numpy() for name in self.models.keys()}
 
-            for model in self.models.values():
-                model.fit(train)
+            if isinstance(train, dict):
+                for name, model in self.models.items():
+                    if name in train:
+                        model.fit(train[name])
+            else:
+                for model in self.models.values():
+                    model.fit(train)
+            
+            if isinstance(x_test, dict):
+                exog_test = x_test
+            else:
+                exog_test = x_test if x_test.shape[1] > 0 else None
 
-            exog_test = x_test if x_test.shape[1] > 0 else None
             fold_forecasts = self.forecast(H=test_size, exog=exog_test)
 
             for name in self.models.keys():
                 self.forecast_res[name] = np.concatenate([self.forecast_res[name], fold_forecasts[name]])
 
+            test_df = test if not isinstance(test, dict) else test[list(self.models.keys())[0]]
+            y_true_arr = y_test if not isinstance(y_test, dict) else y_test[list(self.models.keys())[0]]
+
             split_results = {
-                "cutoff": np.repeat(test.index[0], len(test)),
-                "index": test.index,
-                "split": np.repeat(f"fold_{idx + 1}", len(test)),
-                "y_true": y_test,
+                "cutoff": np.repeat(test_df.index[0], len(test_df)),
+                "index": test_df.index,
+                "split": np.repeat(f"fold_{idx + 1}", len(test_df)),
+                "y_true": y_true_arr,
             }
             split_results.update(fold_forecasts)
             cv_df_ = pd.concat([cv_df_, pd.DataFrame(split_results)], ignore_index=True)

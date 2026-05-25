@@ -875,6 +875,7 @@ def forward_feature_selection(
     starting_transforms: Optional[List] = None,
     best_start_score: Optional[float] = None, # Changed typing to float
     improve_rate_threshold: float = 0.0,
+    warm_up_steps: int = 10,
     verbose: bool = False,
 ):
     """
@@ -914,6 +915,8 @@ def forward_feature_selection(
         Initial best score for the metric. If not provided, the function will compute the baseline score using the model with the starting features (if any) before beginning the search.
     improve_rate_threshold : float, default 0.0
         Minimum improvement rate required for a candidate to be accepted. For example, `0.05` means the new score must be at least 5% better than the current best score to be accepted.
+    warm_up_steps : int, default 10
+        Number of CV folds to evaluate before pruning candidates that perform worse than the current best score. This allows the function to gather enough performance data for reliable pruning decisions.
     verbose : bool, default False
         Print a message each time a candidate is accepted.
  
@@ -959,6 +962,8 @@ def forward_feature_selection(
  
     def _scores_improved(new_score, ref_score):
         """True only when every metric strictly improves."""
+        if new_score == float('inf'):
+            return False
         if ref_score == 0:
             return new_score < 0 # Avoid division by zero
             
@@ -966,16 +971,51 @@ def forward_feature_selection(
         improvement_rate = (ref_score - new_score) / abs(ref_score)
         return improvement_rate > improve_rate_threshold
  
-    def _validate(m, df_test):
-        """Fit-and-score one candidate model via cross-validation."""
-        m.cross_validate(
-            df=df_test,
-            cv_split=cv_split,
-            test_size=H,
-            metrics=[metric],
-            step_size=_step_size,
-        )
-        return m.cv_summary["score"].values[0]
+    tscv = SplitTimeSeries(n_splits=cv_split, test_size=H, step_size=_step_size)
+
+    step_score_tracker = {idx: [] for idx in range(cv_split)}
+
+    def _validate(m, df_test, ref_score=None):
+        """Fit-and-score one candidate model via manual cross-validation with early pruning."""
+        cv_scores = []
+        
+        target_col = getattr(m, "target_col", None)
+        if target_col is None and hasattr(m, "models"):
+            target_col = list(m.models.values())[0].target_col
+
+        for step_idx, (train_idx, test_idx) in enumerate(tscv.split(df_test)):
+            train, test = df_test.iloc[train_idx], df_test.iloc[test_idx]
+            x_test = test.drop(columns=[target_col], errors="ignore")
+            y_test = np.array(test[target_col])
+
+            m.fit(train)
+            exog_t = x_test if x_test.shape[1] > 0 else None
+            y_pred = m.forecast(H=len(test), exog=exog_t)
+
+            if isinstance(y_pred, pd.DataFrame):
+                if m.get_name() == "pesh" and "pesh" in y_pred.columns:
+                    y_pred = y_pred["pesh"].values
+                elif target_col in y_pred.columns:
+                    y_pred = y_pred[target_col].values
+                else:
+                    y_pred = y_pred.iloc[:, -1].values
+
+            if metric.__name__ in ("MASE", "SMAE", "SRMSE", "RMSSE"):
+                score = metric(y_test, y_pred, train[target_col])
+            else:
+                score = metric(y_test, y_pred)
+            cv_scores.append(score)
+
+            current_mean = np.mean(cv_scores)
+            step_score_tracker[step_idx].append(current_mean)
+            
+            if ref_score is not None and ref_score != float('inf'):
+                if (step_idx + 1) >= warm_up_steps:
+                    if len(step_score_tracker[step_idx]) > warm_up_steps:  # Ensure we have enough data points to calculate a reliable median
+                        if current_mean > np.median(step_score_tracker[step_idx][:-1]):
+                            return float('inf')
+
+        return np.mean(cv_scores)
  
     def _make_candidate_model(lags, transforms, active_exogs):
         """Return a deep copy of the base model configured with the given lags and transforms."""
@@ -1010,7 +1050,7 @@ def forward_feature_selection(
         if remaining_lags and lags_to_consider is not None:
             for lag in remaining_lags:
                 m = _make_candidate_model(current_lags + [lag], current_transforms, best_features["best_exogs"])
-                score = _validate(m, df_work)
+                score = _validate(m, df_work, running_score)
                 if _scores_improved(score, running_score):
                     running_score  = score
                     best_candidate = {'type': 'lag', 'value': lag}
@@ -1023,7 +1063,7 @@ def forward_feature_selection(
                 df_work[feat] = df[feat]
                 m = _make_candidate_model(current_lags, current_transforms, best_features["best_exogs"] + [feat])
                 
-                score = _validate(m, df_work)
+                score = _validate(m, df_work, running_score)
                 
                 # Drop immediately after validation
                 df_work.drop(columns=[feat], inplace=True)
@@ -1037,7 +1077,7 @@ def forward_feature_selection(
         if remaining_transforms and transformations is not None:
             for trans in remaining_transforms:
                 m = _make_candidate_model(current_lags, current_transforms + [trans], best_features["best_exogs"])
-                score = _validate(m, df_work)
+                score = _validate(m, df_work, running_score)
                 if _scores_improved(score, running_score):
                     running_score  = score
                     best_candidate = {'type': 'transform', 'value': trans}
