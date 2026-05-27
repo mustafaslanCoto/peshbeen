@@ -347,6 +347,7 @@ def optuna_tune(
     step_size: int = None,
     eval_num: int = 100,
     warm_up_steps: int = 10,
+    startup_trials: int = 5,
     candidate_exog: List[str] = None,
     pareto_bounds: Union[float, Tuple[float, float]] = (0.5, 0.999),
     eval_horizons: Union[None, int] = None,
@@ -376,6 +377,8 @@ def optuna_tune(
         Number of Optuna trials. Default 100.
     warm_up_steps : int, optional
         The number of initial CV folds to complete before the Optuna pruner begins evaluating trial performance. This "warm-up" period prevents the pruner from prematurely terminating promising trials due to high variance or noise present in the earliest (smallest) cross-validation folds. Default 10.
+    startup_trials : int, optional
+        The number of complete trials (hyperparameter combinations) to evaluate before enabling the pruner. This ensures the pruner has a solid baseline median to compare against. Default 5.
     candidate_exog : List[str], optional
         List of exogenous feature names to consider for feature importance-based selection. If None, no feature selection is performed.
     pareto_bounds : Union[float, Tuple[float, float]], optional
@@ -548,7 +551,7 @@ def optuna_tune(
         return np.mean(cv_scores)
 
     optuna.logging.set_verbosity(optuna.logging.WARNING)
-    study = optuna.create_study(direction="minimize", pruner=optuna.pruners.MedianPruner(n_warmup_steps=warm_up_steps))
+    study = optuna.create_study(direction="minimize", pruner=optuna.pruners.MedianPruner(n_startup_trials=startup_trials, n_warmup_steps=warm_up_steps))
 
     if verbose:
         def optuna_print_callback(study, trial):
