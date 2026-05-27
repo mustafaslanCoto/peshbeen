@@ -1239,7 +1239,7 @@ def backward_feature_selection(
             step_size=_step_size,
         )
         result_df = m.cv_summary
-        return result_df["score"].tolist()
+        return result_df["overall_score"].tolist()
 
     # ── Baseline score with all features ──────────────────────────────────────
     m_start = _make_candidate_model(current_lags, current_transforms, current_exogs)
@@ -1432,7 +1432,7 @@ def mv_forward_feature_selection(
             test_size=H, metrics=metrics, step_size=_step_size,
         )
         result_df = m.cv_summary
-        return result_df['score'].tolist()
+        return result_df['overall_score'].tolist()
 
     def _make_candidate_model(lags_dict, transforms_dict, active_exogs=None):
         m = model.copy()
@@ -1611,7 +1611,7 @@ def mv_backward_feature_selection(
             test_size=H, metrics=metrics, step_size=_step_size,
         )
         result_df = m.cv_summary
-        return result_df['score'].tolist()
+        return result_df['overall_score'].tolist()
 
     def _make_candidate_model(lags_dict, transforms_dict, active_exogs=None):
         m = model.copy()
@@ -1861,7 +1861,7 @@ def ms_arr_forward_feature_selection(
                 metrics=metrics, step_size=_step_size, n_iter=iterations,
             )
             result_df = m.cv_summary
-            return result_df["score"].tolist()
+            return result_df["overall_score"].tolist()
         elif validation_type == "BIC":
             return m.bic
         elif validation_type == "AIC":
@@ -2097,7 +2097,7 @@ def ms_arr_backward_feature_selection(
                 metrics=metrics, step_size=_step_size, n_iter=iterations,
             )
             result_df = m.cv_summary
-            return result_df["score"].tolist()
+            return result_df["overall_score"].tolist()
         elif validation_type == "BIC":
             return m.bic
         elif validation_type == "AIC":

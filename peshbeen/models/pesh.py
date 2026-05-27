@@ -281,7 +281,7 @@ class pesh:
                 sp2 = metric(cv_df_[cv_df_["horizon"]> h_split_point]["y_true"].values, cv_df_[cv_df_["horizon"]> h_split_point]["pesh"].values)
                 perf[metric.__name__] = [sp0, sp1, sp2]
             perf = pd.DataFrame(perf).T
-            perf.columns = ["overall", f"1-{h_split_point}", f"{h_split_point+1}-{test_size}"]
+            perf.columns = ["overall_score", f"1-{h_split_point}", f"{h_split_point+1}-{test_size}"]
         self.cv_summary = perf
         return cv_df_
     

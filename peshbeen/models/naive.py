@@ -308,17 +308,17 @@ class naive:
  
         overall_performance = pd.DataFrame(
             [[m.__name__, np.mean(metrics_dict[m.__name__])] for m in metrics],
-            columns=["eval_metric", "score"],
+            columns=["eval_metric", "overall_score"],
         )
  
         if h_split_point is not None and isinstance(h_split_point, int):
             perf_1_df = pd.DataFrame(
                 [[m.__name__, np.mean(metrics_dict1[m.__name__])] for m in metrics],
-                columns=["eval_metric", f"score_before_{h_split_point}"],
+                columns=["eval_metric", f"1-{h_split_point}"],
             )
             perf_2_df = pd.DataFrame(
                 [[m.__name__, np.mean(metrics_dict2[m.__name__])] for m in metrics],
-                columns=["eval_metric", f"score_after_{h_split_point}"],
+                columns=["eval_metric", f"{h_split_point+1}-{test_size}"],
             )
             overall_performance = (
                 overall_performance

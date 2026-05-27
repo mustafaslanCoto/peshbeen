@@ -658,13 +658,13 @@ class var:
             cv_df_ = pd.concat([cv_df_, pd.DataFrame(split_results)], ignore_index=True)
                 
         overall_performance = [[m.__name__, np.mean(metrics_dict[m.__name__])] for m in metrics]
-        overall_performance = pd.DataFrame(overall_performance).rename(columns={0: "eval_metric", 1: "score"})
+        overall_performance = pd.DataFrame(overall_performance).rename(columns={0: "eval_metric", 1: "overall_score"})
         if h_split_point is not None and isinstance(h_split_point, int):
             performance_1 = [[m.__name__, np.mean(metrics_dict1[m.__name__])] for m in metrics]
             performance_2 = [[m.__name__, np.mean(metrics_dict2[m.__name__])] for m in metrics]
-            overall_performance = pd.DataFrame(overall_performance).rename(columns={0: "eval_metric", 1: "score"})
-            perf_1_df = pd.DataFrame(performance_1).rename(columns={0: "eval_metric", 1: f"score_before_{h_split_point}"})
-            perf_2_df = pd.DataFrame(performance_2).rename(columns={0: "eval_metric", 1: f"score_after_{h_split_point}"})
+            overall_performance = pd.DataFrame(overall_performance).rename(columns={0: "eval_metric", 1: "overall_score"})
+            perf_1_df = pd.DataFrame(performance_1).rename(columns={0: "eval_metric", 1: f"1-{h_split_point}"})
+            perf_2_df = pd.DataFrame(performance_2).rename(columns={0: "eval_metric", 1: f"{h_split_point+1}-{test_size}"})
             # merge all three dataframes
             overall_performance = overall_performance.merge(perf_1_df, on="eval_metric").merge(perf_2_df, on="eval_metric")
         
