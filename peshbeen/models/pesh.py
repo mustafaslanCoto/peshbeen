@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import List, Dict, Optional, Callable, Union
 import numpy as np
 import pandas as pd
-import copy
 from ..model_selection import SplitTimeSeries
 # dot not show warnings
 import warnings
@@ -134,7 +133,8 @@ class pesh:
         step_size: int = 1,
         metric_to_opt: Optional[Callable] = None,
         weighting_scheme: Optional[Union[Dict[str, float], str]] = None,
-        optimizer: str = "SLSQP"
+        optimizer: str = "SLSQP",
+        h_split_point: Optional[int] = None
     ) -> pd.DataFrame:
         
         """
@@ -158,6 +158,8 @@ class pesh:
             None: equal weights across models. dict: user-provided weights (must sum to 1). "optimize": optimize weights to minimize MSE via `scipy.optimize.minimize`.
         optimizer : str, default "SLSQP"
             Optimization method to use when weighting_scheme is set to "optimize". Passed to `scipy.optimize.minimize`. Refer to SciPy documentation for available methods.
+        h_split_point : int, optional
+            An optional integer to specify a split point for horizon-based performance evaluation. If provided, metrics will be calculated separately for forecasts with horizon <= h_split_point and > h_split_point, in addition to overall performance.
 
         Returns
         -------
@@ -207,6 +209,7 @@ class pesh:
                 "cutoff": np.repeat(test_df.index[0], len(test_df)),
                 "index": test_df.index,
                 "split": np.repeat(f"fold_{idx + 1}", len(test_df)),
+                "horizon": np.arange(1, len(test_df) + 1),
                 "y_true": y_true_arr,
             }
             split_results.update(fold_forecasts)
@@ -267,6 +270,18 @@ class pesh:
         perf= pd.DataFrame(perf)
         perf.index = [m.__name__ for m in metrics]
 
+        ## when h_split_point is provided, calculate metrics for each horizon separately and store in cv_summary. For exam 
+        # if h_split_point = 5, calculate metrics for horizon 1-5, 6-10 separately and store in cv_summary
+        
+        if h_split_point is not None:
+            perf = {}
+            for metric in metrics:
+                sp0 = metric(cv_df_["y_true"].values, cv_df_["pesh"].values)
+                sp1 = metric(cv_df_[cv_df_["horizon"]<= h_split_point]["y_true"].values, cv_df_[cv_df_["horizon"]<= h_split_point]["pesh"].values)
+                sp2 = metric(cv_df_[cv_df_["horizon"]> h_split_point]["y_true"].values, cv_df_[cv_df_["horizon"]> h_split_point]["pesh"].values)
+                perf[metric.__name__] = [sp0, sp1, sp2]
+            perf = pd.DataFrame(perf).T
+            perf.columns = ["overall", f"1-{h_split_point}", f"{h_split_point+1}-{test_size}"]
         self.cv_summary = perf
         return cv_df_
     
