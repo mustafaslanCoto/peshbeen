@@ -146,10 +146,23 @@ def hyperopt_tune(
     tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
     total_len = len(df)
     first_end = total_len - cv_split * (step_size or test_size)
-    # NEW: Helper function to consistently apply ml_forecaster specific configurations safely
+
     def _apply_forecaster_params(target_model, params):
+        
+        # FIX: Reset cached coefficients for ms_arr so it doesn't reuse 
+        # mismatched pre-fitted weights when Optuna changes the feature space!
+        if target_model.get_name() == "ms_arr":
+            target_model.coeffs = None
+            target_model.stds = None
+
         if "lags" in params:
-            target_model.n_lag = list(range(1, params["lags"] + 1)) if isinstance(params["lags"], int) else list(params["lags"])
+            new_lags = list(range(1, params["lags"] + 1)) if isinstance(params["lags"], int) else list(params["lags"])
+            # Safely assign to the correct attribute
+            if hasattr(target_model, "lags"):
+                target_model.lags = new_lags
+            else:
+                target_model.n_lag = new_lags
+                
         if 'lag_transform' in params: 
             target_model.lag_transform = params['lag_transform']
         if "box_cox" in params:
@@ -159,7 +172,8 @@ def hyperopt_tune(
             else:
                 target_model.box_cox = True
                 target_model.lamda = params["box_cox"]
-        if "box_cox_biasadj" in params: target_model.biasadj = params["box_cox_biasadj"]
+        if "box_cox_biasadj" in params: 
+            target_model.biasadj = params["box_cox_biasadj"]
         
     permanent_cat_vars = model.cat_variables if mod_name != "ets" and model.cat_variables is not None else []
 
@@ -231,6 +245,8 @@ def hyperopt_tune(
         if fit_params:
             if m.get_name() in ("arima", "ets"):
                 m.set_params(params=fit_params)
+            elif m.get_name() == "glm" or m.get_name() == "ms_arr":
+                pass
             elif hasattr(m.model, "set_params"):
                 filtered_final = {k: v for k, v in fit_params.items() if k not in _skip}
                 m.model.set_params(**filtered_final)
@@ -332,8 +348,29 @@ def hyperopt_tune(
     if "lag_transform" in other_args and other_args["lag_transform"] is not None:
         other_args["lag_transform"] = [tr.get_name() for tr in other_args["lag_transform"]]
 
+    trials_data = []
+    for t in trials.trials:
+        # Extract trial parameters safely since Hyperopt stores them as lists
+        raw_vals = {k: v[0] for k, v in t['misc']['vals'].items() if len(v) > 0}
+        try:
+            t_params = space_eval(full_space, raw_vals)
+        except Exception:
+            t_params = {}
+            
+        t_other = {k: v for k, v in t_params.items() if k in _skip and k != "lags" and not k.startswith("feat_")}
+        if "lag_transform" in t_other and t_other["lag_transform"] is not None:
+            t_other["lag_transform"] = [tr.get_name() if hasattr(tr, "get_name") else str(tr) for tr in t_other["lag_transform"]]
+            
+        trials_data.append({
+            "trial_number": t['tid'],
+            "score": t['result'].get('loss'),
+            "state": t['result'].get('status'),
+            "model_params": {k: v for k, v in t_params.items() if k not in _skip},
+            "lags": t_params.get("lags", None),
+            "other_params": t_other
+        })
+    model.trials_df = pd.DataFrame(trials_data).sort_values("score").reset_index(drop=True)
     return best_hparams, best_lags, other_args, best_features
-
 
 # %% ../nbs/modules/03_model_selection.ipynb #42ad67aa
 from optuna import study
@@ -430,8 +467,21 @@ def optuna_tune(
         
     # NEW: Helper function to consistently apply ml_forecaster specific configurations safely
     def _apply_forecaster_params(target_model, params):
+        
+        # FIX: Reset cached coefficients for ms_arr so it doesn't reuse 
+        # mismatched pre-fitted weights when Optuna changes the feature space!
+        if target_model.get_name() == "ms_arr":
+            target_model.coeffs = None
+            target_model.stds = None
+
         if "lags" in params:
-            target_model.n_lag = list(range(1, params["lags"] + 1)) if isinstance(params["lags"], int) else list(params["lags"])
+            new_lags = list(range(1, params["lags"] + 1)) if isinstance(params["lags"], int) else list(params["lags"])
+            # Safely assign to the correct attribute
+            if hasattr(target_model, "lags"):
+                target_model.lags = new_lags
+            else:
+                target_model.n_lag = new_lags
+                
         if 'lag_transform' in params: 
             target_model.lag_transform = params['lag_transform']
         if "box_cox" in params:
@@ -441,7 +491,8 @@ def optuna_tune(
             else:
                 target_model.box_cox = True
                 target_model.lamda = params["box_cox"]
-        if "box_cox_biasadj" in params: target_model.biasadj = params["box_cox_biasadj"]
+        if "box_cox_biasadj" in params: 
+            target_model.biasadj = params["box_cox_biasadj"]
     
     tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
     total_len = len(df) 
@@ -523,12 +574,11 @@ def optuna_tune(
         
             if model_.get_name() in ("arima", "ets"):
                 model_.set_params(params=fit_params)
-            elif model_.get_name() == "glm":
+            elif (model_.get_name() == "glm") or (model_.get_name() == "ms_arr"):
                 ## do not do any parameter setting for glm since the family is set at initialization and can't be changed, and the other parameters are ml_forecaster specific and will be set in the _apply_forecaster_params function
                 pass
             else:
                 model_.model.set_params(**fit_params)
-
             model_.fit(train)
             
             y_pred = model_.forecast(H=len(test), exog=exog_t)
@@ -614,6 +664,18 @@ def optuna_tune(
 
     if "lag_transform" in other_args and other_args["lag_transform"] is not None:
         other_args["lag_transform"] = [tr.get_name() for tr in other_args["lag_transform"]]
+    trials_data = []
+    for t in study.trials:
+        t_params = t.params or {}
+        trials_data.append({
+            "trial_number": t.number,
+            "score": t.value,
+            "state": t.state.name,
+            "model_params": {k: v for k, v in t_params.items() if k not in _skip},
+            "lags": t_params.get("lags", None),
+            "other_params": {k: v for k, v in t_params.items() if k in _skip and k != "lags"}
+        })
+    model.trials_df = pd.DataFrame(trials_data).sort_values("score").reset_index(drop=True)
     return best_hparams, best_lags, other_args, best_features
 
 # %% ../nbs/modules/03_model_selection.ipynb #d2e7cb3d
