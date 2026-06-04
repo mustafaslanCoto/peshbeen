@@ -1042,7 +1042,8 @@ class ms_var:
             all_forecasts = self.forecast(test_size, exog_t)
             actuals = {f"actual_{col}": test[col].values for col in self.target_cols}
             all_forecasts_dict = {f"forecast_{col}": all_forecasts[col] for col in self.target_cols}
-            split_results = {"cutoff": np.repeat(test.index[0], len(test)), "index": test.index,
+            split_results = {"cutoff": np.repeat(train.index[-1], len(test)), "fold_index": test.index,
+                             "horizon": np.arange(1, len(test) + 1),
                             "split": np.repeat(f"fold_{idx+1}", len(test))}
             
             split_results.update(actuals)

@@ -295,9 +295,8 @@ class naive:
                     metrics_dict1[m.__name__].append(eval_val1)
                     metrics_dict2[m.__name__].append(eval_val2)
  
-            split_results = {
-                "cutoff": np.repeat(test.index[0], len(test)),
-                "index":  test.index,
+            split_results = {"cutoff": np.repeat(train.index[-1], len(test)), "fold_index": test.index,
+                             "horizon": np.arange(1, len(test) + 1),
                 "split":  np.repeat(f"fold_{idx + 1}", len(test)),
                 "y_true": y_test,
                 "y_pred": bb_forecast,
