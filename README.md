@@ -310,3 +310,36 @@ encouragement throughout the development of this package.
 
 Contributions, issues, and feature requests are welcome on the [GitHub
 repository](https://github.com/mustafaslanCoto/peshbeen).
+
+## References & Gratitude
+
+Peshbeen would not exist without the work of others. The following
+references are the foundation of this package — they shaped its methods,
+its design, and the way it thinks about forecasting. I am deeply
+grateful to their authors for making such clear, generous, and freely
+available scholarship.
+
+**Forecasting foundations**
+
+- Hyndman, R.J., & Athanasopoulos, G. (2021). [*Forecasting: Principles
+  and Practice* (3rd ed.)](https://otexts.com/fpp3/). OTexts. — The
+  cornerstone open-access reference for the classical statistical models
+  (ETS, ARIMA) and the forecasting workflow that peshbeen wraps under a
+  unified API.
+- Kolassa, S., Rostami-Tabar, B., & Siemsen, E. (2023). [*Demand
+  Forecasting for Executives and
+  Professionals*](https://www.taylorfrancis.com/books/mono/10.1201/9781003399599/demand-forecasting-executives-professionals-stephan-kolassa-bahman-rostami-tabar-enno-siemsen).
+  Chapman & Hall/CRC. ([free online edition](https://dfep.netlify.app))
+  — Invaluable practical guidance on applied demand forecasting and
+  forecast-driven decision-making.
+
+**Regime-switching / Hidden Markov models**
+
+- Jurafsky, D., & Martin, J.H. (2024). Hidden Markov Models (Appendix
+  A). In [*Speech and Language Processing* (3rd
+  ed. draft)](https://web.stanford.edu/~jurafsky/slp3/). — A wonderfully
+  clear treatment of Markov chains, the hidden Markov model, and the
+  Forward–Backward algorithm that underpin peshbeen’s Markov-switching
+  models
+  ([`ms_arr`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ms_arr.html#ms_arr),
+  [`ms_var`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ms_var.html#ms_var)).
