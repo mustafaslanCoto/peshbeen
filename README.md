@@ -11,26 +11,123 @@
 [![GitHub
 stars](https://img.shields.io/github/stars/mustafaslanCoto/peshbeen.png)](https://github.com/mustafaslanCoto/peshbeen/stargazers)
 
+[![CI](https://github.com/mustafaslanCoto/peshbeen/actions/workflows/test.yaml/badge.svg)](https://github.com/mustafaslanCoto/peshbeen/actions/workflows/test.yaml)
+[![Deploy to GitHub
+Pages](https://github.com/mustafaslanCoto/peshbeen/actions/workflows/deploy.yaml/badge.svg)](https://github.com/mustafaslanCoto/peshbeen/actions/workflows/deploy.yaml)
+[![Docs](https://img.shields.io/badge/docs-online-brightgreen.png)](https://mustafaslanCoto.github.io/peshbeen/)
+[![nbdev](https://img.shields.io/badge/built%20with-nbdev-blueviolet.png)](https://nbdev.fast.ai/)
+[![GitHub last
+commit](https://img.shields.io/github/last-commit/mustafaslanCoto/peshbeen.png)](https://github.com/mustafaslanCoto/peshbeen/commits/main)
+[![GitHub
+issues](https://img.shields.io/github/issues/mustafaslanCoto/peshbeen.png)](https://github.com/mustafaslanCoto/peshbeen/issues)
+
+> **One forecasting workflow. Many models. From classical statistics to
+> machine learning, regime-switching, and probabilistic scenarios — all
+> behind the same `.fit(df)` / `.forecast(H)` interface.**
+
 **Peshbeen** is a Python forecasting library built around a single idea:
-the forecasting workflow should be the same regardless of the model. The
-name draws from Kurdish — pesh (“front”) and been (“to see/be”) —
-combining to mean foresight. The library provides a unified interface
-spanning a wide range of models: from ARIMA and Vector Autoregressions
-to scikit-learn regressors, gradient-boosted trees (XGBoost, LightGBM,
-CatBoost), and TabPFN (Tabular Foundation Models). Whether you’re
-working with univariate or multivariate time series, peshbeen automates
-the heavy lifting — feature engineering, lag generation, and
-stationarity transformations — so you can focus on forecasting.
+*the forecasting workflow should be the same regardless of the model.*
+The name draws from Kurdish — *pesh* (“front”) and *been* (“to see”) —
+combining to mean **foresight**.
+
+Most forecasting libraries make you pick a lane: a classical-statistics
+toolkit, an ML-regressor framework, or a deep-learning stack — each with
+its own API, its own feature-engineering conventions, and its own way of
+handling trends and uncertainty. Peshbeen instead puts an unusually wide
+range of models behind **one** consistent interface, and bakes in the
+parts of a real forecasting workflow — feature engineering, trend
+handling, probabilistic scenarios, tuning, and model comparison — so
+switching models is a one-line change, not a rewrite.
+
+It spans naive baselines, **ETS**, **ARIMA**, **Vector Autoregression
+(VAR)**, scikit-learn regressors and gradient-boosted trees (**XGBoost,
+LightGBM, CatBoost**), **TabPFN** tabular foundation models,
+**Generalized Linear Models (GLM)** for count data, **Markov-switching
+regime models (MS-ARR and MS-VAR)**, and a built-in weighted ensemble
+(**[`pesh`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/herne_pesh.html#pesh)**)
+— for univariate *and* multivariate series.
+
+## Why peshbeen?
+
+Peshbeen is designed for the **messy middle** of real-world forecasting
+— the projects where you need to try several very different model
+families, account for structural breaks and regime changes, model counts
+as well as continuous demand, and produce uncertainty you can actually
+feed into a decision. Its advantages:
+
+- **🔁 Switch models without rewriting your code.** A naive baseline, an
+  ARIMA, a LightGBM regressor, a VAR, and a Markov-switching model all
+  share the same `.fit` / `.forecast` / `.cross_validate` API. Comparing
+  them fairly is a one-line change, not a new pipeline.
+
+- **🌀 Regime-switching, built in.** First-class **Markov-switching**
+  autoregressive
+  ([`ms_arr`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ms_arr.html#ms_arr))
+  and VAR
+  ([`ms_var`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ms_var.html#ms_var))
+  models capture regime changes — crisis vs. baseline demand,
+  pre/post-intervention — that ARIMA and standard ML models smooth over.
+  These sit behind the same interface as every other model.
+
+- **📈 A unified trend / stationarity pipeline across *all* model
+  families.** Differencing, a global linear trend, a local ETS trend, or
+  **piecewise-linear detrending with explicit change points** is a
+  single model argument — and it behaves identically whether you’re
+  running ARIMA, a GLM, gradient boosting, or a regime-switching model.
+  No rebuilding a transformer pipeline per model.
+
+- **🔗 Multivariate forecasting with per-series control.**
+  [`var`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/var.html#var),
+  [`ml_mv_forecaster`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ml_mv_forecast.html#ml_mv_forecaster),
+  and
+  [`ms_var`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ms_var.html#ms_var)
+  accept a **dictionary of lags (and transformations) per target
+  series**, so each series can carry its own temporal structure while
+  you still model their interdependencies.
+
+- **🎲 Probabilistic *scenarios*, not just intervals.** Generate full
+  sample paths for **any** model via residual calibration — empirical
+  bootstrap, KDE, or a **correlated (block) bootstrap** that preserves
+  dependence across horizons — ready to drop into capacity-planning or
+  queueing simulations. Conformal prediction is available when you only
+  need calibrated intervals.
+
+- **🔢 Counts as a first-class case.** A statsmodels-backed **GLM** with
+  a proper `family` (e.g. `sm.families.Poisson()`, Gamma) handles count
+  data — admissions, calls, demand — directly, with AIC/BIC/HQC
+  reported.
+
+- **🧰 Batteries included.** Automatic lag and rolling/expanding feature
+  generation, Box-Cox stabilisation, Hyperopt/Optuna tuning,
+  forward/backward feature selection, a built-in metric-optimised
+  ensemble
+  ([`pesh`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/herne_pesh.html#pesh)),
+  and ready-to-use datasets (including real healthcare operations
+  series).
+
+> **A note on what powers it.** Peshbeen stands on proven foundations
+> rather than reinventing them: its ARIMA is built on **StatsForecast**
+> and its ETS/GLM on **statsmodels**. The value peshbeen adds is the
+> *unified workflow* around them — plus genuinely original pieces like
+> the Markov-switching models, the per-series multivariate
+> specification, the shared change-point-aware detrending, and the
+> [`pesh`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/herne_pesh.html#pesh)
+> ensemble.
 
 ## Key Features
+
+The advantages above, in detail:
 
 - **Unified API:** Train any model using a simple `.fit(df)` and
   `.forecast(H)` workflow, eliminating the need for manual
   feature/target splitting.
 
-- **Model Agnostic:** Supports a wide range of forecasting models,
-  including ETS, ARIMA, Vector Autoregressions, scikit-learn regressors,
-  and gradient-boosted trees (XGBoost, LightGBM, CatBoost).
+- **Model Agnostic:** Supports a wide range of forecasting models behind
+  one interface — naive baselines, ETS, ARIMA, Vector Autoregressions,
+  scikit-learn regressors, gradient-boosted trees (XGBoost, LightGBM,
+  CatBoost), TabPFN foundation models, Generalized Linear Models (GLM)
+  for count data, and **Markov-switching regime models (MS-ARR,
+  MS-VAR)**.
 
 - **Automatic Feature Engineering:** User can specify the key following
   parameters to automatically generate features:
@@ -63,48 +160,56 @@ stationarity transformations — so you can focus on forecasting.
 
   Four methods are implemented for generating probabilistic forecasts:
 
-  - **Empirical & Kernel Density Estimation (KDE):** This method
-    generates probabilistic forecasts by resampling from the empirical
-    distribution of the residuals. By adding these resampled residuals
-    to the point forecasts, we can create a distribution of possible
-    future values. `KDE` can be applied to these resampled forecasts to
-    obtain a smooth probability density function, which can then be used
-    to derive prediction intervals and quantiles.
+  - **Empirical bootstrap:** Resamples from the empirical distribution
+    of the residuals and adds the resampled residuals to the point
+    forecasts, building a distribution of possible future values
+    (`method="empirical"`).
 
-  - **Correlated Bootstrap:** This method generates probabilistic
-    forecasts by resampling from the residuals while preserving the
-    correlation structure across different forecast horizons. By
-    resampling entire rows of residuals (i.e., all horizons together),
-    we can maintain the temporal dependencies and correlations between
-    forecast errors at different horizons, leading to more realistic
-    forecast scenarios.
+  - **Kernel Density Estimation (KDE):** Fits a smooth probability
+    density to the residuals and samples from it, which can capture
+    non-normal or heteroscedastic residual structure better than plain
+    resampling (`method="kde"`).
 
-  - **Conformal Prediction:** This method generates probabilistic
-    forecasts by applying conformal prediction techniques to the
-    residuals. By calculating nonconformity scores based on the
-    residuals and using them to determine prediction intervals.
+  - **Correlated (block) bootstrap:** Resamples entire rows of residuals
+    (all horizons together), preserving the temporal dependencies and
+    correlations between forecast errors at different horizons for more
+    realistic scenarios (`method="correlated"`).
 
-- **Hyperparameter Tuning:** Peshbeen facilitates the path from raw data
-  to a high-accuracy model. We automate the most labor-intensive parts
-  of forecasting—feature selection and hyperparameter tuning—into a
-  single, unified workflow.
+  - **Conformal prediction:** Calculates nonconformity scores from the
+    residuals on a calibration set and uses them to construct prediction
+    intervals. This method produces intervals only (no scenario sample
+    paths), and is accessed via `calibrate()` + `conformal_quantiles()`.
 
-  - **Integrated Intelligence:** Unlike traditional pipelines that
-    require you to select features before tuning, Peshbeen performs
-    feature-aware optimization. The engine automatically determines
-    which exogenous variables and lag structures actually drive
-    performance for your specific model, ensuring your final forecast
-    relies only on meaningful signals rather than noise.
-  - **Optimizer-Driven Selection:** Peshbeen leverages state-of-the-art
-    optimization frameworks (Optuna and Hyperopt) to identify the “sweet
-    spot” where your model’s parameters meet the most predictive feature
-    subset. This removes the guesswork from manual feature engineering
-    and dramatically reduces the time spent on trial-and-error.
-  - **Unified Tuning API:** You don’t need separate scripts for tuning;
-    the same clean `.fit()` workflow applies to your optimized models.
-    Simply define your search space (or/and features to be evaluated),
-    and peshbeen handles the heavy lifting, providing a transparent and
-    reproducible way to reach your best model configuration.
+- **Hyperparameter Tuning & Feature Selection:** Built-in hyperparameter
+  tuning with Hyperopt and Optuna, plus forward/backward feature
+  selection, so you can optimise both model configuration and the
+  feature set with minimal effort.
+
+- **Built-in Ensemble
+  ([`pesh`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/herne_pesh.html#pesh)):**
+  Combine any set of fitted models with equal weights, user-defined
+  weights, or weights **optimised to minimise the metric you care
+  about** via cross-validation.
+
+- **Evaluation Metrics:** A metrics module covering MAE, MSE, RMSE,
+  MAPE, SMAPE, WMAPE and the scaled metrics MASE, RMSSE and SRMSE for
+  fair model comparison.
+
+## When to reach for peshbeen
+
+Peshbeen is the right tool when you want to **compare statistical, ML,
+and regime-switching models with the same code**, when you suspect
+**regime changes or structural breaks**, when you’re forecasting
+**counts**, when your **multivariate** series need different lag
+structures, or when you need **forecast scenarios** for downstream
+simulation rather than just a point and an interval.
+
+If your problem is dominated by **deep-learning / foundation models**,
+or by fitting **thousands of series at maximum speed**, mature
+specialised libraries (Darts, sktime, Nixtla) may serve you better — and
+peshbeen happily wraps the same proven engines where it makes sense.
+Peshbeen’s focus is *coherence across a wide model span and coverage of
+an underserved middle*, not out-scaling any single category.
 
 ## Installation
 
@@ -126,8 +231,6 @@ Install only what you need:
 ``` bash
 pip install peshbeen[ml]        # XGBoost, LightGBM, CatBoost, Cubist
 pip install peshbeen[tuning]    # Hyperopt, Optuna
-pip install peshbeen[forecast]  # StatsForecast, Numba
-pip install peshbeen[plotting]  # Matplotlib, Seaborn
 pip install peshbeen[all]       # Everything above
 ```
 
@@ -183,3 +286,27 @@ plt.show()
 ```
 
 ![](index_files/figure-commonmark/cell-4-output-1.png)
+
+## Acknowledgements
+
+Peshbeen is developed as part of the work of the **[Data Lab for Social
+Good](https://uk.linkedin.com/company/dlsg2023)** research group at
+**Cardiff University, UK**.
+
+Sincere thanks to the research group and, **[Prof. Bahman
+Rostami-Tabar](https://bahmanrostamitabar.github.io/)** (Director of the
+Data Lab for Social Good), for their guidance, support, and
+encouragement throughout the development of this package.
+
+<a href="https://uk.linkedin.com/company/dlsg2023">
+<img src="images/dlsg.png" alt="Data Lab for Social Good — Cardiff University, UK" style="display:block; width:100%; max-width:420px; margin:1.5rem auto;" />
+</a>
+
+## Developers
+
+- **[Mustafa Aslan](https://mustafaslancoto.github.io/)**, PhD
+  Researcher in Data Science and Operations Research in Healthcare
+  Operations at Cardiff University.
+
+Contributions, issues, and feature requests are welcome on the [GitHub
+repository](https://github.com/mustafaslanCoto/peshbeen).
