@@ -289,14 +289,11 @@ plt.show()
 
 ## Acknowledgements
 
-Peshbeen is developed as part of the work of the **[Data Lab for Social
+Sincere thanks to the **[Data Lab for Social
 Good](https://uk.linkedin.com/company/dlsg2023)** research group at
-**Cardiff University, UK**.
-
-Sincere thanks to the research group and, **[Prof. Bahman
-Rostami-Tabar](https://bahmanrostamitabar.github.io/)** (Director of the
-Data Lab for Social Good), for their guidance, support, and
-encouragement throughout the development of this package.
+**Cardiff University, UK**, and its Director, **[Prof. Bahman
+Rostami-Tabar](https://bahmanrostamitabar.github.io/)**, for their
+support and encouragement during the development of this package.
 
 <a href="https://uk.linkedin.com/company/dlsg2023">
 <img src="images/dlsg.png" alt="Data Lab for Social Good — Cardiff University, UK" style="display:block; width:100%; max-width:420px; margin:1.5rem auto;" />
@@ -313,33 +310,27 @@ repository](https://github.com/mustafaslanCoto/peshbeen).
 
 ## References & Gratitude
 
-Peshbeen would not exist without the work of others. The following
-references are the foundation of this package — they shaped its methods,
-its design, and the way it thinks about forecasting. I am deeply
-grateful to their authors for making such clear, generous, and freely
-available scholarship.
+Peshbeen would not exist without the valuable work of the respective
+researchers and practitioners. The following references are the
+foundation of this package — they shaped its methods, its design, and
+the way it thinks about forecasting. I am deeply grateful to their
+authors for making such clear, generous, and freely available
+scholarship.
 
 **Forecasting foundations**
 
 - Hyndman, R.J., & Athanasopoulos, G. (2021). [*Forecasting: Principles
-  and Practice* (3rd ed.)](https://otexts.com/fpp3/). OTexts. — The
-  cornerstone open-access reference for the classical statistical models
-  (ETS, ARIMA) and the forecasting workflow that peshbeen wraps under a
-  unified API.
+  and Practice* (3rd ed.)](https://otexts.com/fpp3/). OTexts.
+
 - Kolassa, S., Rostami-Tabar, B., & Siemsen, E. (2023). [*Demand
   Forecasting for Executives and
   Professionals*](https://www.taylorfrancis.com/books/mono/10.1201/9781003399599/demand-forecasting-executives-professionals-stephan-kolassa-bahman-rostami-tabar-enno-siemsen).
   Chapman & Hall/CRC. ([free online edition](https://dfep.netlify.app))
-  — Invaluable practical guidance on applied demand forecasting and
-  forecast-driven decision-making.
 
-**Regime-switching / Hidden Markov models**
+- Hamilton, J. D. (1994). Time Series Analysis. Princeton University
+  Press. [*Time Series
+  Analysis*](https://press.princeton.edu/books/hardcover/9780691042893/time-series-analysis?srsltid=AfmBOoo_HI3XElG3QzJ9WjLpOy21ExdpQB7j-x-uKRvbAhypHxzyjCWD)
 
 - Jurafsky, D., & Martin, J.H. (2024). Hidden Markov Models (Appendix
   A). In [*Speech and Language Processing* (3rd
-  ed. draft)](https://web.stanford.edu/~jurafsky/slp3/). — A wonderfully
-  clear treatment of Markov chains, the hidden Markov model, and the
-  Forward–Backward algorithm that underpin peshbeen’s Markov-switching
-  models
-  ([`ms_arr`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ms_arr.html#ms_arr),
-  [`ms_var`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ms_var.html#ms_var)).
+  ed. draft)](https://web.stanford.edu/~jurafsky/slp3/)

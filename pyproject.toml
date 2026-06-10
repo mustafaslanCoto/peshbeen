@@ -68,6 +68,7 @@ all = [
     "openpyxl",
     "lightgbm",
     "catboost",
+    "ruptures",
 ]
 
 [project.urls]
