@@ -375,16 +375,20 @@ class prob_forecasts:
         else:  # "correlated"
             if self.n_calib is not None:
                 # shape: (n_samples, H)  — multivariate normal on H-dimensional residual vectors
-                mu    = self.resid.mean(axis=1)          # (H,)
+                # mu    = self.resid.mean(axis=1)          # (H,)
                 self.sigma = np.cov(self.resid)              # (H, H)
-                draws = self._rng.multivariate_normal(mu, self.sigma, size=n_samples)
+                # draws = self._rng.multivariate_normal(mu, self.sigma, size=n_samples)
+                draws = self._rng.multivariate_normal(y_hat, self.sigma, size=n_samples)
             else: # error if trying to use correlated sampling without cross-validated residuals, since we won't have H-dimensional residual vectors
                 raise ValueError("Correlated sampling requires n_calibration to be set to a positive integer to compute cross-validated residuals.")
 
          # ✅ Create a deep copy so that we don’t overwrite self
         new_instance = copy.deepcopy(self)
         # ── centre on point forecast ──────────────────────────────────────────
-        new_instance.sample_paths  = draws + y_hat           # (n_samples, H)
+        if method == "correlated":
+            new_instance.sample_paths  = draws           # (n_samples, H)
+        else:
+            new_instance.sample_paths  = draws + y_hat           # (n_samples, H)
         new_instance.point_forecast = y_hat
         new_instance.sample_paths_df = pd.DataFrame(
             new_instance.sample_paths,
