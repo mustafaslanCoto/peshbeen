@@ -18,7 +18,7 @@ def _sm_dataset(name: str) -> pd.DataFrame:
 # %% auto #0
 __all__ = ['load_airline_passengers', 'load_co2', 'load_sunspots', 'load_nile', 'load_macrodata', 'load_interest_inflation',
            'load_elnino', 'load_livestock', 'load_wales_admissions', 'load_wales_calls', 'load_admission_calls',
-           'available_datasets']
+           'load_sales', 'available_datasets']
 
 # %% ../nbs/modules/99_datasets.ipynb #ba80f2d4
 # airline passengers dataset
@@ -381,6 +381,24 @@ def load_admission_calls() -> pd.DataFrame:
     calls = load_wales_calls()
     return admissions.join(calls, how='inner')
 
+# %% ../nbs/modules/99_datasets.ipynb #load_sales_cell
+def load_sales() -> pd.DataFrame:
+    """
+    Synthetic 72-series retail sales panel dataset (store_01_item_01 .. store_06_item_12)
+    from January 2021 to February 2026 (133,704 observations).
+
+    Returns
+    -------
+    pd.DataFrame
+        Long-format panel DataFrame indexed by datetime ('date') with 'store_item'
+        series identifier, 'sales' target column, and optional exogenous features.
+    """
+    file_path = Path(peshbeen.__file__).parent / "data" / "sales_df.csv"
+    if not file_path.exists():
+        raise FileNotFoundError(f"Could not find dataset at: {file_path}")
+    return pd.read_csv(file_path, parse_dates=["date"]).set_index("date")
+
+
 # %% ../nbs/modules/99_datasets.ipynb #8040662b
 # ─────────────────────────────────────────────────────────────────────────────
 # CONVENIENCE: list available datasets
@@ -402,6 +420,11 @@ def available_datasets() -> pd.DataFrame:
     >>> available_datasets()
     """
     rows = [
+        dict(loader='load_sales()',
+             type='multi-series panel',
+             frequency='daily',
+             approx_obs=133704,
+             description='Synthetic 72-series retail sales panel (store_01_item_01 .. store_06_item_12), 2021–2026'),
         dict(loader='load_co2()',
              type='univariate',
              frequency='weekly',
@@ -464,3 +487,4 @@ def available_datasets() -> pd.DataFrame:
           description='Combined dataset of daily hospital admissions and emergency calls in Wales, UK'),
     ]
     return pd.DataFrame(rows)
+

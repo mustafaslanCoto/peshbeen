@@ -35,5 +35,6 @@ website:
               - modules/models/08_naive.ipynb
               - modules/models/09_glm.ipynb
               - modules/models/10_direct_ml.ipynb
+              - modules/models/11_ml_multi_forecast.ipynb
               - modules/models/90_herne_pesh.ipynb
             href: modules/models/00_index.ipynb
