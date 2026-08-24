@@ -935,6 +935,7 @@ def optuna_tune_multi(
     warm_up_steps: int = 10,
     startup_trials: int = 5,
     ref_series_id: Optional[str] = None,
+    transform_back: bool = True,
     verbose: bool = False
 ) -> Tuple[Dict[str, Any], Any, Dict[str, Any]]:
     """
@@ -972,6 +973,8 @@ def optuna_tune_multi(
         Series ID used for date-based time index splitting (defaults to series with shortest length).
     verbose : bool, default False
         If True, prints progress for every Optuna trial.
+    transform_back : bool, default True
+        If True, transforms the forecasted values back to the original scale. False is recommended when there are many series with different scales, as it may lead to large errors in the evaluation metric when target scaler is passed to model.
 
     Returns
     -------
@@ -1046,7 +1049,7 @@ def optuna_tune_multi(
 
             model_.fit(train_fold)
             H_fold = len(test_dates)
-            fc_dict = model_.forecast(H=H_fold, exog=exog_fold)
+            fc_dict = model_.forecast(H=H_fold, exog=exog_fold, transform_back=transform_back)
 
             fold_series_scores = []
             for s in eval_series_list:

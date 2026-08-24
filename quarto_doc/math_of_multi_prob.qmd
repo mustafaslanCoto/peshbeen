@@ -1,0 +1,245 @@
+---
+title: "Mathematical Foundations of Multi-Series Probabilistic Forecasting (`multi_prob_forecasts`)"
+subtitle: "Empirical Error Covariance, Regularization, Multivariate Distributions, and Gaussian Copula"
+author: "Peshbeen Package Documentation"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    theme: cosmo
+    code-fold: show
+    math: true
+---
+
+# Introduction & Problem Formulation
+
+In multi-series time-series forecasting (such as retail store-item demand, energy grid load across sub-stations, or traffic flow across sensor networks), multiple interdependent time series $\{y_{s, t}\}$ are observed across series identifiers $s \in \{1, 2, \dots, N\}$ over historical time steps $t \in \{1, 2, \dots, T\}$.
+
+While point forecasting models (like `ml_multi_forecaster`) generate conditional expectation trajectories:
+$$\mathbf{\hat{y}}_h = \left[ \hat{y}_{1, h}, \, \hat{y}_{2, h}, \, \dots, \, \hat{y}_{N, h} \right]^T \in \mathbb{R}^N \quad \text{for } h \in \{1, 2, \dots, H\}$$
+
+real-world decision making (e.g. joint inventory management, portfolio risk, capacity planning) requires the **joint predictive distribution**:
+$$P\left( \mathbf{Y}_1, \dots, \mathbf{Y}_H \mid \mathcal{F}_T \right)$$
+where $\mathcal{F}_T$ denotes the historical filtration up to time $T$.
+
+Because shocks in one series (e.g. promotional cannibalization, weather shocks, macro trends) are correlated with shocks in other series, modeling individual series variances independently underestimates system-wide tail risk and mischaracterizes aggregate uncertainty.
+
+`multi_prob_forecasts` solves this by explicitly modeling the **cross-series error covariance structure** and coupling point forecasts with multivariate predictive distributions:
+1. **Multivariate Normal ($\mathcal{N}_N$)**
+2. **Multivariate Student-$t$ ($t_N$)**
+3. **Gaussian Copula with Empirical Marginals**
+4. **Joint Non-Parametric Empirical Resampling**
+
+---
+
+# Transformation Pipeline & In-Sample Residual Recovery
+
+## Forward Target Transformations
+
+During data preparation (`data_prep`), each series $y_{s, t}$ undergoes up to five sequential transformations to stabilize variance and remove non-stationarity:
+
+1. **Box-Cox Transformation** (Variance stabilization):
+   $$z_{s, t} = B(y_{s, t}; \lambda_s) = \begin{cases} \frac{(y_{s, t} + c_s)^{\lambda_s} - 1}{\lambda_s}, & \lambda_s \neq 0 \\ \ln(y_{s, t} + c_s), & \lambda_s = 0 \end{cases}$$
+2. **Deterministic / Polynomial Trend Removal**:
+   $$w_{s, t} = z_{s, t} - \hat{\tau}_{s, t}$$
+3. **Ordinary Differencing** ($d_s \in \{1, 2\}$):
+   $$\Delta^{d_s} w_{s, t} = (1 - L)^{d_s} w_{s, t}$$
+4. **Seasonal Differencing** ($m_s \ge 2$):
+   $$\Delta_{m_s} \Delta^{d_s} w_{s, t} = (1 - L^{m_s}) \Delta^{d_s} w_{s, t}$$
+5. **Target Scaling** (e.g. `StandardScaler`):
+   $$u_{s, t} = \frac{\Delta_{m_s} \Delta^{d_s} w_{s, t} - \mu_s}{\sigma_s}$$
+
+The machine learning model is trained to minimize the prediction loss on the transformed target space $u_{s, t}$.
+
+## In-Sample Residual & Fitted Value Inversion
+
+Let $\hat{u}_{s, t} = f(\mathbf{x}_{s, t})$ be the raw prediction produced by the estimator in the transformed space. 
+
+To obtain statistically meaningful residuals on the **original measurement scale**:
+
+1. **Invert Target Scaling**:
+   $$\hat{\delta}_{s, t} = \text{scaler}_s^{-1}(\hat{u}_{s, t}) = \hat{u}_{s, t} \cdot \sigma_s + \mu_s$$
+   $$\delta_{s, t} = \text{scaler}_s^{-1}(u_{s, t}) = u_{s, t} \cdot \sigma_s + \mu_s$$
+   The 1-step prediction error in the unscaled differenced/detrended space is:
+   $$e_{s, t} = \delta_{s, t} - \hat{\delta}_{s, t}$$
+
+2. **Invariance of 1-Step Errors under Linear Differencing & Detrending**:
+   For any linear difference $(1 - L) w_{s, t} = w_{s, t} - w_{s, t-1}$, the 1-step ahead prediction given true history $w_{s, t-1}$ is:
+   $$\hat{w}_{s, t} = w_{s, t-1} + \hat{\delta}_{s, t}$$
+   Subtracting $\hat{w}_{s, t}$ from the true observation $w_{s, t}$:
+   $$w_{s, t} - \hat{w}_{s, t} = (w_{s, t} - w_{s, t-1}) - \hat{\delta}_{s, t} = \delta_{s, t} - \hat{\delta}_{s, t} = e_{s, t}$$
+   The error in the pre-differenced / pre-detrended space is **identically equal** to $e_{s, t}$.
+
+3. **Box-Cox Inversion**:
+   - If Box-Cox was **not** applied:
+     $$\hat{y}_{s, t} = y_{s, t} - e_{s, t}, \quad \text{resid}_{s, t} = e_{s, t}$$
+   - If Box-Cox **was** applied:
+     $$\hat{z}_{s, t} = z_{s, t} - e_{s, t}$$
+     $$\hat{y}_{s, t} = B^{-1}(\hat{z}_{s, t}; \lambda_s), \quad \text{resid}_{s, t} = y_{s, t} - \hat{y}_{s, t}$$
+
+---
+
+# Empirical Error Covariance & Correlation Estimation
+
+## Joint Error Matrix Construction
+
+Let $M$ be the number of aligned historical or cross-validation evaluation points common to all $N$ series. The joint error matrix $\mathbf{E} \in \mathbb{R}^{M \times N}$ is:
+
+$$\mathbf{E} = \begin{bmatrix}
+e_{1, 1} & e_{2, 1} & \dots & e_{N, 1} \\
+e_{1, 2} & e_{2, 2} & \dots & e_{N, 2} \\
+\vdots & \vdots & \ddots & \vdots \\
+e_{1, M} & e_{2, M} & \dots & e_{N, M}
+\end{bmatrix} = \begin{bmatrix} \mathbf{e}_{(1)}^T \\ \mathbf{e}_{(2)}^T \\ \vdots \\ \mathbf{e}_{(M)}^T \end{bmatrix}$$
+
+where each column $\mathbf{e}_s \in \mathbb{R}^M$ contains the residual series for series $s$, and each row $\mathbf{e}_{(t)} \in \mathbb{R}^N$ represents the joint cross-series error vector at observation $t$.
+
+## Sample Covariance Matrix
+
+The unbiased empirical sample covariance matrix $\mathbf{\Sigma}_{\text{raw}} \in \mathbb{R}^{N \times N}$ is computed as:
+
+$$\mathbf{\Sigma}_{\text{raw}} = \frac{1}{M - 1} \sum_{t=1}^M \left( \mathbf{e}_{(t)} - \mathbf{\bar{e}} \right) \left( \mathbf{e}_{(t)} - \mathbf{\bar{e}} \right)^T$$
+
+where $\mathbf{\bar{e}} = \frac{1}{M} \sum_{t=1}^M \mathbf{e}_{(t)}$ is the mean residual vector across all series.
+
+## Exact Symmetry and Spectral Positive Semi-Definite (PSD) Regularization
+
+In empirical settings with finite samples or collinear series, numerical floating-point inaccuracies or rank deficiency can lead to negative eigenvalues $\lambda_i \le 0$, rendering the covariance matrix non-invertible and invalidating Cholesky decomposition.
+
+To guarantee mathematical validity, `multi_prob_forecasts` applies spectral eigenvalue thresholding:
+
+1. **Symmetrization**:
+   $$\mathbf{\Sigma}_{\text{sym}} = \frac{1}{2}\left( \mathbf{\Sigma}_{\text{raw}} + \mathbf{\Sigma}_{\text{raw}}^T \right)$$
+
+2. **Eigendecomposition**:
+   $$\mathbf{\Sigma}_{\text{sym}} = \mathbf{V} \mathbf{\Lambda} \mathbf{V}^T$$
+   where $\mathbf{V} = [\mathbf{v}_1, \dots, \mathbf{v}_N]$ is the orthonormal matrix of eigenvectors, and $\mathbf{\Lambda} = \text{diag}(\lambda_1, \lambda_2, \dots, \lambda_N)$ contains the real eigenvalues.
+
+3. **PSD Floor Projection**:
+   We project all eigenvalues onto the strictly positive half-space with threshold $\epsilon = 10^{-8}$:
+   $$\lambda_i^{\text{clipped}} = \max(\lambda_i, \, \epsilon)$$
+   $$\mathbf{\Lambda}_{\text{psd}} = \text{diag}\left( \lambda_1^{\text{clipped}}, \, \dots, \, \lambda_N^{\text{clipped}} \right)$$
+
+4. **Reconstructed Covariance Matrix**:
+   $$\mathbf{\Sigma} = \mathbf{V} \mathbf{\Lambda}_{\text{psd}} \mathbf{V}^T$$
+   By construction, $\mathbf{\Sigma}$ is strictly symmetric and positive definite ($\mathbf{x}^T \mathbf{\Sigma} \mathbf{x} > 0 \, \forall \mathbf{x} \neq \mathbf{0}$).
+
+## Empirical Correlation Matrix
+
+From the regularized covariance matrix $\mathbf{\Sigma}$, we extract the empirical standard deviation vector $\mathbf{s} = \left[ \sqrt{\Sigma_{1, 1}}, \, \dots, \, \sqrt{\Sigma_{N, N}} \right]^T$ and construct the diagonal scaling matrix $\mathbf{D} = \text{diag}(\mathbf{s})$.
+
+The cross-series empirical correlation matrix $\mathbf{R} \in \mathbb{R}^{N \times N}$ is:
+
+$$\mathbf{R} = \mathbf{D}^{-1} \mathbf{\Sigma} \mathbf{D}^{-1}$$
+
+with elements:
+$$R_{i, j} = \frac{\Sigma_{i, j}}{\sqrt{\Sigma_{i, i}} \sqrt{\Sigma_{j, j}}}, \quad R_{i, i} = 1.0, \quad R_{i, j} \in [-1, 1]$$
+
+---
+
+# Multivariate Sampling Methods in `.sample()`
+
+For a given forecast horizon $H$ and $B$ Monte Carlo simulated paths ($m = 1, \dots, B$), we generate joint trajectory matrices for each series:
+$$\mathbf{Y}_s \in \mathbb{R}^{B \times H} \quad \text{for } s \in \{1, \dots, N\}$$
+
+Let $\mathbf{\hat{y}}_s = \left[ \hat{y}_{s, 1}, \hat{y}_{s, 2}, \dots, \hat{y}_{s, H} \right]$ be the multi-step point forecast for series $s$.
+
+$$\mathbf{Y}_{m, h, s} = \hat{y}_{s, h} + \epsilon_{m, h, s}$$
+
+where $\boldsymbol{\epsilon}_{m, h} = \left[ \epsilon_{m, h, 1}, \, \dots, \, \epsilon_{m, h, N} \right]^T \in \mathbb{R}^N$ is drawn from one of the four joint distributions below.
+
+---
+
+## Method 1: Multivariate Normal Distribution (`method="mvn"`)
+
+### Definition
+Assumes joint Gaussian innovation errors across series at each forecast horizon step $h$:
+$$\boldsymbol{\epsilon}_{m, h} \sim \mathcal{N}_N\left(\mathbf{0}, \, \mathbf{\Sigma}\right)$$
+
+### Sampling Algorithm via Cholesky Decomposition
+1. Compute the lower triangular Cholesky factor $\mathbf{L} \in \mathbb{R}^{N \times N}$ such that:
+   $$\mathbf{\Sigma} = \mathbf{L} \mathbf{L}^T$$
+2. Draw $N$ standard independent normal variates:
+   $$\mathbf{z}_{m, h} \sim \mathcal{N}_N\left(\mathbf{0}, \, \mathbf{I}_N\right)$$
+3. Correlate and scale:
+   $$\boldsymbol{\epsilon}_{m, h} = \mathbf{L} \mathbf{z}_{m, h}$$
+
+---
+
+## Method 2: Multivariate Student-$t$ Distribution (`method="student_t"`)
+
+### Gaussian Scale Mixture Formulation
+A random vector $\boldsymbol{\epsilon} \in \mathbb{R}^N$ follows a multivariate Student-$t$ distribution with $\nu$ degrees of freedom and dispersion matrix $\mathbf{\Sigma}$, denoted $\boldsymbol{\epsilon} \sim t_N(\nu, \mathbf{0}, \mathbf{\Sigma})$, if it can be represented as a **Gaussian scale mixture**:
+
+$$\boldsymbol{\epsilon}_{m, h} = \frac{\mathbf{Z}_{m, h}}{\sqrt{\frac{W_{m, h}}{\nu}}}$$
+
+where:
+1. $\mathbf{Z}_{m, h} \sim \mathcal{N}_N\left(\mathbf{0}, \, \mathbf{\Sigma}\right)$ is a zero-mean multivariate normal vector.
+2. $W_{m, h} \sim \chi^2(\nu)$ is an independent chi-squared scalar random variable with $\nu = \text{df\_t\_deg}$ degrees of freedom.
+
+---
+
+## Method 3: Gaussian Copula with Non-Parametric Marginals (`method="copula"`)
+
+### Mathematical Foundation: Sklar's Theorem
+Sklar's Theorem (1959) states that any multivariate joint cumulative distribution function $F(e_1, e_2, \dots, e_N)$ can be uniquely decomposed into its **$N$ univariate marginal distributions** $F_1, F_2, \dots, F_N$ and a **copula function** $C: [0, 1]^N \to [0, 1]$ that fully characterizes the dependency structure:
+
+$$F(e_1, e_2, \dots, e_N) = C\left( F_1(e_1), \, F_2(e_2), \, \dots, \, F_N(e_N) \right)$$
+
+For the **Gaussian Copula**, $C_{\mathbf{R}}$ is parameterized by the cross-series correlation matrix $\mathbf{R}$:
+
+$$C_{\mathbf{R}}(u_1, \dots, u_N) = \mathbf{\Phi}_{\mathbf{R}}\left( \Phi^{-1}(u_1), \, \Phi^{-1}(u_2), \, \dots, \, \Phi^{-1}(u_N) \right)$$
+
+### Step-by-Step Sampling Algorithm
+
+1. **Step 1 — Correlated Gaussian Latent Variables**:
+   Draw latent vector $\mathbf{Z}_{m, h} \in \mathbb{R}^N$ from the multivariate normal distribution with empirical correlation matrix $\mathbf{R}$ and unit variances:
+   $$\mathbf{Z}_{m, h} \sim \mathcal{N}_N\left(\mathbf{0}, \, \mathbf{R}\right)$$
+
+2. **Step 2 — Probability Integral Transform (PIT)**:
+   Map each latent Gaussian variable $Z_{m, h, s}$ to a uniform variable $U_{m, h, s} \in (0, 1)$ using the univariate standard Gaussian CDF $\Phi$:
+   $$U_{m, h, s} = \Phi\left( Z_{m, h, s} \right)$$
+   To ensure numerical stability against quantile boundary singularity, clip:
+   $$U_{m, h, s} \leftarrow \min\left( \max(U_{m, h, s}, \, 10^{-6}), \, 1 - 10^{-6} \right)$$
+
+3. **Step 3 — Non-Parametric Empirical Marginal Inversion**:
+   Let $\mathbf{e}_s = [e_{s, 1}, e_{s, 2}, \dots, e_{s, M}]^T$ be the historical empirical residual vector for series $s$.
+   
+   The empirical cumulative distribution function (ECDF) $\hat{F}_s$ and its generalized inverse (empirical quantile function) $\hat{F}_s^{-1}(u)$ are defined as:
+   $$\hat{F}_s^{-1}(u) = \inf \left\{ x \in \mathbb{R} : \hat{F}_s(x) \ge u \right\}$$
+
+   We map uniform sample $U_{m, h, s}$ through the empirical quantile function of series $s$:
+   $$\epsilon_{m, h, s} = \hat{F}_s^{-1}\left( U_{m, h, s} \right) = \text{Quantile}\left( \mathbf{e}_s, \, U_{m, h, s} \right)$$
+
+---
+
+## Method 4: Joint Empirical Resampling (`method="empirical"`)
+
+Direct joint non-parametric bootstrap from the empirical error matrix $\mathbf{E} \in \mathbb{R}^{M \times N}$ via row resampling with replacement.
+
+---
+
+# Prediction Intervals and Quantiles API
+
+Across all classes (`prob_forecasts`, `mv_prob_forecasts`, `multi_prob_forecasts`), uncertainty intervals are accessed through two unified methods:
+
+## 1. `sample_quantiles(quantiles=[0.05, 0.5, 0.95])`
+
+Computes arbitrary quantiles from simulated sample paths $\left\{ \tilde{Y}_{m, h, s} \right\}_{m=1}^B$:
+$$\hat{q}_{\alpha}(h, s) = \text{Quantile}\left( \left\{ \tilde{Y}_{m, h, s} \right\}_{m=1}^B, \, \alpha \right)$$
+
+## 2. `prediction_intervals(coverage=0.90, conformal=False)`
+
+### Sample-Based Intervals (`conformal=False`, default)
+Computes symmetric empirical bounds for coverage level $(1 - \gamma)$ (e.g. $\gamma = 0.10$ for 90% coverage):
+$$\text{Lower}_{1-\gamma}(h, s) = \hat{q}_{\gamma / 2}(h, s)$$
+$$\text{Upper}_{1-\gamma}(h, s) = \hat{q}_{1 - \gamma / 2}(h, s)$$
+$$\hat{I}_{1-\gamma}(h, s) = \left[ \text{Lower}_{1-\gamma}(h, s), \, \text{Upper}_{1-\gamma}(h, s) \right]$$
+
+### Distribution-Free Conformal Prediction Intervals (`conformal=True`)
+Uses nonconformity scores $\alpha_{h, s} = |e_{h, s}|$ stored in `self.non_conform`:
+$$\hat{q}_{\text{conf}}(h, s) = \text{Quantile}\left( \text{non\_conform}_{h, s}, \, \left\lceil (1 - \gamma)(M + 1) \right\rceil / M \right)$$
+$$\text{Lower}_{1-\gamma}(h, s) = \hat{y}_{h, s} - \hat{q}_{\text{conf}}(h, s)$$
+$$\text{Upper}_{1-\gamma}(h, s) = \hat{y}_{h, s} + \hat{q}_{\text{conf}}(h, s)$$
+Guarantees finite-sample coverage without distributional assumptions.
