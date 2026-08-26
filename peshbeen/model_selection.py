@@ -383,12 +383,14 @@ def optuna_tune(
     param_space: Dict[str, Any],
     step_size: int = None,
     eval_num: int = 100,
+    multivariate: bool = False,
     warm_up_steps: int = 10,
     startup_trials: int = 5,
     candidate_exog: List[str] = None,
     pareto_bounds: Union[float, Tuple[float, float]] = (0.5, 0.999),
     eval_horizons: Union[None, int] = None,
     verbose: bool = False,
+    random_state: Optional[int] = 42,
 ) -> Tuple[Dict[str, Any], Any, Dict[str, Any], List[str]]:
 
     """
@@ -412,6 +414,8 @@ def optuna_tune(
         Step size between CV folds.
     eval_num : int, optional
         Number of Optuna trials. Default 100.
+    multivariate : bool, optional
+        If True, uses TPE (Tree-structured Parzen Estimator) sampler for multivariate hyperparameter optimization. If False, uses default Independent sampler.
     warm_up_steps : int, optional
         The number of initial CV folds to complete before the Optuna pruner begins evaluating trial performance. This "warm-up" period prevents the pruner from prematurely terminating promising trials due to high variance or noise present in the earliest (smallest) cross-validation folds. Default 10.
     startup_trials : int, optional
@@ -601,7 +605,11 @@ def optuna_tune(
         return np.mean(cv_scores)
 
     optuna.logging.set_verbosity(optuna.logging.WARNING)
-    study = optuna.create_study(direction="minimize", pruner=optuna.pruners.MedianPruner(n_startup_trials=startup_trials, n_warmup_steps=warm_up_steps))
+    study = optuna.create_study(
+        direction="minimize",
+        pruner=optuna.pruners.MedianPruner(n_startup_trials=startup_trials, n_warmup_steps=warm_up_steps),
+        sampler=optuna.samplers.TPESampler(n_startup_trials=startup_trials, multivariate=multivariate, seed=random_state)
+    )
 
     if verbose:
         def optuna_print_callback(study, trial):
@@ -932,11 +940,13 @@ def optuna_tune_multi(
     target_series: Optional[Union[str, List[str]]] = None,
     step_size: int = 1,
     eval_num: int = 100,
+    multivariate: bool = False,
     warm_up_steps: int = 10,
     startup_trials: int = 5,
     ref_series_id: Optional[str] = None,
     transform_back: bool = True,
-    verbose: bool = False
+    verbose: bool = False,
+    random_state: Optional[int] = 42
 ) -> Tuple[Dict[str, Any], Any, Dict[str, Any]]:
     """
     Tune multi-series interdependent forecasting model (ml_multi_forecaster) hyperparameters
@@ -965,6 +975,8 @@ def optuna_tune_multi(
         Step size between CV folds.
     eval_num : int, default 100
         Number of Optuna trials.
+    multivariate : bool, default False
+        If True, uses TPE (Tree-structured Parzen Estimator) sampler for multivariate hyperparameter optimization. If False, uses default Independent sampler.
     warm_up_steps : int, default 10
         Number of initial CV folds before trial pruning begins.
     startup_trials : int, default 5
@@ -1078,7 +1090,8 @@ def optuna_tune_multi(
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     study = optuna.create_study(
         direction="minimize",
-        pruner=optuna.pruners.MedianPruner(n_startup_trials=startup_trials, n_warmup_steps=warm_up_steps)
+        pruner=optuna.pruners.MedianPruner(n_startup_trials=startup_trials, n_warmup_steps=warm_up_steps),
+        sampler=optuna.samplers.TPESampler(n_startup_trials=startup_trials, multivariate=multivariate, seed=random_state)
     )
 
     if verbose:

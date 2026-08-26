@@ -6,7 +6,6 @@ from typing import List, Dict, Optional, Callable, Tuple, Any, Union
 import numpy as np
 import pandas as pd
 import copy
-from sklearn.base import clone
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from ..model_selection import SplitTimeSeries
@@ -292,10 +291,13 @@ class ml_multi_forecaster:
             else:
                 meta['seasonal_diff'] = None
 
-            # Forward Step E: Target Scaling (StandardScaler/RobustScaler after diff, before feature extraction)
-            scaler_param = self._get_per_series_param(self.target_scaler, s, None)
-            if scaler_param is not None:
-                scaler_inst = clone(scaler_param) if hasattr(scaler_param, 'fit') else clone(scaler_param)
+            # Forward Step E: Target Scaling
+            if isinstance(self.target_scaler, dict):
+                scaler_inst = self.target_scaler.get(s, None)
+            else:
+                scaler_inst = copy.deepcopy(self.target_scaler) if self.target_scaler is not None else None
+
+            if scaler_inst is not None:
                 s_vals = s_data.values.reshape(-1, 1)
                 valid_mask_s = ~np.isnan(s_vals.ravel())
                 if np.any(valid_mask_s):

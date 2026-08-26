@@ -15,6 +15,30 @@ def _sm_dataset(name: str) -> pd.DataFrame:
     import statsmodels.api as sm
     return getattr(sm.datasets, name).load_pandas().data
 
+#| export
+
+def _get_data_file_path(filename: str) -> Path:
+    """Resolve data file path across site-packages, local workspace, or current working directory."""
+    candidates = []
+    if getattr(peshbeen, "__file__", None):
+        candidates.append(Path(peshbeen.__file__).parent / "data" / filename)
+    if hasattr(peshbeen, "__path__"):
+        for p in peshbeen.__path__:
+            candidates.append(Path(p) / "data" / filename)
+    if "__file__" in globals() and globals().get("__file__"):
+        candidates.append(Path(__file__).resolve().parent / "data" / filename)
+    
+    candidates.extend([
+        Path.cwd() / "peshbeen" / "data" / filename,
+        Path.cwd() / "data" / filename,
+    ])
+    
+    for p in candidates:
+        if p.exists():
+            return p
+    return candidates[0] if candidates else Path.cwd() / "peshbeen" / "data" / filename
+
+
 # %% auto #0
 __all__ = ['load_airline_passengers', 'load_co2', 'load_sunspots', 'load_nile', 'load_macrodata', 'load_interest_inflation',
            'load_elnino', 'load_livestock', 'load_wales_admissions', 'load_wales_calls', 'load_admission_calls',
@@ -362,17 +386,19 @@ def load_livestock(columns: list = None) -> pd.DataFrame:
 
 # %% ../nbs/modules/99_datasets.ipynb #de0d3bca
 def load_wales_admissions():
-    file_path = Path(peshbeen.__file__).parent / "data" / "wales_admissions.xlsx"
+    file_path = _get_data_file_path("wales_admissions.xlsx")
     if not file_path.exists():
         raise FileNotFoundError(f"Could not find dataset at: {file_path}")
     return pd.read_excel(file_path).set_index("Date")
 
+
 # %% ../nbs/modules/99_datasets.ipynb #9b5da161
 def load_wales_calls():
-    file_path = Path(peshbeen.__file__).parent / "data" / "nhs_calls.xlsx"
+    file_path = _get_data_file_path("nhs_calls.xlsx")
     if not file_path.exists():
         raise FileNotFoundError(f"Could not find dataset at: {file_path}")
     return pd.read_excel(file_path).set_index("Date")
+
 
 # %% ../nbs/modules/99_datasets.ipynb #8aab60b8
 def load_admission_calls() -> pd.DataFrame:
@@ -393,7 +419,7 @@ def load_sales() -> pd.DataFrame:
         Long-format panel DataFrame indexed by datetime ('date') with 'store_item'
         series identifier, 'sales' target column, and optional exogenous features.
     """
-    file_path = Path(peshbeen.__file__).parent / "data" / "sales_df.csv"
+    file_path = _get_data_file_path("sales_df.csv")
     if not file_path.exists():
         raise FileNotFoundError(f"Could not find dataset at: {file_path}")
     return pd.read_csv(file_path, parse_dates=["date"]).set_index("date")
