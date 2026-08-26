@@ -1061,14 +1061,18 @@ def optuna_tune_multi(
 
             model_.fit(train_fold)
             H_fold = len(test_dates)
-            fc_dict = model_.forecast(H=H_fold, exog=exog_fold, transform_back=transform_back)
+            fc_dict = model_.forecast(H=H_fold, exog=exog_fold)
 
             fold_series_scores = []
             for s in eval_series_list:
                 s_test_df = test_fold[test_fold[id_col] == s]
                 y_true_s = s_test_df[target_col].values
                 y_pred_s = fc_dict[s][:len(y_true_s)]
-
+                if not transform_back:
+                    scaler = model_.transform_meta.get(s, {}).get("scaler", None)
+                    if scaler is not None:
+                        y_true_s = scaler.transform(y_true_s.reshape(-1, 1)).flatten() # flatten because inverse_transform returns 2D array, we make    
+                        y_pred_s = scaler.transform(y_pred_s.reshape(-1, 1)).flatten()
                 if eval_metric.__name__ in ("MASE", "SMAE", "SRMSE", "RMSSE"):
                     s_train_df = train_fold[train_fold[id_col] == s]
                     y_train_s = s_train_df[target_col].values
