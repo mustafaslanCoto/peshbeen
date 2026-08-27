@@ -21,12 +21,11 @@ warnings.filterwarnings("ignore")
 
 class ml_multi_forecaster:
     """
-    Optimized High-Performance Multi-Series Interdependent Machine Learning Forecaster.
+    Multi-Series Interdependent Machine Learning Forecaster.
 
     Provides a unified model-agnostic interface supporting all scikit-learn regressors, LightGBM,
     and CatBoost for simultaneous multi-series panel forecasting with cross-series lag dependencies.
-    Employs fully vectorized NumPy matrix operations and pre-allocated memory buffers for ultra-fast
-    cross-validation and hyperparameter optimization.
+    Combines robust panel feature engineering with high-performance recursive forecasting.
     """
     def __init__(
         self,
@@ -60,7 +59,7 @@ class ml_multi_forecaster:
         target_col : str
             Name of the target variable column in the input DataFrame.
         lags : int, list of int, or dict of {str: int or list of int}, optional
-            Lags to include as cross-series interdependent features. Can be specified globally as an integer (lags 1 to N) or list of integers, or as a dictionary mapping each series ID to its specific lag configuration. Default is None (no lag features).
+            Lags to include as features. Can be specified globally as an integer (lags 1 to N) or list of integers, or as a dictionary mapping each series ID to its specific lag configuration. Default is None (no lag features).
         lag_transform : list of callable or dict of {str: list of callable}, optional
             List of lag-transformation functions (e.g. [expanding_mean(shift=1), rolling_quantile(window_size=7, quantile=0.5, shift=1)]). Can be specified globally or per series as a dictionary. Default is None (no lag transforms).
         series_encoding : str or None, default 'dummy'
@@ -209,7 +208,6 @@ class ml_multi_forecaster:
         series_ids = sorted(dfc[self.id_col].unique().tolist())
         self.series_ids = series_ids
         self.cat_type = pd.CategoricalDtype(categories=series_ids)
-        N = len(series_ids)
 
         exog_cols = [c for c in dfc.columns if c not in [self.id_col, self.target_col]]
         self.exog_cols = exog_cols
@@ -217,13 +215,11 @@ class ml_multi_forecaster:
         wide_orig = dfc.pivot(columns=self.id_col, values=self.target_col)
         self.wide_orig = wide_orig.copy()
         wide_trans = wide_orig.copy()
-        T = len(wide_trans)
-        
+
         self.transform_meta = {s: {} for s in series_ids}
         normalized_lags = self._normalize_lags(series_ids)
         self.normalized_lags = normalized_lags
 
-        # Per-series forward transformations
         for s in series_ids:
             meta = self.transform_meta[s]
             meta['orig_series'] = wide_orig[s].copy()
@@ -273,10 +269,7 @@ class ml_multi_forecaster:
             if diff_param is not None:
                 meta['difference'] = diff_param
                 meta['orig_before_diff'] = s_data.tolist()
-                s_data = pd.Series(
-                    np.diff(s_data, n=diff_param, prepend=np.repeat(np.nan, diff_param)),
-                    index=s_data.index
-                )
+                s_data = pd.Series(np.diff(s_data, n=diff_param, prepend=np.repeat(np.nan, diff_param)), index=s_data.index)
             else:
                 meta['difference'] = None
 
@@ -312,23 +305,14 @@ class ml_multi_forecaster:
             wide_trans[s] = s_data
 
         self.wide_trans = wide_trans.copy()
-        wide_mat = wide_trans.values  # (T, N)
 
-        # Vectorized lag matrix construction
-        lag_specs = []
-        for s_idx, s in enumerate(series_ids):
-            for lag in normalized_lags[s]:
-                lag_specs.append((f"{s}_lag_{lag}", s_idx, lag))
-        self.lag_specs = lag_specs
+        # Build feature DataFrame
+        wide_features = pd.DataFrame(index=wide_trans.index)
+        for s in series_ids:
+            s_lags = normalized_lags[s]
+            for lag in s_lags:
+                wide_features[f"{s}_lag_{lag}"] = wide_trans[s].shift(lag)
 
-        n_lags = len(lag_specs)
-        lag_mat = np.full((T, n_lags), np.nan, dtype=np.float64)
-        for col_idx, (_, s_idx, lag) in enumerate(lag_specs):
-            lag_mat[lag:, col_idx] = wide_mat[:-lag, s_idx]
-
-        extra_tf_cols = []
-        extra_tf_arrays = []
-        for s_idx, s in enumerate(series_ids):
             s_lag_tf = self._get_per_series_param(self.lag_transform, s, None)
             if s_lag_tf is not None:
                 for func in s_lag_tf:
@@ -340,50 +324,41 @@ class ml_multi_forecaster:
                         col_name += f"_{func.window_size}"
                     if hasattr(func, 'quantile'):
                         col_name += f"_q{func.quantile}"
-                    extra_tf_cols.append(col_name)
-                    extra_tf_arrays.append(func(wide_trans[s]).values)
+                    wide_features[col_name] = func(wide_trans[s])
 
-        if extra_tf_arrays:
-            extra_tf_mat = np.column_stack(extra_tf_arrays)
-            wide_feat_mat = np.column_stack([lag_mat, extra_tf_mat])
-            all_feat_cols = [name for name, _, _ in lag_specs] + extra_tf_cols
-        else:
-            wide_feat_mat = lag_mat
-            all_feat_cols = [name for name, _, _ in lag_specs]
+        self.feature_cols = wide_features.columns.tolist()
 
-        self.feature_cols = all_feat_cols
-        wide_features = pd.DataFrame(wide_feat_mat, index=wide_trans.index, columns=all_feat_cols)
+        # Build panel dataset
+        X_list = []
+        y_list = []
+        for i, s in enumerate(series_ids):
+            df_s = wide_features.copy()
+            if len(exog_cols) > 0:
+                s_dfc = dfc[dfc[self.id_col] == s]
+                for c in exog_cols:
+                    df_s[c] = s_dfc[c]
 
-        # Vectorized panel construction
-        X_feats_block = np.repeat(wide_feat_mat[np.newaxis, :, :], N, axis=0).reshape(N * T, -1)
-        X_dict = {col: X_feats_block[:, c_idx] for c_idx, col in enumerate(all_feat_cols)}
+            if self.series_encoding == 'dummy':
+                for s_other in series_ids:
+                    df_s[f"{self.id_col}_{s_other}"] = 1.0 if s_other == s else 0.0
+            elif self.series_encoding == 'ordinal':
+                df_s[self.id_col] = i
+            elif self.series_encoding is None:
+                df_s[self.id_col] = s
 
-        if len(exog_cols) > 0:
-            for c in exog_cols:
-                c_vals = []
-                for s in series_ids:
-                    s_dfc = dfc[dfc[self.id_col] == s]
-                    c_vals.append(s_dfc[c].values)
-                X_dict[c] = np.concatenate(c_vals)
+            y_s = wide_trans[s].copy()
+            X_list.append(df_s)
+            y_list.append(y_s)
 
-        if self.series_encoding == 'dummy':
-            for s_other_idx, s_other in enumerate(series_ids):
-                dummy_col = np.zeros((N, T), dtype=np.float64)
-                dummy_col[s_other_idx, :] = 1.0
-                X_dict[f"{self.id_col}_{s_other}"] = dummy_col.reshape(-1)
-        elif self.series_encoding == 'ordinal':
-            ord_col = np.repeat(np.arange(N), T)
-            X_dict[self.id_col] = ord_col
-        elif self.series_encoding is None:
-            cat_col = np.repeat(series_ids, T)
-            X_dict[self.id_col] = pd.Categorical(cat_col, dtype=self.cat_type)
+        X_all = pd.concat(X_list, axis=0)
+        y_all = pd.concat(y_list, axis=0)
 
-        X_all = pd.DataFrame(X_dict)
-        y_all = wide_mat.T.reshape(-1)
+        if self.series_encoding is None:
+            X_all[self.id_col] = pd.Categorical(X_all[self.id_col], dtype=self.cat_type)
 
-        valid_mask = ~(X_all.isna().any(axis=1).values | np.isnan(y_all))
-        X_clean = X_all.iloc[valid_mask].copy()
-        y_clean = pd.Series(y_all[valid_mask], index=X_clean.index)
+        valid_mask = ~(X_all.isna().any(axis=1) | y_all.isna())
+        X_clean = X_all[valid_mask].copy()
+        y_clean = y_all[valid_mask].copy()
 
         return X_clean, y_clean, wide_features
 
@@ -418,7 +393,7 @@ class ml_multi_forecaster:
 
     def forecast(self, H: int, exog: Optional[pd.DataFrame] = None) -> Dict[str, np.ndarray]:
         """
-        Recursive multi-step forecast across all target series.
+        Recursive multi-step forecast across all target series using pre-allocated high-speed memory buffers.
 
         Parameters
         ----------
@@ -439,9 +414,12 @@ class ml_multi_forecaster:
         N = len(series_ids)
         T_hist = len(self.wide_trans)
         
+        # Pre-allocate contiguous NumPy buffer for recursive forecasting
         history_buffer = np.empty((T_hist + H, N), dtype=np.float64)
         history_buffer[:T_hist, :] = self.wide_trans.values
+        series_id_to_idx = {s: i for i, s in enumerate(series_ids)}
 
+        # Preprocess future exogenous variables if provided
         exog_by_series = {}
         if exog is not None and len(self.exog_cols) > 0:
             exog_c = exog.copy()
@@ -454,9 +432,11 @@ class ml_multi_forecaster:
                 for s in series_ids:
                     exog_by_series[s] = exog_c
 
+        # Pre-allocate design matrix for step h
         col_to_idx = {col: i for i, col in enumerate(self.X_cols)}
         X_step_mat = np.zeros((N, len(self.X_cols)), dtype=np.float64)
 
+        # Set static series encoding indicators once
         if self.series_encoding == 'dummy':
             for s_idx, s in enumerate(series_ids):
                 dummy_col = f"{self.id_col}_{s}"
@@ -466,14 +446,37 @@ class ml_multi_forecaster:
             ord_col_idx = col_to_idx[self.id_col]
             X_step_mat[:, ord_col_idx] = np.arange(N)
 
+        # Fast recursive forecasting loop
         for h in range(H):
             curr_pos = T_hist + h
 
-            for col_name, s_idx, lag in self.lag_specs:
-                lag_val = history_buffer[curr_pos - lag, s_idx]
-                c_idx = col_to_idx[col_name]
-                X_step_mat[:, c_idx] = lag_val
+            # Assign lag features
+            for s in series_ids:
+                s_idx = series_id_to_idx[s]
+                for lag in self.normalized_lags[s]:
+                    col_name = f"{s}_lag_{lag}"
+                    if col_name in col_to_idx:
+                        lag_val = history_buffer[curr_pos - lag, s_idx]
+                        X_step_mat[:, col_to_idx[col_name]] = lag_val
 
+                # Assign lag transform features if present
+                s_lag_tf = self._get_per_series_param(self.lag_transform, s, None)
+                if s_lag_tf is not None:
+                    hist_slice = pd.Series(history_buffer[:curr_pos, s_idx])
+                    for func in s_lag_tf:
+                        fname = getattr(func, '__name__', func.__class__.__name__)
+                        col_name = f"{s}_{fname}"
+                        if hasattr(func, 'shift'):
+                            col_name += f"_shift_{func.shift}"
+                        if hasattr(func, 'window_size'):
+                            col_name += f"_{func.window_size}"
+                        if hasattr(func, 'quantile'):
+                            col_name += f"_q{func.quantile}"
+                        if col_name in col_to_idx:
+                            tf_val = func(hist_slice).iloc[-1]
+                            X_step_mat[:, col_to_idx[col_name]] = tf_val
+
+            # Assign exogenous features
             if exog_by_series:
                 for s_idx, s in enumerate(series_ids):
                     s_exog = exog_by_series[s]
@@ -482,6 +485,7 @@ class ml_multi_forecaster:
                         for c in self.exog_cols:
                             X_step_mat[s_idx, col_to_idx[c]] = ex_row[c]
 
+            # Fast vectorized prediction
             if self.series_encoding is None or (self.cat_variables is not None and self.cat_encoder is None):
                 X_step_df = pd.DataFrame(X_step_mat, columns=self.X_cols)
                 if self.series_encoding is None:
@@ -495,6 +499,7 @@ class ml_multi_forecaster:
 
             history_buffer[curr_pos, :] = preds_h
 
+        # Back-transform all forecasts to original measurement scale
         forecasts = {}
         future_raw = history_buffer[T_hist:, :]
 
@@ -634,8 +639,7 @@ class ml_multi_forecaster:
         test_size: int,
         metrics: List[Callable],
         step_size: int = 1,
-        ref_series_id: Optional[str] = None,
-        n_jobs: int = 1
+        ref_series_id: Optional[str] = None
     ) -> pd.DataFrame:
         """
         Run time-series cross-validation across all interdependent series in long-format panel data.
@@ -654,8 +658,6 @@ class ml_multi_forecaster:
             Step size to move the test window forward in each split fold.
         ref_series_id : str, optional
             Series ID used as reference for time index splitting. If None, the series with the shortest length is used.
-        n_jobs : int, default 1
-            Number of CPU cores to use for parallel fold evaluation. Set -1 to utilize all cores for high speedup.
 
         Returns
         -------
@@ -673,13 +675,13 @@ class ml_multi_forecaster:
         from peshbeen.model_selection import SplitTimeSeries
         tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
 
+        fold_evaluations = []
         metric_names = [m.__name__ if hasattr(m, '__name__') else str(m) for m in metrics]
+        fold_scores = {mname: {s: [] for s in series_ids} for mname in metric_names}
+
         exog_cols = [c for c in dfc.columns if c not in [self.id_col, self.target_col]]
 
-        splits = list(enumerate(tscv.split(ref_df)))
-
-        def _eval_fold(fold_idx, split_indices):
-            ref_train_idx, ref_test_idx = split_indices
+        for fold_idx, (ref_train_idx, ref_test_idx) in enumerate(tscv.split(ref_df)):
             cutoff_date = ref_df.index[ref_train_idx[-1]]
             test_dates = ref_df.index[ref_test_idx]
 
@@ -688,13 +690,9 @@ class ml_multi_forecaster:
 
             exog_fold = test_fold.drop(columns=[self.target_col]) if len(exog_cols) > 0 else None
 
-            fold_model = self.copy()
-            fold_model.fit(train_fold)
+            self.fit(train_fold)
             H_fold = len(test_dates)
-            fc_dict = fold_model.forecast(H=H_fold, exog=exog_fold)
-
-            fold_rows = []
-            fold_metric_scores = {mname: {} for mname in metric_names}
+            fc_dict = self.forecast(H=H_fold, exog=exog_fold)
 
             for s in series_ids:
                 s_test_df = test_fold[test_fold[self.id_col] == s]
@@ -709,39 +707,19 @@ class ml_multi_forecaster:
                         val = m_fn(y_true, y_pred, y_train_s)
                     else:
                         val = m_fn(y_true, y_pred)
-                    fold_metric_scores[m_name][s] = val
+                    fold_scores[m_name][s].append(val)
 
                 for step_h in range(len(y_true)):
                     row = {
                         'fold': fold_idx + 1,
-                        'split': f"fold_{fold_idx + 1}",
-                        'cutoff_date': cutoff_date,
                         'cutoff': cutoff_date,
                         'fold_index': s_test_df.index[step_h],
                         'horizon': step_h + 1,
-                        'H': H_fold,
                         self.id_col: s,
                         'y_true': y_true[step_h],
                         'y_pred': y_pred[step_h]
                     }
-                    fold_rows.append(row)
-
-            return fold_rows, fold_metric_scores
-
-        if n_jobs != 1:
-            from joblib import Parallel, delayed
-            results = Parallel(n_jobs=n_jobs)(delayed(_eval_fold)(f_idx, s_idx) for f_idx, s_idx in splits)
-        else:
-            results = [_eval_fold(f_idx, s_idx) for f_idx, s_idx in splits]
-
-        fold_evaluations = []
-        fold_scores = {mname: {s: [] for s in series_ids} for mname in metric_names}
-
-        for f_rows, f_scores in results:
-            fold_evaluations.extend(f_rows)
-            for mname in metric_names:
-                for s in series_ids:
-                    fold_scores[mname][s].append(f_scores[mname][s])
+                    fold_evaluations.append(row)
 
         cv_results = pd.DataFrame(fold_evaluations)
         self.cv_results = cv_results
