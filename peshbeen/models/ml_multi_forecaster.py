@@ -20,7 +20,13 @@ import warnings
 warnings.filterwarnings("ignore")
 
 class ml_multi_forecaster:
-    
+    """
+    Multi-Series Interdependent Machine Learning Forecaster.
+
+    Provides a unified model-agnostic interface supporting all scikit-learn regressors, LightGBM,
+    and CatBoost for simultaneous multi-series panel forecasting with cross-series lag dependencies.
+    Combines robust panel feature engineering with high-performance recursive forecasting.
+    """
     def __init__(
         self,
         model: Any,
@@ -180,11 +186,6 @@ class ml_multi_forecaster:
     def data_prep(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
         """
         High-performance transformation of long-format panel data into model feature matrix X and target y.
-        
-        Optimizations applied:
-        - Dictionary-accumulated column creation (eliminates DataFrame fragmentation).
-        - Vectorized tile/repeat block construction (eliminates python loops & repeated copying).
-        - Single-pass NaN evaluation across contiguous arrays.
         """
         dfc = df.copy()
         if self.cat_variables is not None:
@@ -206,7 +207,7 @@ class ml_multi_forecaster:
         normalized_lags = self._normalize_lags(series_ids)
         self.normalized_lags = normalized_lags
 
-        # 2. Forward Transformations (Per-series sequential operations)
+        # 2. Forward Transformations
         for s in series_ids:
             meta = self.transform_meta[s]
             meta['orig_series'] = wide_orig[s].copy()
@@ -301,7 +302,6 @@ class ml_multi_forecaster:
         self.wide_trans = wide_trans.copy()
 
         # 3. Vectorized Wide Feature Generation via Dict Accumulation
-        # (Avoids SettingWithCopy / PerformanceWarning from iterative DataFrame column additions)
         feature_dict = {}
         for s in series_ids:
             s_series = wide_trans[s]
@@ -324,28 +324,45 @@ class ml_multi_forecaster:
         wide_features = pd.DataFrame(feature_dict, index=wide_trans.index)
         self.feature_cols = list(wide_features.columns)
 
-        # 4. Zero-Copy Panel Stacking (Tiling & Matrix Broadcasting)
+        # 4. Zero-Copy Panel Stacking
         N_time = len(wide_features)
         N_series = len(series_ids)
         total_rows = N_time * N_series
 
-        # Repeat wide features via np.tile for all series
         tiled_index = np.tile(wide_features.index, N_series)
         X_panel_dict = {
             col: np.tile(wide_features[col].to_numpy(), N_series) 
             for col in wide_features.columns
         }
 
-        # Extract exogenous columns without loop-filtering
+        # Extract exogenous columns preserving native column dtypes
         if len(exog_cols) > 0:
-            exog_by_series = {
-                s: s_group[exog_cols].to_numpy()
-                for s, s_group in dfc.groupby(self.id_col, observed=True)
+            grouped_exog = {
+                s: s_group for s, s_group in dfc.groupby(self.id_col, observed=False)
             }
-            for idx, col in enumerate(exog_cols):
-                X_panel_dict[col] = np.concatenate(
-                    [exog_by_series[s][:, idx] for s in series_ids], axis=0
-                )
+            for col in exog_cols:
+                if col in (self.cat_variables or []):
+                    col_vals = np.concatenate(
+                        [grouped_exog[s][col].to_numpy() for s in series_ids], axis=0
+                    )
+                    X_panel_dict[col] = pd.Categorical(
+                        col_vals, dtype=self.cat_dtypes.get(col, None)
+                    )
+                else:
+                    col_vals = np.concatenate(
+                        [grouped_exog[s][col].to_numpy() for s in series_ids], axis=0
+                    )
+                    if np.issubdtype(dfc[col].dtype, np.integer):
+                        X_panel_dict[col] = col_vals.astype(dfc[col].dtype)
+                    elif np.issubdtype(dfc[col].dtype, np.floating):
+                        X_panel_dict[col] = col_vals.astype(np.float64)
+                    elif np.issubdtype(dfc[col].dtype, np.bool_):
+                        X_panel_dict[col] = col_vals.astype(bool)
+                    else:
+                        try:
+                            X_panel_dict[col] = col_vals.astype(np.float64)
+                        except Exception:
+                            X_panel_dict[col] = col_vals
 
         # Construct series identifier columns vectorially
         if self.series_encoding == 'dummy':
@@ -365,15 +382,9 @@ class ml_multi_forecaster:
 
         X_all = pd.DataFrame(X_panel_dict, index=tiled_index)
 
-        # Target alignment (np.concatenate over wide transformed series)
+        # Target alignment
         y_vals = np.concatenate([wide_trans[s].to_numpy() for s in series_ids], axis=0)
         y_all = pd.Series(y_vals, index=tiled_index, name=self.target_col)
-
-        # Preserve Categorical dtypes for exogenous categorical features
-        if self.cat_variables is not None and self.cat_encoder is None:
-            for c in self.cat_variables:
-                if c in X_all.columns:
-                    X_all[c] = pd.Categorical(X_all[c], dtype=self.cat_dtypes.get(c, None))
 
         # 5. Fast Mask Filtering
         valid_mask = ~(X_all.isna().any(axis=1).to_numpy() | np.isnan(y_vals))
@@ -705,27 +716,6 @@ class ml_multi_forecaster:
     ) -> pd.DataFrame:
         """
         Run time-series cross-validation across all interdependent series in long-format panel data.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Long-format panel DataFrame with time index, series identifier column (id_col), and target column.
-        cv_split : int
-            Number of cross-validation splits.
-        test_size : int
-            Number of time steps in each forecast evaluation test set.
-        metrics : list of callable
-            Metric functions (e.g. [MAE, RMSE, MAPE, MASE]) used to evaluate forecast accuracy.
-        step_size : int, default 1
-            Step size to move the test window forward in each split fold.
-        ref_series_id : str, optional
-            Series ID used as reference for time index splitting. If None, the series with the shortest length is used.
-
-        Returns
-        -------
-        pd.DataFrame
-            DataFrame containing detailed predictions (fold, split, cutoff_date, cutoff, fold_index, horizon (1..H), H, id_col, y_true, y_pred) for all folds.
-            Aggregated metric summary across folds per series is stored in `self.cv_summary` (metrics in index, id_cols in columns).
         """
         dfc = df.copy()
         series_ids = sorted(dfc[self.id_col].unique().tolist())
