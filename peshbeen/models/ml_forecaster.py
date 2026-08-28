@@ -442,7 +442,7 @@ class ml_forecaster:
             if (self.model_name in ['LGBMRegressor', 'CatBoostRegressor']) and self.cat_encoder is None:
                 for c in df_inp.columns:
                     if c in (self.cat_variables or []):
-                        df_inp[c] = df_inp[c].astype(int).astype('category')
+                        df_inp[c] = df_inp[c].astype('category')
                     else:
                         df_inp[c] = df_inp[c].astype('float64')
 
