@@ -17,15 +17,21 @@ format:
 In multi-series time-series forecasting (such as retail store-item demand, energy grid load across sub-stations, or traffic flow across sensor networks), multiple interdependent time series $\{y_{s, t}\}$ are observed across series identifiers $s \in \{1, 2, \dots, N\}$ over historical time steps $t \in \{1, 2, \dots, T\}$.
 
 While point forecasting models (like `ml_multi_forecaster`) generate conditional expectation trajectories:
-$$\mathbf{\hat{y}}_h = \left[ \hat{y}_{1, h}, \, \hat{y}_{2, h}, \, \dots, \, \hat{y}_{N, h} \right]^T \in \mathbb{R}^N \quad \text{for } h \in \{1, 2, \dots, H\}$$
+$$
+\mathbf{\hat{y}}_h = \left[ \hat{y}_{1, h}, \, \hat{y}_{2, h}, \, \dots, \, \hat{y}_{N, h} \right]^T \in \mathbb{R}^N \quad \text{for } h \in \{1, 2, \dots, H\}
+$$
 
 real-world decision making (e.g. joint inventory management, portfolio risk, capacity planning) requires the **joint predictive distribution**:
-$$P\left( \mathbf{Y}_1, \dots, \mathbf{Y}_H \mid \mathcal{F}_T \right)$$
+$$
+P\left( \mathbf{Y}_1, \dots, \mathbf{Y}_H \mid \mathcal{F}_T \right)
+$$
+
 where $\mathcal{F}_T$ denotes the historical filtration up to time $T$.
 
 Because shocks in one series (e.g. promotional cannibalization, weather shocks, macro trends) are correlated with shocks in other series, modeling individual series variances independently underestimates system-wide tail risk and mischaracterizes aggregate uncertainty.
 
 `multi_prob_forecasts` solves this by explicitly modeling the **cross-series error covariance structure** and coupling point forecasts with multivariate predictive distributions:
+
 1. **Multivariate Normal ($\mathcal{N}_N$)**
 2. **Multivariate Student-$t$ ($t_N$)**
 3. **Gaussian Copula with Empirical Marginals**
@@ -40,11 +46,20 @@ Because shocks in one series (e.g. promotional cannibalization, weather shocks, 
 During data preparation (`data_prep`), each series $y_{s, t}$ undergoes up to five sequential transformations to stabilize variance and remove non-stationarity:
 
 1. **Box-Cox Transformation** (Variance stabilization):
-   $$z_{s, t} = B(y_{s, t}; \lambda_s) = \begin{cases} \frac{(y_{s, t} + c_s)^{\lambda_s} - 1}{\lambda_s}, & \lambda_s \neq 0 \\ \ln(y_{s, t} + c_s), & \lambda_s = 0 \end{cases}$$
+$$
+z_{s, t} = B(y_{s, t}; \lambda_s) = \begin{cases} \frac{(y_{s, t} + c_s)^{\lambda_s} - 1}{\lambda_s}, & \lambda_s \neq 0 \\ \ln(y_{s, t} + c_s), & \lambda_s = 0 \end{cases}
+$$
+
 2. **Deterministic / Polynomial Trend Removal**:
-   $$w_{s, t} = z_{s, t} - \hat{\tau}_{s, t}$$
+$$
+w_{s, t} = z_{s, t} - \hat{\tau}_{s, t}
+$$
+
 3. **Ordinary Differencing** ($d_s \in \{1, 2\}$):
-   $$\Delta^{d_s} w_{s, t} = (1 - L)^{d_s} w_{s, t}$$
+$$
+\Delta^{d_s} w_{s, t} = (1 - L)^{d_s} w_{s, t}
+$$
+
 4. **Seasonal Differencing** ($m_s \ge 2$):
    $$\Delta_{m_s} \Delta^{d_s} w_{s, t} = (1 - L^{m_s}) \Delta^{d_s} w_{s, t}$$
 5. **Target Scaling** (e.g. `StandardScaler`):

@@ -157,17 +157,19 @@ class prob_forecasts:
             Training data.
         n_samples : int, default 1000
             Number of simulated trajectories.
-        method : {"empirical", "kde", "correlated", "copula"}, default "empirical"
+        method : {"empirical", "kde", "gaussian", "mvn", "copula"}, default "empirical"
             - "empirical": Independent empirical residual resampling per horizon.
             - "kde": Kernel Density Estimation smoothed sampling.
-            - "correlated": Multivariate Normal on cross-horizon residual covariance.
+            - "gaussian" or "mvn": Gaussian error sampling. If n_calibration is provided, samples from a multivariate normal fitted to cross-horizon residual covariance; if n_calibration is None, samples from a normal distribution using training residual variance.
             - "copula": Gaussian Copula coupling cross-horizon correlation with empirical marginals.
         future_exog : pd.DataFrame, optional
             Future exogenous features.
         non_negative : bool, default True
             Enforce non-negative sample paths.
         """
-        valid_methods = {"empirical", "kde", "correlated", "copula"}
+        valid_methods = {"empirical", "kde", "gaussian", "mvn", "copula"}
+        if method == "correlated":
+            method = "gaussian"
         if method not in valid_methods:
             raise ValueError(f"method='{method}' is not recognised. Choose from: {valid_methods}")
 
@@ -203,7 +205,7 @@ class prob_forecasts:
                     for _ in range(self.H)
                 ])
 
-        elif method == "correlated":
+        elif method in {"gaussian", "mvn"}:
             if self.n_calib is not None:
                 cov_mat = np.cov(self.resid, rowvar=True)
                 cov_sym = 0.5 * (cov_mat + cov_mat.T)
@@ -212,7 +214,10 @@ class prob_forecasts:
                 self.sigma = cov_psd
                 draws = self._rng.multivariate_normal(np.zeros(self.H), self.sigma, size=n_samples)
             else:
-                raise ValueError("Correlated sampling requires n_calibration to be set to a positive integer.")
+                var_resid = np.var(self.resid)
+                std_resid = np.sqrt(max(float(var_resid), 1e-8))
+                self.sigma = std_resid ** 2
+                draws = self._rng.normal(loc=0.0, scale=std_resid, size=(n_samples, self.H))
 
         elif method == "copula":
             if self.n_calib is not None:
@@ -439,17 +444,19 @@ class mv_prob_forecasts:
             Training data.
         n_samples : int, default 1000
             Number of simulated trajectories.
-        method : {"empirical", "kde", "correlated", "copula"}, default "empirical"
+        method : {"empirical", "kde", "gaussian", "mvn", "copula"}, default "empirical"
             - "empirical": Independent empirical residual resampling per horizon.
             - "kde": Kernel Density Estimation smoothed sampling.
-            - "correlated": Multivariate Normal on cross-horizon residual covariance.
+            - "gaussian" or "mvn": Gaussian error sampling. If n_calibration is provided, samples from a multivariate normal fitted to cross-horizon residual covariance; if n_calibration is None, samples from a normal distribution using training residual variance.
             - "copula": Gaussian Copula coupling cross-horizon correlation with empirical marginals.
         future_exog : pd.DataFrame, optional
             Future exogenous features.
         non_negative : bool, default True
             Enforce non-negative sample paths.
         """
-        valid_methods = {"empirical", "kde", "correlated", "copula"}
+        valid_methods = {"empirical", "kde", "gaussian", "mvn", "copula"}
+        if method == "correlated":
+            method = "gaussian"
         if method not in valid_methods:
             raise ValueError(f"method='{method}' is not recognised. Choose from: {valid_methods}")
 
@@ -484,7 +491,7 @@ class mv_prob_forecasts:
                     for _ in range(self.H)
                 ])
 
-        elif method == "correlated":
+        elif method in {"gaussian", "mvn"}:
             if self.n_calib is not None:
                 cov_mat = np.cov(self.resid, rowvar=True)
                 cov_sym = 0.5 * (cov_mat + cov_mat.T)
@@ -493,7 +500,10 @@ class mv_prob_forecasts:
                 self.sigma = cov_psd
                 draws = self._rng.multivariate_normal(np.zeros(self.H), self.sigma, size=n_samples)
             else:
-                raise ValueError("Correlated sampling requires n_calibration to be set to a positive integer.")
+                var_resid = np.var(self.resid)
+                std_resid = np.sqrt(max(float(var_resid), 1e-8))
+                self.sigma = std_resid ** 2
+                draws = self._rng.normal(loc=0.0, scale=std_resid, size=(n_samples, self.H))
 
         elif method == "copula":
             if self.n_calib is not None:
@@ -749,11 +759,12 @@ class multi_prob_forecasts:
             Training data.
         n_samples : int, default 1000
             Number of simulated trajectories.
-        method : {"mvn", "student_t", "copula", "empirical"}, default "mvn"
+        method : {"mvn", "student_t", "copula", "empirical", "kde"}, default "mvn"
             - "mvn": Multivariate Normal on cross-series residual covariance.
             - "student_t": Multivariate Student-t on cross-series residual covariance.
             - "copula": Gaussian Copula coupling cross-series correlation with empirical marginals.
             - "empirical": Independent empirical residual resampling per series.
+            - "kde": Multivariate Kernel Density Estimation smoothed sampling preserving cross-series covariance.
         future_exog : pd.DataFrame, optional
             Future exogenous features.
         target_series : str or list of str, optional
@@ -769,7 +780,7 @@ class multi_prob_forecasts:
             A new instance of multi_prob_forecasts containing the simulated sample paths and point forecasts.
         """
         
-        valid_methods = {"mvn", "student_t", "copula", "empirical"}
+        valid_methods = {"mvn", "student_t", "copula", "empirical", "kde"}
         if method not in valid_methods:
             raise ValueError(f"method='{method}' is not recognised. Choose from: {valid_methods}")
 
@@ -814,6 +825,17 @@ class multi_prob_forecasts:
             for h in range(self.H):
                 row_indices = rng.choice(n_rows, size=n_samples, replace=True)
                 innovations[:, h, :] = self.joint_error_matrix[row_indices, :]
+
+        elif method == "kde":
+            M_rows = len(self.joint_error_matrix)
+            bw_factor = M_rows ** (-1.0 / (N + 4.0)) 
+            kde_cov = (bw_factor ** 2) * cov_psd
+            innovations = np.zeros((n_samples, self.H, N))
+            for h in range(self.H):
+                row_indices = rng.choice(M_rows, size=n_samples, replace=True)
+                centers = self.joint_error_matrix[row_indices, :]
+                noise = rng.multivariate_normal(mean=np.zeros(N), cov=kde_cov, size=n_samples)
+                innovations[:, h, :] = centers + noise
 
         new_instance = copy.deepcopy(self)
         new_instance.sample_paths = {}

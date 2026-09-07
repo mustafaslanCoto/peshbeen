@@ -1,374 +1,739 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mathematical Foundations of Multi-Series Probabilistic Forecasting</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <script>
-    MathJax = {
-      tex: {
-        inlineMath: [['$', '$'], ['\\(', '\\)']],
-        displayMath: [['$$', '$$'], ['\\[', '\\]']],
-        processEscapes: true
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.18">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Peshbeen Package Documentation">
+
+<title>Mathematical Foundations of Multi-Series Probabilistic Forecasting (multi_prob_forecasts)</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="math_of_multi_prob_files/libs/clipboard/clipboard.min.js"></script>
+<script src="math_of_multi_prob_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="math_of_multi_prob_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="math_of_multi_prob_files/libs/quarto-html/popper.min.js"></script>
+<script src="math_of_multi_prob_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="math_of_multi_prob_files/libs/quarto-html/anchor.min.js"></script>
+<link href="math_of_multi_prob_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="math_of_multi_prob_files/libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="math_of_multi_prob_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="math_of_multi_prob_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="math_of_multi_prob_files/libs/bootstrap/bootstrap-c2e55264ed47ce3b2e0326a2269f9400.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
       }
-    };
-    </script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            line-height: 1.7;
-            color: #212529;
-            background-color: #fcfcfd;
-            padding-top: 40px;
-            padding-bottom: 80px;
-        }
-        .container {
-            max-width: 900px;
-            background: #ffffff;
-            padding: 48px;
-            border-radius: 12px;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
-            border: 1px solid #e9ecef;
-        }
-        h1 {
-            color: #0f172a;
-            font-weight: 800;
-            margin-top: 36px;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 12px;
-        }
-        h2 {
-            color: #1e293b;
-            font-weight: 700;
-            margin-top: 32px;
-            margin-bottom: 16px;
-        }
-        h3 {
-            color: #334155;
-            font-weight: 600;
-            margin-top: 24px;
-            margin-bottom: 12px;
-        }
-        code {
-            color: #0369a1;
-            background-color: #f0f9ff;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.92em;
-        }
-        table {
-            margin-top: 20px;
-            margin-bottom: 24px;
-            font-size: 0.95em;
-        }
-        th {
-            background-color: #f8fafc;
-            color: #334155;
-        }
-        hr {
-            border: 0;
-            height: 1px;
-            background: #e2e8f0;
-            margin: 36px 0;
-        }
-        .header-box {
-            margin-bottom: 40px;
-            padding-bottom: 24px;
-            border-bottom: 3px solid #3b82f6;
-        }
-        .badge-method {
-            font-size: 0.85em;
-            background-color: #eff6ff;
-            color: #1d4ed8;
-            padding: 4px 8px;
-            border-radius: 6px;
-        }
-    </style>
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
 </head>
-<body>
-    <div class="container">
-        <div class="header-box">
-            <h1 style="border-bottom: none; margin-top: 0;">Mathematical Foundations of Multi-Series Probabilistic Forecasting (<code>multi_prob_forecasts</code>)</h1>
-            <p class="lead text-muted">Empirical Error Covariance, Regularization, Multivariate Distributions, and Gaussian Copula</p>
-            <span class="badge badge-method">Peshbeen Package Mathematical Documentation</span>
-        </div>
-        <h1>Introduction & Problem Formulation</h1>
 
-<p>In multi-series time-series forecasting (such as retail store-item demand, energy grid load across sub-stations, or traffic flow across sensor networks), multiple interdependent time series $\{y_{s, t}\}$ are observed across series identifiers $s \in \{1, 2, \dots, N\}$ over historical time steps $t \in \{1, 2, \dots, T\}$.</p>
+<body class="quarto-light">
 
-<p>While point forecasting models (like <code>ml_multi_forecaster</code>) generate conditional expectation trajectories:</p>
-<p>$$\mathbf{\hat{y}}_h = \left[ \hat{y}_{1, h}, \, \hat{y}_{2, h}, \, \dots, \, \hat{y}_{N, h} \right]^T \in \mathbb{R}^N \quad \text{for } h \in \{1, 2, \dots, H\}$$</p>
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#introduction-problem-formulation" id="toc-introduction-problem-formulation" class="nav-link active" data-scroll-target="#introduction-problem-formulation"><span class="header-section-number">1</span> Introduction &amp; Problem Formulation</a></li>
+  <li><a href="#transformation-pipeline-in-sample-residual-recovery" id="toc-transformation-pipeline-in-sample-residual-recovery" class="nav-link" data-scroll-target="#transformation-pipeline-in-sample-residual-recovery"><span class="header-section-number">2</span> Transformation Pipeline &amp; In-Sample Residual Recovery</a>
+  <ul class="collapse">
+  <li><a href="#forward-target-transformations" id="toc-forward-target-transformations" class="nav-link" data-scroll-target="#forward-target-transformations"><span class="header-section-number">2.1</span> Forward Target Transformations</a></li>
+  <li><a href="#in-sample-residual-fitted-value-inversion" id="toc-in-sample-residual-fitted-value-inversion" class="nav-link" data-scroll-target="#in-sample-residual-fitted-value-inversion"><span class="header-section-number">2.2</span> In-Sample Residual &amp; Fitted Value Inversion</a></li>
+  </ul></li>
+  <li><a href="#empirical-error-covariance-correlation-estimation" id="toc-empirical-error-covariance-correlation-estimation" class="nav-link" data-scroll-target="#empirical-error-covariance-correlation-estimation"><span class="header-section-number">3</span> Empirical Error Covariance &amp; Correlation Estimation</a>
+  <ul class="collapse">
+  <li><a href="#joint-error-matrix-construction" id="toc-joint-error-matrix-construction" class="nav-link" data-scroll-target="#joint-error-matrix-construction"><span class="header-section-number">3.1</span> Joint Error Matrix Construction</a></li>
+  <li><a href="#sample-covariance-matrix" id="toc-sample-covariance-matrix" class="nav-link" data-scroll-target="#sample-covariance-matrix"><span class="header-section-number">3.2</span> Sample Covariance Matrix</a></li>
+  <li><a href="#exact-symmetry-and-spectral-positive-semi-definite-psd-regularization" id="toc-exact-symmetry-and-spectral-positive-semi-definite-psd-regularization" class="nav-link" data-scroll-target="#exact-symmetry-and-spectral-positive-semi-definite-psd-regularization"><span class="header-section-number">3.3</span> Exact Symmetry and Spectral Positive Semi-Definite (PSD) Regularization</a></li>
+  <li><a href="#empirical-correlation-matrix" id="toc-empirical-correlation-matrix" class="nav-link" data-scroll-target="#empirical-correlation-matrix"><span class="header-section-number">3.4</span> Empirical Correlation Matrix</a></li>
+  </ul></li>
+  <li><a href="#multivariate-sampling-methods-in-.sample" id="toc-multivariate-sampling-methods-in-.sample" class="nav-link" data-scroll-target="#multivariate-sampling-methods-in-.sample"><span class="header-section-number">4</span> Multivariate Sampling Methods in <code>.sample()</code></a>
+  <ul class="collapse">
+  <li><a href="#method-1-multivariate-normal-distribution-methodmvn" id="toc-method-1-multivariate-normal-distribution-methodmvn" class="nav-link" data-scroll-target="#method-1-multivariate-normal-distribution-methodmvn"><span class="header-section-number">4.1</span> Method 1: Multivariate Normal Distribution (<code>method="mvn"</code>)</a>
+  <ul class="collapse">
+  <li><a href="#definition" id="toc-definition" class="nav-link" data-scroll-target="#definition"><span class="header-section-number">4.1.1</span> Definition</a></li>
+  <li><a href="#sampling-algorithm-via-cholesky-decomposition" id="toc-sampling-algorithm-via-cholesky-decomposition" class="nav-link" data-scroll-target="#sampling-algorithm-via-cholesky-decomposition"><span class="header-section-number">4.1.2</span> Sampling Algorithm via Cholesky Decomposition</a></li>
+  </ul></li>
+  <li><a href="#method-2-multivariate-student-t-distribution-methodstudent_t" id="toc-method-2-multivariate-student-t-distribution-methodstudent_t" class="nav-link" data-scroll-target="#method-2-multivariate-student-t-distribution-methodstudent_t"><span class="header-section-number">4.2</span> Method 2: Multivariate Student-<span class="math inline">\(t\)</span> Distribution (<code>method="student_t"</code>)</a>
+  <ul class="collapse">
+  <li><a href="#gaussian-scale-mixture-formulation" id="toc-gaussian-scale-mixture-formulation" class="nav-link" data-scroll-target="#gaussian-scale-mixture-formulation"><span class="header-section-number">4.2.1</span> Gaussian Scale Mixture Formulation</a></li>
+  </ul></li>
+  <li><a href="#method-3-gaussian-copula-with-non-parametric-marginals-methodcopula" id="toc-method-3-gaussian-copula-with-non-parametric-marginals-methodcopula" class="nav-link" data-scroll-target="#method-3-gaussian-copula-with-non-parametric-marginals-methodcopula"><span class="header-section-number">4.3</span> Method 3: Gaussian Copula with Non-Parametric Marginals (<code>method="copula"</code>)</a>
+  <ul class="collapse">
+  <li><a href="#mathematical-foundation-sklars-theorem" id="toc-mathematical-foundation-sklars-theorem" class="nav-link" data-scroll-target="#mathematical-foundation-sklars-theorem"><span class="header-section-number">4.3.1</span> Mathematical Foundation: Sklar’s Theorem</a></li>
+  <li><a href="#step-by-step-sampling-algorithm" id="toc-step-by-step-sampling-algorithm" class="nav-link" data-scroll-target="#step-by-step-sampling-algorithm"><span class="header-section-number">4.3.2</span> Step-by-Step Sampling Algorithm</a></li>
+  </ul></li>
+  <li><a href="#method-4-joint-empirical-resampling-methodempirical" id="toc-method-4-joint-empirical-resampling-methodempirical" class="nav-link" data-scroll-target="#method-4-joint-empirical-resampling-methodempirical"><span class="header-section-number">4.4</span> Method 4: Joint Empirical Resampling (<code>method="empirical"</code>)</a></li>
+  </ul></li>
+  <li><a href="#prediction-intervals-and-quantiles-api" id="toc-prediction-intervals-and-quantiles-api" class="nav-link" data-scroll-target="#prediction-intervals-and-quantiles-api"><span class="header-section-number">5</span> Prediction Intervals and Quantiles API</a>
+  <ul class="collapse">
+  <li><a href="#sample_quantilesquantiles0.05-0.5-0.95" id="toc-sample_quantilesquantiles0.05-0.5-0.95" class="nav-link" data-scroll-target="#sample_quantilesquantiles0.05-0.5-0.95"><span class="header-section-number">5.1</span> 1. <code>sample_quantiles(quantiles=[0.05, 0.5, 0.95])</code></a></li>
+  <li><a href="#prediction_intervalscoverage0.90-conformalfalse" id="toc-prediction_intervalscoverage0.90-conformalfalse" class="nav-link" data-scroll-target="#prediction_intervalscoverage0.90-conformalfalse"><span class="header-section-number">5.2</span> 2. <code>prediction_intervals(coverage=0.90, conformal=False)</code></a>
+  <ul class="collapse">
+  <li><a href="#sample-based-intervals-conformalfalse-default" id="toc-sample-based-intervals-conformalfalse-default" class="nav-link" data-scroll-target="#sample-based-intervals-conformalfalse-default"><span class="header-section-number">5.2.1</span> Sample-Based Intervals (<code>conformal=False</code>, default)</a></li>
+  <li><a href="#distribution-free-conformal-prediction-intervals-conformaltrue" id="toc-distribution-free-conformal-prediction-intervals-conformaltrue" class="nav-link" data-scroll-target="#distribution-free-conformal-prediction-intervals-conformaltrue"><span class="header-section-number">5.2.2</span> Distribution-Free Conformal Prediction Intervals (<code>conformal=True</code>)</a></li>
+  </ul></li>
+  </ul></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
 
-<p>real-world decision making (e.g. joint inventory management, portfolio risk, capacity planning) requires the <strong>joint predictive distribution</strong>:</p>
-<p>$$P\left( \mathbf{Y}_1, \dots, \mathbf{Y}_H \mid \mathcal{F}_T \right)$$</p>
-<p>where $\mathcal{F}_T$ denotes the historical filtration up to time $T$.</p>
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Mathematical Foundations of Multi-Series Probabilistic Forecasting (<code>multi_prob_forecasts</code>)</h1>
+<p class="subtitle lead">Empirical Error Covariance, Regularization, Multivariate Distributions, and Gaussian Copula</p>
+</div>
 
-<p>Because shocks in one series (e.g. promotional cannibalization, weather shocks, macro trends) are correlated with shocks in other series, modeling individual series variances independently underestimates system-wide tail risk and mischaracterizes aggregate uncertainty.</p>
 
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Peshbeen Package Documentation </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="introduction-problem-formulation" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> Introduction &amp; Problem Formulation</h1>
+<p>In multi-series time-series forecasting (such as retail store-item demand, energy grid load across sub-stations, or traffic flow across sensor networks), multiple interdependent time series <span class="math inline">\(\{y_{s, t}\}\)</span> are observed across series identifiers <span class="math inline">\(s \in \{1, 2, \dots, N\}\)</span> over historical time steps <span class="math inline">\(t \in \{1, 2, \dots, T\}\)</span>.</p>
+<p>While point forecasting models (like <code>ml_multi_forecaster</code>) generate conditional expectation trajectories: <span class="math display">\[
+\mathbf{\hat{y}}_h = \left[ \hat{y}_{1, h}, \, \hat{y}_{2, h}, \, \dots, \, \hat{y}_{N, h} \right]^T \in \mathbb{R}^N \quad \text{for } h \in \{1, 2, \dots, H\}
+\]</span></p>
+<p>real-world decision making (e.g.&nbsp;joint inventory management, portfolio risk, capacity planning) requires the <strong>joint predictive distribution</strong>: <span class="math display">\[
+P\left( \mathbf{Y}_1, \dots, \mathbf{Y}_H \mid \mathcal{F}_T \right)
+\]</span></p>
+<p>where <span class="math inline">\(\mathcal{F}_T\)</span> denotes the historical filtration up to time <span class="math inline">\(T\)</span>.</p>
+<p>Because shocks in one series (e.g.&nbsp;promotional cannibalization, weather shocks, macro trends) are correlated with shocks in other series, modeling individual series variances independently underestimates system-wide tail risk and mischaracterizes aggregate uncertainty.</p>
 <p><code>multi_prob_forecasts</code> solves this by explicitly modeling the <strong>cross-series error covariance structure</strong> and coupling point forecasts with multivariate predictive distributions:</p>
-<ol>
-<li><strong>Multivariate Normal ($\mathcal{N}_N$)</strong></li>
-<li><strong>Multivariate Student-$t$ ($t_N$)</strong></li>
+<ol type="1">
+<li><strong>Multivariate Normal (<span class="math inline">\(\mathcal{N}_N\)</span>)</strong></li>
+<li><strong>Multivariate Student-<span class="math inline">\(t\)</span> (<span class="math inline">\(t_N\)</span>)</strong></li>
 <li><strong>Gaussian Copula with Empirical Marginals</strong></li>
 <li><strong>Joint Non-Parametric Empirical Resampling</strong></li>
-</ul>
-
-<hr/>
-
-<h1>Transformation Pipeline & In-Sample Residual Recovery</h1>
-
-<h2>Forward Target Transformations</h2>
-
-<p>During data preparation (<code>data_prep</code>), each series $y_{s, t}$ undergoes up to five sequential transformations to stabilize variance and remove non-stationarity:</p>
-
-<ol>
-<li><strong>Box-Cox Transformation</strong> (Variance stabilization):</li>
-</ul>
-<p>   $$z_{s, t} = B(y_{s, t}; \lambda_s) = \begin{cases} \frac{(y_{s, t} + c_s)^{\lambda_s} - 1}{\lambda_s}, & \lambda_s \neq 0 \\ \ln(y_{s, t} + c_s), & \lambda_s = 0 \end{cases}$$</p>
-<ol>
-<li><strong>Deterministic / Polynomial Trend Removal</strong>:</li>
-</ul>
-<p>   $$w_{s, t} = z_{s, t} - \hat{\tau}_{s, t}$$</p>
-<ol>
-<li><strong>Ordinary Differencing</strong> ($d_s \in \{1, 2\}$):</li>
-</ul>
-<p>   $$\Delta^{d_s} w_{s, t} = (1 - L)^{d_s} w_{s, t}$$</p>
-<ol>
-<li><strong>Seasonal Differencing</strong> ($m_s \ge 2$):</li>
-</ul>
-<p>   $$\Delta_{m_s} \Delta^{d_s} w_{s, t} = (1 - L^{m_s}) \Delta^{d_s} w_{s, t}$$</p>
-<ol>
-<li><strong>Target Scaling</strong> (e.g. <code>StandardScaler</code>):</li>
-</ul>
-<p>   $$u_{s, t} = \frac{\Delta_{m_s} \Delta^{d_s} w_{s, t} - \mu_s}{\sigma_s}$$</p>
-
-<p>The machine learning model is trained to minimize the prediction loss on the transformed target space $u_{s, t}$.</p>
-
-<h2>In-Sample Residual & Fitted Value Inversion</h2>
-
-<p>Let $\hat{u}_{s, t} = f(\mathbf{x}_{s, t})$ be the raw prediction produced by the estimator in the transformed space. </p>
-
+</ol>
+<hr>
+</section>
+<section id="transformation-pipeline-in-sample-residual-recovery" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> Transformation Pipeline &amp; In-Sample Residual Recovery</h1>
+<section id="forward-target-transformations" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="forward-target-transformations"><span class="header-section-number">2.1</span> Forward Target Transformations</h2>
+<p>During data preparation (<code>data_prep</code>), each series <span class="math inline">\(y_{s, t}\)</span> undergoes up to five sequential transformations to stabilize variance and remove non-stationarity:</p>
+<ol type="1">
+<li><p><strong>Box-Cox Transformation</strong> (Variance stabilization): <span class="math display">\[
+z_{s, t} = B(y_{s, t}; \lambda_s) = \begin{cases} \frac{(y_{s, t} + c_s)^{\lambda_s} - 1}{\lambda_s}, &amp; \lambda_s \neq 0 \\ \ln(y_{s, t} + c_s), &amp; \lambda_s = 0 \end{cases}
+\]</span></p></li>
+<li><p><strong>Deterministic / Polynomial Trend Removal</strong>: <span class="math display">\[
+w_{s, t} = z_{s, t} - \hat{\tau}_{s, t}
+\]</span></p></li>
+<li><p><strong>Ordinary Differencing</strong> (<span class="math inline">\(d_s \in \{1, 2\}\)</span>): <span class="math display">\[
+\Delta^{d_s} w_{s, t} = (1 - L)^{d_s} w_{s, t}
+\]</span></p></li>
+<li><p><strong>Seasonal Differencing</strong> (<span class="math inline">\(m_s \ge 2\)</span>): <span class="math display">\[\Delta_{m_s} \Delta^{d_s} w_{s, t} = (1 - L^{m_s}) \Delta^{d_s} w_{s, t}\]</span></p></li>
+<li><p><strong>Target Scaling</strong> (e.g.&nbsp;<code>StandardScaler</code>): <span class="math display">\[u_{s, t} = \frac{\Delta_{m_s} \Delta^{d_s} w_{s, t} - \mu_s}{\sigma_s}\]</span></p></li>
+</ol>
+<p>The machine learning model is trained to minimize the prediction loss on the transformed target space <span class="math inline">\(u_{s, t}\)</span>.</p>
+</section>
+<section id="in-sample-residual-fitted-value-inversion" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="in-sample-residual-fitted-value-inversion"><span class="header-section-number">2.2</span> In-Sample Residual &amp; Fitted Value Inversion</h2>
+<p>Let <span class="math inline">\(\hat{u}_{s, t} = f(\mathbf{x}_{s, t})\)</span> be the raw prediction produced by the estimator in the transformed space.</p>
 <p>To obtain statistically meaningful residuals on the <strong>original measurement scale</strong>:</p>
-
-<ol>
-<li><strong>Invert Target Scaling</strong>:</li>
-</ul>
-<p>   $$\hat{\delta}_{s, t} = \text{scaler}_s^{-1}(\hat{u}_{s, t}) = \hat{u}_{s, t} \cdot \sigma_s + \mu_s$$</p>
-<p>   $$\delta_{s, t} = \text{scaler}_s^{-1}(u_{s, t}) = u_{s, t} \cdot \sigma_s + \mu_s$$</p>
-<p>   The 1-step prediction error in the unscaled differenced/detrended space is:</p>
-<p>   $$e_{s, t} = \delta_{s, t} - \hat{\delta}_{s, t}$$</p>
-
-<ol>
-<li><strong>Invariance of 1-Step Errors under Linear Differencing & Detrending</strong>:</li>
-</ul>
-<p>   For any linear difference $(1 - L) w_{s, t} = w_{s, t} - w_{s, t-1}$, the 1-step ahead prediction given true history $w_{s, t-1}$ is:</p>
-<p>   $$\hat{w}_{s, t} = w_{s, t-1} + \hat{\delta}_{s, t}$$</p>
-<p>   Subtracting $\hat{w}_{s, t}$ from the true observation $w_{s, t}$:</p>
-<p>   $$w_{s, t} - \hat{w}_{s, t} = (w_{s, t} - w_{s, t-1}) - \hat{\delta}_{s, t} = \delta_{s, t} - \hat{\delta}_{s, t} = e_{s, t}$$</p>
-<p>   The error in the pre-differenced / pre-detrended space is <strong>identically equal</strong> to $e_{s, t}$.</p>
-
-<ol>
-<li><strong>Box-Cox Inversion</strong>:</li>
-<li>If Box-Cox was <strong>not</strong> applied:</li>
-</ul>
-<p>     $$\hat{y}_{s, t} = y_{s, t} - e_{s, t}, \quad \text{resid}_{s, t} = e_{s, t}$$</p>
+<ol type="1">
+<li><p><strong>Invert Target Scaling</strong>: <span class="math display">\[\hat{\delta}_{s, t} = \text{scaler}_s^{-1}(\hat{u}_{s, t}) = \hat{u}_{s, t} \cdot \sigma_s + \mu_s\]</span> <span class="math display">\[\delta_{s, t} = \text{scaler}_s^{-1}(u_{s, t}) = u_{s, t} \cdot \sigma_s + \mu_s\]</span> The 1-step prediction error in the unscaled differenced/detrended space is: <span class="math display">\[e_{s, t} = \delta_{s, t} - \hat{\delta}_{s, t}\]</span></p></li>
+<li><p><strong>Invariance of 1-Step Errors under Linear Differencing &amp; Detrending</strong>: For any linear difference <span class="math inline">\((1 - L) w_{s, t} = w_{s, t} - w_{s, t-1}\)</span>, the 1-step ahead prediction given true history <span class="math inline">\(w_{s, t-1}\)</span> is: <span class="math display">\[\hat{w}_{s, t} = w_{s, t-1} + \hat{\delta}_{s, t}\]</span> Subtracting <span class="math inline">\(\hat{w}_{s, t}\)</span> from the true observation <span class="math inline">\(w_{s, t}\)</span>: <span class="math display">\[w_{s, t} - \hat{w}_{s, t} = (w_{s, t} - w_{s, t-1}) - \hat{\delta}_{s, t} = \delta_{s, t} - \hat{\delta}_{s, t} = e_{s, t}\]</span> The error in the pre-differenced / pre-detrended space is <strong>identically equal</strong> to <span class="math inline">\(e_{s, t}\)</span>.</p></li>
+<li><p><strong>Box-Cox Inversion</strong>:</p>
 <ul>
-<li>If Box-Cox <strong>was</strong> applied:</li>
-</ul>
-<p>     $$\hat{z}_{s, t} = z_{s, t} - e_{s, t}$$</p>
-<p>     $$\hat{y}_{s, t} = B^{-1}(\hat{z}_{s, t}; \lambda_s), \quad \text{resid}_{s, t} = y_{s, t} - \hat{y}_{s, t}$$</p>
-
-<hr/>
-
-<h1>Empirical Error Covariance & Correlation Estimation</h1>
-
-<h2>Joint Error Matrix Construction</h2>
-
-<p>Let $M$ be the number of aligned historical or cross-validation evaluation points common to all $N$ series. The joint error matrix $\mathbf{E} \in \mathbb{R}^{M \times N}$ is:</p>
-
-<p>$$\mathbf{E} = \begin{bmatrix}</p>
-<p>e_{1, 1} & e_{2, 1} & \dots & e_{N, 1} \\</p>
-<p>e_{1, 2} & e_{2, 2} & \dots & e_{N, 2} \\</p>
-<p>\vdots & \vdots & \ddots & \vdots \\</p>
-<p>e_{1, M} & e_{2, M} & \dots & e_{N, M}</p>
-<p>\end{bmatrix} = \begin{bmatrix} \mathbf{e}_{(1)}^T \\ \mathbf{e}_{(2)}^T \\ \vdots \\ \mathbf{e}_{(M)}^T \end{bmatrix}$$</p>
-
-<p>where each column $\mathbf{e}_s \in \mathbb{R}^M$ contains the residual series for series $s$, and each row $\mathbf{e}_{(t)} \in \mathbb{R}^N$ represents the joint cross-series error vector at observation $t$.</p>
-
-<h2>Sample Covariance Matrix</h2>
-
-<p>The unbiased empirical sample covariance matrix $\mathbf{\Sigma}_{\text{raw}} \in \mathbb{R}^{N \times N}$ is computed as:</p>
-
-<p>$$\mathbf{\Sigma}_{\text{raw}} = \frac{1}{M - 1} \sum_{t=1}^M \left( \mathbf{e}_{(t)} - \mathbf{\bar{e}} \right) \left( \mathbf{e}_{(t)} - \mathbf{\bar{e}} \right)^T$$</p>
-
-<p>where $\mathbf{\bar{e}} = \frac{1}{M} \sum_{t=1}^M \mathbf{e}_{(t)}$ is the mean residual vector across all series.</p>
-
-<h2>Exact Symmetry and Spectral Positive Semi-Definite (PSD) Regularization</h2>
-
-<p>In empirical settings with finite samples or collinear series, numerical floating-point inaccuracies or rank deficiency can lead to negative eigenvalues $\lambda_i \le 0$, rendering the covariance matrix non-invertible and invalidating Cholesky decomposition.</p>
-
+<li>If Box-Cox was <strong>not</strong> applied: <span class="math display">\[\hat{y}_{s, t} = y_{s, t} - e_{s, t}, \quad \text{resid}_{s, t} = e_{s, t}\]</span></li>
+<li>If Box-Cox <strong>was</strong> applied: <span class="math display">\[\hat{z}_{s, t} = z_{s, t} - e_{s, t}\]</span> <span class="math display">\[\hat{y}_{s, t} = B^{-1}(\hat{z}_{s, t}; \lambda_s), \quad \text{resid}_{s, t} = y_{s, t} - \hat{y}_{s, t}\]</span></li>
+</ul></li>
+</ol>
+<hr>
+</section>
+</section>
+<section id="empirical-error-covariance-correlation-estimation" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Empirical Error Covariance &amp; Correlation Estimation</h1>
+<section id="joint-error-matrix-construction" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="joint-error-matrix-construction"><span class="header-section-number">3.1</span> Joint Error Matrix Construction</h2>
+<p>Let <span class="math inline">\(M\)</span> be the number of aligned historical or cross-validation evaluation points common to all <span class="math inline">\(N\)</span> series. The joint error matrix <span class="math inline">\(\mathbf{E} \in \mathbb{R}^{M \times N}\)</span> is:</p>
+<p><span class="math display">\[\mathbf{E} = \begin{bmatrix}
+e_{1, 1} &amp; e_{2, 1} &amp; \dots &amp; e_{N, 1} \\
+e_{1, 2} &amp; e_{2, 2} &amp; \dots &amp; e_{N, 2} \\
+\vdots &amp; \vdots &amp; \ddots &amp; \vdots \\
+e_{1, M} &amp; e_{2, M} &amp; \dots &amp; e_{N, M}
+\end{bmatrix} = \begin{bmatrix} \mathbf{e}_{(1)}^T \\ \mathbf{e}_{(2)}^T \\ \vdots \\ \mathbf{e}_{(M)}^T \end{bmatrix}\]</span></p>
+<p>where each column <span class="math inline">\(\mathbf{e}_s \in \mathbb{R}^M\)</span> contains the residual series for series <span class="math inline">\(s\)</span>, and each row <span class="math inline">\(\mathbf{e}_{(t)} \in \mathbb{R}^N\)</span> represents the joint cross-series error vector at observation <span class="math inline">\(t\)</span>.</p>
+</section>
+<section id="sample-covariance-matrix" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="sample-covariance-matrix"><span class="header-section-number">3.2</span> Sample Covariance Matrix</h2>
+<p>The unbiased empirical sample covariance matrix <span class="math inline">\(\mathbf{\Sigma}_{\text{raw}} \in \mathbb{R}^{N \times N}\)</span> is computed as:</p>
+<p><span class="math display">\[\mathbf{\Sigma}_{\text{raw}} = \frac{1}{M - 1} \sum_{t=1}^M \left( \mathbf{e}_{(t)} - \mathbf{\bar{e}} \right) \left( \mathbf{e}_{(t)} - \mathbf{\bar{e}} \right)^T\]</span></p>
+<p>where <span class="math inline">\(\mathbf{\bar{e}} = \frac{1}{M} \sum_{t=1}^M \mathbf{e}_{(t)}\)</span> is the mean residual vector across all series.</p>
+</section>
+<section id="exact-symmetry-and-spectral-positive-semi-definite-psd-regularization" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="exact-symmetry-and-spectral-positive-semi-definite-psd-regularization"><span class="header-section-number">3.3</span> Exact Symmetry and Spectral Positive Semi-Definite (PSD) Regularization</h2>
+<p>In empirical settings with finite samples or collinear series, numerical floating-point inaccuracies or rank deficiency can lead to negative eigenvalues <span class="math inline">\(\lambda_i \le 0\)</span>, rendering the covariance matrix non-invertible and invalidating Cholesky decomposition.</p>
 <p>To guarantee mathematical validity, <code>multi_prob_forecasts</code> applies spectral eigenvalue thresholding:</p>
-
-<ol>
-<li><strong>Symmetrization</strong>:</li>
-</ul>
-<p>   $$\mathbf{\Sigma}_{\text{sym}} = \frac{1}{2}\left( \mathbf{\Sigma}_{\text{raw}} + \mathbf{\Sigma}_{\text{raw}}^T \right)$$</p>
-
-<ol>
-<li><strong>Eigendecomposition</strong>:</li>
-</ul>
-<p>   $$\mathbf{\Sigma}_{\text{sym}} = \mathbf{V} \mathbf{\Lambda} \mathbf{V}^T$$</p>
-<p>   where $\mathbf{V} = [\mathbf{v}_1, \dots, \mathbf{v}_N]$ is the orthonormal matrix of eigenvectors, and $\mathbf{\Lambda} = \text{diag}(\lambda_1, \lambda_2, \dots, \lambda_N)$ contains the real eigenvalues.</p>
-
-<ol>
-<li><strong>PSD Floor Projection</strong>:</li>
-</ul>
-<p>   We project all eigenvalues onto the strictly positive half-space with threshold $\epsilon = 10^{-8}$:</p>
-<p>   $$\lambda_i^{\text{clipped}} = \max(\lambda_i, \, \epsilon)$$</p>
-<p>   $$\mathbf{\Lambda}_{\text{psd}} = \text{diag}\left( \lambda_1^{\text{clipped}}, \, \dots, \, \lambda_N^{\text{clipped}} \right)$$</p>
-
-<ol>
-<li><strong>Reconstructed Covariance Matrix</strong>:</li>
-</ul>
-<p>   $$\mathbf{\Sigma} = \mathbf{V} \mathbf{\Lambda}_{\text{psd}} \mathbf{V}^T$$</p>
-<p>   By construction, $\mathbf{\Sigma}$ is strictly symmetric and positive definite ($\mathbf{x}^T \mathbf{\Sigma} \mathbf{x} > 0 \, \forall \mathbf{x} \neq \mathbf{0}$).</p>
-
-<h2>Empirical Correlation Matrix</h2>
-
-<p>From the regularized covariance matrix $\mathbf{\Sigma}$, we extract the empirical standard deviation vector $\mathbf{s} = \left[ \sqrt{\Sigma_{1, 1}}, \, \dots, \, \sqrt{\Sigma_{N, N}} \right]^T$ and construct the diagonal scaling matrix $\mathbf{D} = \text{diag}(\mathbf{s})$.</p>
-
-<p>The cross-series empirical correlation matrix $\mathbf{R} \in \mathbb{R}^{N \times N}$ is:</p>
-
-<p>$$\mathbf{R} = \mathbf{D}^{-1} \mathbf{\Sigma} \mathbf{D}^{-1}$$</p>
-
-<p>with elements:</p>
-<p>$$R_{i, j} = \frac{\Sigma_{i, j}}{\sqrt{\Sigma_{i, i}} \sqrt{\Sigma_{j, j}}}, \quad R_{i, i} = 1.0, \quad R_{i, j} \in [-1, 1]$$</p>
-
-<hr/>
-
-<h1>Multivariate Sampling Methods in <code>.sample()</code></h1>
-
-<p>For a given forecast horizon $H$ and $B$ Monte Carlo simulated paths ($m = 1, \dots, B$), we generate joint trajectory matrices for each series:</p>
-<p>$$\mathbf{Y}_s \in \mathbb{R}^{B \times H} \quad \text{for } s \in \{1, \dots, N\}$$</p>
-
-<p>Let $\mathbf{\hat{y}}_s = \left[ \hat{y}_{s, 1}, \hat{y}_{s, 2}, \dots, \hat{y}_{s, H} \right]$ be the multi-step point forecast for series $s$.</p>
-
-<p>$$\mathbf{Y}_{m, h, s} = \hat{y}_{s, h} + \epsilon_{m, h, s}$$</p>
-
-<p>where $\boldsymbol{\epsilon}_{m, h} = \left[ \epsilon_{m, h, 1}, \, \dots, \, \epsilon_{m, h, N} \right]^T \in \mathbb{R}^N$ is drawn from one of the four joint distributions below.</p>
-
-<hr/>
-
-<h2>Method 1: Multivariate Normal Distribution (<code>method="mvn"</code>)</h2>
-
-<h3>Definition</h3>
-<p>Assumes joint Gaussian innovation errors across series at each forecast horizon step $h$:</p>
-<p>$$\boldsymbol{\epsilon}_{m, h} \sim \mathcal{N}_N\left(\mathbf{0}, \, \mathbf{\Sigma}\right)$$</p>
-
-<h3>Sampling Algorithm via Cholesky Decomposition</h3>
-<ol>
-<li>Compute the lower triangular Cholesky factor $\mathbf{L} \in \mathbb{R}^{N \times N}$ such that:</li>
-</ul>
-<p>   $$\mathbf{\Sigma} = \mathbf{L} \mathbf{L}^T$$</p>
-<ol>
-<li>Draw $N$ standard independent normal variates:</li>
-</ul>
-<p>   $$\mathbf{z}_{m, h} \sim \mathcal{N}_N\left(\mathbf{0}, \, \mathbf{I}_N\right)$$</p>
-<ol>
-<li>Correlate and scale:</li>
-</ul>
-<p>   $$\boldsymbol{\epsilon}_{m, h} = \mathbf{L} \mathbf{z}_{m, h}$$</p>
-
-<hr/>
-
-<h2>Method 2: Multivariate Student-$t$ Distribution (<code>method="student_t"</code>)</h2>
-
-<h3>Gaussian Scale Mixture Formulation</h3>
-<p>A random vector $\boldsymbol{\epsilon} \in \mathbb{R}^N$ follows a multivariate Student-$t$ distribution with $\nu$ degrees of freedom and dispersion matrix $\mathbf{\Sigma}$, denoted $\boldsymbol{\epsilon} \sim t_N(\nu, \mathbf{0}, \mathbf{\Sigma})$, if it can be represented as a <strong>Gaussian scale mixture</strong>:</p>
-
-<p>$$\boldsymbol{\epsilon}_{m, h} = \frac{\mathbf{Z}_{m, h}}{\sqrt{\frac{W_{m, h}}{\nu}}}$$</p>
-
-<p>where:</p>
-<ol>
-<li>$\mathbf{Z}_{m, h} \sim \mathcal{N}_N\left(\mathbf{0}, \, \mathbf{\Sigma}\right)$ is a zero-mean multivariate normal vector.</li>
-<li>$W_{m, h} \sim \chi^2(\nu)$ is an independent chi-squared scalar random variable with $\nu = \text{df\_t\_deg}$ degrees of freedom.</li>
-</ul>
-
-<hr/>
-
-<h2>Method 3: Gaussian Copula with Non-Parametric Marginals (<code>method="copula"</code>)</h2>
-
-<h3>Mathematical Foundation: Sklar's Theorem</h3>
-<p>Sklar's Theorem (1959) states that any multivariate joint cumulative distribution function $F(e_1, e_2, \dots, e_N)$ can be uniquely decomposed into its <strong>$N$ univariate marginal distributions</strong> $F_1, F_2, \dots, F_N$ and a <strong>copula function</strong> $C: [0, 1]^N \to [0, 1]$ that fully characterizes the dependency structure:</p>
-
-<p>$$F(e_1, e_2, \dots, e_N) = C\left( F_1(e_1), \, F_2(e_2), \, \dots, \, F_N(e_N) \right)$$</p>
-
-<p>For the <strong>Gaussian Copula</strong>, $C_{\mathbf{R}}$ is parameterized by the cross-series correlation matrix $\mathbf{R}$:</p>
-
-<p>$$C_{\mathbf{R}}(u_1, \dots, u_N) = \mathbf{\Phi}_{\mathbf{R}}\left( \Phi^{-1}(u_1), \, \Phi^{-1}(u_2), \, \dots, \, \Phi^{-1}(u_N) \right)$$</p>
-
-<h3>Step-by-Step Sampling Algorithm</h3>
-
-<ol>
-<li><strong>Step 1 — Correlated Gaussian Latent Variables</strong>:</li>
-</ul>
-<p>   Draw latent vector $\mathbf{Z}_{m, h} \in \mathbb{R}^N$ from the multivariate normal distribution with empirical correlation matrix $\mathbf{R}$ and unit variances:</p>
-<p>   $$\mathbf{Z}_{m, h} \sim \mathcal{N}_N\left(\mathbf{0}, \, \mathbf{R}\right)$$</p>
-
-<ol>
-<li><strong>Step 2 — Probability Integral Transform (PIT)</strong>:</li>
-</ul>
-<p>   Map each latent Gaussian variable $Z_{m, h, s}$ to a uniform variable $U_{m, h, s} \in (0, 1)$ using the univariate standard Gaussian CDF $\Phi$:</p>
-<p>   $$U_{m, h, s} = \Phi\left( Z_{m, h, s} \right)$$</p>
-<p>   To ensure numerical stability against quantile boundary singularity, clip:</p>
-<p>   $$U_{m, h, s} \leftarrow \min\left( \max(U_{m, h, s}, \, 10^{-6}), \, 1 - 10^{-6} \right)$$</p>
-
-<ol>
-<li><strong>Step 3 — Non-Parametric Empirical Marginal Inversion</strong>:</li>
-</ul>
-<p>   Let $\mathbf{e}_s = [e_{s, 1}, e_{s, 2}, \dots, e_{s, M}]^T$ be the historical empirical residual vector for series $s$.</p>
-   
-<p>   The empirical cumulative distribution function (ECDF) $\hat{F}_s$ and its generalized inverse (empirical quantile function) $\hat{F}_s^{-1}(u)$ are defined as:</p>
-<p>   $$\hat{F}_s^{-1}(u) = \inf \left\{ x \in \mathbb{R} : \hat{F}_s(x) \ge u \right\}$$</p>
-
-<p>   We map uniform sample $U_{m, h, s}$ through the empirical quantile function of series $s$:</p>
-<p>   $$\epsilon_{m, h, s} = \hat{F}_s^{-1}\left( U_{m, h, s} \right) = \text{Quantile}\left( \mathbf{e}_s, \, U_{m, h, s} \right)$$</p>
-
-<hr/>
-
-<h2>Method 4: Joint Empirical Resampling (<code>method="empirical"</code>)</h2>
-
-<p>Direct joint non-parametric bootstrap from the empirical error matrix $\mathbf{E} \in \mathbb{R}^{M \times N}$ via row resampling with replacement.</p>
-
-<hr/>
-
-<h1>Prediction Intervals and Quantiles API</h1>
-
+<ol type="1">
+<li><p><strong>Symmetrization</strong>: <span class="math display">\[\mathbf{\Sigma}_{\text{sym}} = \frac{1}{2}\left( \mathbf{\Sigma}_{\text{raw}} + \mathbf{\Sigma}_{\text{raw}}^T \right)\]</span></p></li>
+<li><p><strong>Eigendecomposition</strong>: <span class="math display">\[\mathbf{\Sigma}_{\text{sym}} = \mathbf{V} \mathbf{\Lambda} \mathbf{V}^T\]</span> where <span class="math inline">\(\mathbf{V} = [\mathbf{v}_1, \dots, \mathbf{v}_N]\)</span> is the orthonormal matrix of eigenvectors, and <span class="math inline">\(\mathbf{\Lambda} = \text{diag}(\lambda_1, \lambda_2, \dots, \lambda_N)\)</span> contains the real eigenvalues.</p></li>
+<li><p><strong>PSD Floor Projection</strong>: We project all eigenvalues onto the strictly positive half-space with threshold <span class="math inline">\(\epsilon = 10^{-8}\)</span>: <span class="math display">\[\lambda_i^{\text{clipped}} = \max(\lambda_i, \, \epsilon)\]</span> <span class="math display">\[\mathbf{\Lambda}_{\text{psd}} = \text{diag}\left( \lambda_1^{\text{clipped}}, \, \dots, \, \lambda_N^{\text{clipped}} \right)\]</span></p></li>
+<li><p><strong>Reconstructed Covariance Matrix</strong>: <span class="math display">\[\mathbf{\Sigma} = \mathbf{V} \mathbf{\Lambda}_{\text{psd}} \mathbf{V}^T\]</span> By construction, <span class="math inline">\(\mathbf{\Sigma}\)</span> is strictly symmetric and positive definite (<span class="math inline">\(\mathbf{x}^T \mathbf{\Sigma} \mathbf{x} &gt; 0 \, \forall \mathbf{x} \neq \mathbf{0}\)</span>).</p></li>
+</ol>
+</section>
+<section id="empirical-correlation-matrix" class="level2" data-number="3.4">
+<h2 data-number="3.4" class="anchored" data-anchor-id="empirical-correlation-matrix"><span class="header-section-number">3.4</span> Empirical Correlation Matrix</h2>
+<p>From the regularized covariance matrix <span class="math inline">\(\mathbf{\Sigma}\)</span>, we extract the empirical standard deviation vector <span class="math inline">\(\mathbf{s} = \left[ \sqrt{\Sigma_{1, 1}}, \, \dots, \, \sqrt{\Sigma_{N, N}} \right]^T\)</span> and construct the diagonal scaling matrix <span class="math inline">\(\mathbf{D} = \text{diag}(\mathbf{s})\)</span>.</p>
+<p>The cross-series empirical correlation matrix <span class="math inline">\(\mathbf{R} \in \mathbb{R}^{N \times N}\)</span> is:</p>
+<p><span class="math display">\[\mathbf{R} = \mathbf{D}^{-1} \mathbf{\Sigma} \mathbf{D}^{-1}\]</span></p>
+<p>with elements: <span class="math display">\[R_{i, j} = \frac{\Sigma_{i, j}}{\sqrt{\Sigma_{i, i}} \sqrt{\Sigma_{j, j}}}, \quad R_{i, i} = 1.0, \quad R_{i, j} \in [-1, 1]\]</span></p>
+<hr>
+</section>
+</section>
+<section id="multivariate-sampling-methods-in-.sample" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Multivariate Sampling Methods in <code>.sample()</code></h1>
+<p>For a given forecast horizon <span class="math inline">\(H\)</span> and <span class="math inline">\(B\)</span> Monte Carlo simulated paths (<span class="math inline">\(m = 1, \dots, B\)</span>), we generate joint trajectory matrices for each series: <span class="math display">\[\mathbf{Y}_s \in \mathbb{R}^{B \times H} \quad \text{for } s \in \{1, \dots, N\}\]</span></p>
+<p>Let <span class="math inline">\(\mathbf{\hat{y}}_s = \left[ \hat{y}_{s, 1}, \hat{y}_{s, 2}, \dots, \hat{y}_{s, H} \right]\)</span> be the multi-step point forecast for series <span class="math inline">\(s\)</span>.</p>
+<p><span class="math display">\[\mathbf{Y}_{m, h, s} = \hat{y}_{s, h} + \epsilon_{m, h, s}\]</span></p>
+<p>where <span class="math inline">\(\boldsymbol{\epsilon}_{m, h} = \left[ \epsilon_{m, h, 1}, \, \dots, \, \epsilon_{m, h, N} \right]^T \in \mathbb{R}^N\)</span> is drawn from one of the four joint distributions below.</p>
+<hr>
+<section id="method-1-multivariate-normal-distribution-methodmvn" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="method-1-multivariate-normal-distribution-methodmvn"><span class="header-section-number">4.1</span> Method 1: Multivariate Normal Distribution (<code>method="mvn"</code>)</h2>
+<section id="definition" class="level3" data-number="4.1.1">
+<h3 data-number="4.1.1" class="anchored" data-anchor-id="definition"><span class="header-section-number">4.1.1</span> Definition</h3>
+<p>Assumes joint Gaussian innovation errors across series at each forecast horizon step <span class="math inline">\(h\)</span>: <span class="math display">\[\boldsymbol{\epsilon}_{m, h} \sim \mathcal{N}_N\left(\mathbf{0}, \, \mathbf{\Sigma}\right)\]</span></p>
+</section>
+<section id="sampling-algorithm-via-cholesky-decomposition" class="level3" data-number="4.1.2">
+<h3 data-number="4.1.2" class="anchored" data-anchor-id="sampling-algorithm-via-cholesky-decomposition"><span class="header-section-number">4.1.2</span> Sampling Algorithm via Cholesky Decomposition</h3>
+<ol type="1">
+<li>Compute the lower triangular Cholesky factor <span class="math inline">\(\mathbf{L} \in \mathbb{R}^{N \times N}\)</span> such that: <span class="math display">\[\mathbf{\Sigma} = \mathbf{L} \mathbf{L}^T\]</span></li>
+<li>Draw <span class="math inline">\(N\)</span> standard independent normal variates: <span class="math display">\[\mathbf{z}_{m, h} \sim \mathcal{N}_N\left(\mathbf{0}, \, \mathbf{I}_N\right)\]</span></li>
+<li>Correlate and scale: <span class="math display">\[\boldsymbol{\epsilon}_{m, h} = \mathbf{L} \mathbf{z}_{m, h}\]</span></li>
+</ol>
+<hr>
+</section>
+</section>
+<section id="method-2-multivariate-student-t-distribution-methodstudent_t" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="method-2-multivariate-student-t-distribution-methodstudent_t"><span class="header-section-number">4.2</span> Method 2: Multivariate Student-<span class="math inline">\(t\)</span> Distribution (<code>method="student_t"</code>)</h2>
+<section id="gaussian-scale-mixture-formulation" class="level3" data-number="4.2.1">
+<h3 data-number="4.2.1" class="anchored" data-anchor-id="gaussian-scale-mixture-formulation"><span class="header-section-number">4.2.1</span> Gaussian Scale Mixture Formulation</h3>
+<p>A random vector <span class="math inline">\(\boldsymbol{\epsilon} \in \mathbb{R}^N\)</span> follows a multivariate Student-<span class="math inline">\(t\)</span> distribution with <span class="math inline">\(\nu\)</span> degrees of freedom and dispersion matrix <span class="math inline">\(\mathbf{\Sigma}\)</span>, denoted <span class="math inline">\(\boldsymbol{\epsilon} \sim t_N(\nu, \mathbf{0}, \mathbf{\Sigma})\)</span>, if it can be represented as a <strong>Gaussian scale mixture</strong>:</p>
+<p><span class="math display">\[\boldsymbol{\epsilon}_{m, h} = \frac{\mathbf{Z}_{m, h}}{\sqrt{\frac{W_{m, h}}{\nu}}}\]</span></p>
+<p>where: 1. <span class="math inline">\(\mathbf{Z}_{m, h} \sim \mathcal{N}_N\left(\mathbf{0}, \, \mathbf{\Sigma}\right)\)</span> is a zero-mean multivariate normal vector. 2. <span class="math inline">\(W_{m, h} \sim \chi^2(\nu)\)</span> is an independent chi-squared scalar random variable with <span class="math inline">\(\nu = \text{df\_t\_deg}\)</span> degrees of freedom.</p>
+<hr>
+</section>
+</section>
+<section id="method-3-gaussian-copula-with-non-parametric-marginals-methodcopula" class="level2" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="method-3-gaussian-copula-with-non-parametric-marginals-methodcopula"><span class="header-section-number">4.3</span> Method 3: Gaussian Copula with Non-Parametric Marginals (<code>method="copula"</code>)</h2>
+<section id="mathematical-foundation-sklars-theorem" class="level3" data-number="4.3.1">
+<h3 data-number="4.3.1" class="anchored" data-anchor-id="mathematical-foundation-sklars-theorem"><span class="header-section-number">4.3.1</span> Mathematical Foundation: Sklar’s Theorem</h3>
+<p>Sklar’s Theorem (1959) states that any multivariate joint cumulative distribution function <span class="math inline">\(F(e_1, e_2, \dots, e_N)\)</span> can be uniquely decomposed into its <strong><span class="math inline">\(N\)</span> univariate marginal distributions</strong> <span class="math inline">\(F_1, F_2, \dots, F_N\)</span> and a <strong>copula function</strong> <span class="math inline">\(C: [0, 1]^N \to [0, 1]\)</span> that fully characterizes the dependency structure:</p>
+<p><span class="math display">\[F(e_1, e_2, \dots, e_N) = C\left( F_1(e_1), \, F_2(e_2), \, \dots, \, F_N(e_N) \right)\]</span></p>
+<p>For the <strong>Gaussian Copula</strong>, <span class="math inline">\(C_{\mathbf{R}}\)</span> is parameterized by the cross-series correlation matrix <span class="math inline">\(\mathbf{R}\)</span>:</p>
+<p><span class="math display">\[C_{\mathbf{R}}(u_1, \dots, u_N) = \mathbf{\Phi}_{\mathbf{R}}\left( \Phi^{-1}(u_1), \, \Phi^{-1}(u_2), \, \dots, \, \Phi^{-1}(u_N) \right)\]</span></p>
+</section>
+<section id="step-by-step-sampling-algorithm" class="level3" data-number="4.3.2">
+<h3 data-number="4.3.2" class="anchored" data-anchor-id="step-by-step-sampling-algorithm"><span class="header-section-number">4.3.2</span> Step-by-Step Sampling Algorithm</h3>
+<ol type="1">
+<li><p><strong>Step 1 — Correlated Gaussian Latent Variables</strong>: Draw latent vector <span class="math inline">\(\mathbf{Z}_{m, h} \in \mathbb{R}^N\)</span> from the multivariate normal distribution with empirical correlation matrix <span class="math inline">\(\mathbf{R}\)</span> and unit variances: <span class="math display">\[\mathbf{Z}_{m, h} \sim \mathcal{N}_N\left(\mathbf{0}, \, \mathbf{R}\right)\]</span></p></li>
+<li><p><strong>Step 2 — Probability Integral Transform (PIT)</strong>: Map each latent Gaussian variable <span class="math inline">\(Z_{m, h, s}\)</span> to a uniform variable <span class="math inline">\(U_{m, h, s} \in (0, 1)\)</span> using the univariate standard Gaussian CDF <span class="math inline">\(\Phi\)</span>: <span class="math display">\[U_{m, h, s} = \Phi\left( Z_{m, h, s} \right)\]</span> To ensure numerical stability against quantile boundary singularity, clip: <span class="math display">\[U_{m, h, s} \leftarrow \min\left( \max(U_{m, h, s}, \, 10^{-6}), \, 1 - 10^{-6} \right)\]</span></p></li>
+<li><p><strong>Step 3 — Non-Parametric Empirical Marginal Inversion</strong>: Let <span class="math inline">\(\mathbf{e}_s = [e_{s, 1}, e_{s, 2}, \dots, e_{s, M}]^T\)</span> be the historical empirical residual vector for series <span class="math inline">\(s\)</span>.</p>
+<p>The empirical cumulative distribution function (ECDF) <span class="math inline">\(\hat{F}_s\)</span> and its generalized inverse (empirical quantile function) <span class="math inline">\(\hat{F}_s^{-1}(u)\)</span> are defined as: <span class="math display">\[\hat{F}_s^{-1}(u) = \inf \left\{ x \in \mathbb{R} : \hat{F}_s(x) \ge u \right\}\]</span></p>
+<p>We map uniform sample <span class="math inline">\(U_{m, h, s}\)</span> through the empirical quantile function of series <span class="math inline">\(s\)</span>: <span class="math display">\[\epsilon_{m, h, s} = \hat{F}_s^{-1}\left( U_{m, h, s} \right) = \text{Quantile}\left( \mathbf{e}_s, \, U_{m, h, s} \right)\]</span></p></li>
+</ol>
+<hr>
+</section>
+</section>
+<section id="method-4-joint-empirical-resampling-methodempirical" class="level2" data-number="4.4">
+<h2 data-number="4.4" class="anchored" data-anchor-id="method-4-joint-empirical-resampling-methodempirical"><span class="header-section-number">4.4</span> Method 4: Joint Empirical Resampling (<code>method="empirical"</code>)</h2>
+<p>Direct joint non-parametric bootstrap from the empirical error matrix <span class="math inline">\(\mathbf{E} \in \mathbb{R}^{M \times N}\)</span> via row resampling with replacement.</p>
+<hr>
+</section>
+</section>
+<section id="prediction-intervals-and-quantiles-api" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Prediction Intervals and Quantiles API</h1>
 <p>Across all classes (<code>prob_forecasts</code>, <code>mv_prob_forecasts</code>, <code>multi_prob_forecasts</code>), uncertainty intervals are accessed through two unified methods:</p>
+<section id="sample_quantilesquantiles0.05-0.5-0.95" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="sample_quantilesquantiles0.05-0.5-0.95"><span class="header-section-number">5.1</span> 1. <code>sample_quantiles(quantiles=[0.05, 0.5, 0.95])</code></h2>
+<p>Computes arbitrary quantiles from simulated sample paths <span class="math inline">\(\left\{ \tilde{Y}_{m, h, s} \right\}_{m=1}^B\)</span>: <span class="math display">\[\hat{q}_{\alpha}(h, s) = \text{Quantile}\left( \left\{ \tilde{Y}_{m, h, s} \right\}_{m=1}^B, \, \alpha \right)\]</span></p>
+</section>
+<section id="prediction_intervalscoverage0.90-conformalfalse" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="prediction_intervalscoverage0.90-conformalfalse"><span class="header-section-number">5.2</span> 2. <code>prediction_intervals(coverage=0.90, conformal=False)</code></h2>
+<section id="sample-based-intervals-conformalfalse-default" class="level3" data-number="5.2.1">
+<h3 data-number="5.2.1" class="anchored" data-anchor-id="sample-based-intervals-conformalfalse-default"><span class="header-section-number">5.2.1</span> Sample-Based Intervals (<code>conformal=False</code>, default)</h3>
+<p>Computes symmetric empirical bounds for coverage level <span class="math inline">\((1 - \gamma)\)</span> (e.g.&nbsp;<span class="math inline">\(\gamma = 0.10\)</span> for 90% coverage): <span class="math display">\[\text{Lower}_{1-\gamma}(h, s) = \hat{q}_{\gamma / 2}(h, s)\]</span> <span class="math display">\[\text{Upper}_{1-\gamma}(h, s) = \hat{q}_{1 - \gamma / 2}(h, s)\]</span> <span class="math display">\[\hat{I}_{1-\gamma}(h, s) = \left[ \text{Lower}_{1-\gamma}(h, s), \, \text{Upper}_{1-\gamma}(h, s) \right]\]</span></p>
+</section>
+<section id="distribution-free-conformal-prediction-intervals-conformaltrue" class="level3" data-number="5.2.2">
+<h3 data-number="5.2.2" class="anchored" data-anchor-id="distribution-free-conformal-prediction-intervals-conformaltrue"><span class="header-section-number">5.2.2</span> Distribution-Free Conformal Prediction Intervals (<code>conformal=True</code>)</h3>
+<p>Uses nonconformity scores <span class="math inline">\(\alpha_{h, s} = |e_{h, s}|\)</span> stored in <code>self.non_conform</code>: <span class="math display">\[\hat{q}_{\text{conf}}(h, s) = \text{Quantile}\left( \text{non\_conform}_{h, s}, \, \left\lceil (1 - \gamma)(M + 1) \right\rceil / M \right)\]</span> <span class="math display">\[\text{Lower}_{1-\gamma}(h, s) = \hat{y}_{h, s} - \hat{q}_{\text{conf}}(h, s)\]</span> <span class="math display">\[\text{Upper}_{1-\gamma}(h, s) = \hat{y}_{h, s} + \hat{q}_{\text{conf}}(h, s)\]</span> Guarantees finite-sample coverage without distributional assumptions.</p>
 
-<h2>1. <code>sample_quantiles(quantiles=[0.05, 0.5, 0.95])</code></h2>
+</section>
+</section>
+</section>
 
-<p>Computes arbitrary quantiles from simulated sample paths $\left\{ \tilde{Y}_{m, h, s} \right\}_{m=1}^B$:</p>
-<p>$$\hat{q}_{\alpha}(h, s) = \text{Quantile}\left( \left\{ \tilde{Y}_{m, h, s} \right\}_{m=1}^B, \, \alpha \right)$$</p>
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
 
-<h2>2. <code>prediction_intervals(coverage=0.90, conformal=False)</code></h2>
 
-<h3>Sample-Based Intervals (<code>conformal=False</code>, default)</h3>
-<p>Computes symmetric empirical bounds for coverage level $(1 - \gamma)$ (e.g. $\gamma = 0.10$ for 90% coverage):</p>
-<p>$$\text{Lower}_{1-\gamma}(h, s) = \hat{q}_{\gamma / 2}(h, s)$$</p>
-<p>$$\text{Upper}_{1-\gamma}(h, s) = \hat{q}_{1 - \gamma / 2}(h, s)$$</p>
-<p>$$\hat{I}_{1-\gamma}(h, s) = \left[ \text{Lower}_{1-\gamma}(h, s), \, \text{Upper}_{1-\gamma}(h, s) \right]$$</p>
 
-<h3>Distribution-Free Conformal Prediction Intervals (<code>conformal=True</code>)</h3>
-<p>Uses nonconformity scores $\alpha_{h, s} = |e_{h, s}|$ stored in <code>self.non_conform</code>:</p>
-<p>$$\hat{q}_{\text{conf}}(h, s) = \text{Quantile}\left( \text{non\_conform}_{h, s}, \, \left\lceil (1 - \gamma)(M + 1) \right\rceil / M \right)$$</p>
-<p>$$\text{Lower}_{1-\gamma}(h, s) = \hat{y}_{h, s} - \hat{q}_{\text{conf}}(h, s)$$</p>
-<p>$$\text{Upper}_{1-\gamma}(h, s) = \hat{y}_{h, s} + \hat{q}_{\text{conf}}(h, s)$$</p>
-<p>Guarantees finite-sample coverage without distributional assumptions.</p>
 
-    </div>
-</body>
-</html>
+</body></html>
