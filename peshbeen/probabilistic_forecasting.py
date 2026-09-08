@@ -745,7 +745,7 @@ class multi_prob_forecasts:
         self,
         df: pd.DataFrame,
         n_samples: int = 1000,
-        method: str = "mvn",
+        method: str = "empirical",
         future_exog: Optional[pd.DataFrame] = None,
         target_series: Optional[Union[str, List[str]]] = None,
         df_t_deg: float = 5.0,
@@ -759,12 +759,14 @@ class multi_prob_forecasts:
             Training data.
         n_samples : int, default 1000
             Number of simulated trajectories.
-        method : {"mvn", "student_t", "copula", "empirical", "kde"}, default "mvn"
+        method : {"mvn", "student_t", "copula", "empirical", "kde", "ind_empirical", "ind_kde"}, default "mvn"
             - "mvn": Multivariate Normal on cross-series residual covariance.
             - "student_t": Multivariate Student-t on cross-series residual covariance.
             - "copula": Gaussian Copula coupling cross-series correlation with empirical marginals.
-            - "empirical": Independent empirical residual resampling per series.
+            - "empirical": Joint empirical residual resampling across series (preserves cross-series covariance).
             - "kde": Multivariate Kernel Density Estimation smoothed sampling preserving cross-series covariance.
+            - "ind_empirical" (or "ind_emp"): Independent empirical residual resampling per series and horizon (no cross-series covariance).
+            - "ind_kde": Independent 1D Kernel Density Estimation smoothed sampling per series and horizon (no cross-series covariance).
         future_exog : pd.DataFrame, optional
             Future exogenous features.
         target_series : str or list of str, optional
@@ -780,7 +782,11 @@ class multi_prob_forecasts:
             A new instance of multi_prob_forecasts containing the simulated sample paths and point forecasts.
         """
         
-        valid_methods = {"mvn", "student_t", "copula", "empirical", "kde"}
+        valid_methods = {"mvn", "student_t", "copula", "empirical", "kde", "ind_empirical", "ind_kde"}
+        if method in {"ind_emp", "series_empirical", "independent_empirical"}:
+            method = "ind_empirical"
+        elif method in {"series_kde", "independent_kde"}:
+            method = "ind_kde"
         if method not in valid_methods:
             raise ValueError(f"method='{method}' is not recognised. Choose from: {valid_methods}")
 
@@ -836,6 +842,35 @@ class multi_prob_forecasts:
                 centers = self.joint_error_matrix[row_indices, :]
                 noise = rng.multivariate_normal(mean=np.zeros(N), cov=kde_cov, size=n_samples)
                 innovations[:, h, :] = centers + noise
+
+        elif method == "ind_empirical":
+            innovations = np.zeros((n_samples, self.H, N))
+            for j, s in enumerate(series_ids):
+                if self.n_calib is not None:
+                    for h in range(self.H):
+                        innovations[:, h, j] = rng.choice(self.resid[s][h], size=n_samples, replace=True)
+                else:
+                    for h in range(self.H):
+                        innovations[:, h, j] = rng.choice(self.resid[s], size=n_samples, replace=True)
+
+        elif method == "ind_kde":
+            innovations = np.zeros((n_samples, self.H, N))
+            for j, s in enumerate(series_ids):
+                if self.n_calib is not None:
+                    for h in range(self.H):
+                        try:
+                            kde_h = gaussian_kde(self.resid[s][h])
+                            innovations[:, h, j] = kde_h.resample(size=n_samples, seed=rng.integers(0, 1_000_000))[0]
+                        except Exception:
+                            innovations[:, h, j] = rng.choice(self.resid[s][h], size=n_samples, replace=True)
+                else:
+                    try:
+                        kde_s = gaussian_kde(self.resid[s])
+                        for h in range(self.H):
+                            innovations[:, h, j] = kde_s.resample(size=n_samples, seed=rng.integers(0, 1_000_000))[0]
+                    except Exception:
+                        for h in range(self.H):
+                            innovations[:, h, j] = rng.choice(self.resid[s], size=n_samples, replace=True)
 
         new_instance = copy.deepcopy(self)
         new_instance.sample_paths = {}

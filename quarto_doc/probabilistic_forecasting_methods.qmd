@@ -357,6 +357,64 @@ Resamples complete rows $\mathbf{e}_m = [e_{m, 1}, \dots, e_{m, N}]$ with replac
 
 ---
 
+## Method 5: Independent Series-Wise Empirical Resampling (`method="ind_empirical"` or `"ind_emp"`)
+
+### Python Implementation
+```python
+elif method == "ind_empirical":
+    innovations = np.zeros((n_samples, self.H, N))
+    for j, s in enumerate(series_ids):
+        if self.n_calib is not None:
+            for h in range(self.H):
+                innovations[:, h, j] = rng.choice(self.resid[s][h], size=n_samples, replace=True)
+        else:
+            for h in range(self.H):
+                innovations[:, h, j] = rng.choice(self.resid[s], size=n_samples, replace=True)
+```
+
+### Mathematical Formulation
+When cross-series correlation is weak, noisy, or intentionally ignored to avoid over-fitting cross-sectional covariance, `ind_empirical` samples historical errors independently for each series $s \in \{1, \dots, N\}$ and horizon $h \in \{1, \dots, H\}$.
+
+For each series $s$:
+- If calibrated (`n_calibration=K`): draws uniformly with replacement from the multi-step fold residuals $\{e_{s, h, 1}, \dots, e_{s, h, K}\}$.
+- If in-sample (`n_calibration=None`): draws uniformly with replacement from the pooled historical residuals $\{e_{s, 1}, \dots, e_{s, T}\}$.
+
+This matches the behavior of univariate `prob_forecasts` independently executed across all $N$ series.
+
+---
+
+## Method 6: Independent Series-Wise Kernel Density Estimation (`method="ind_kde"`)
+
+### Python Implementation
+```python
+elif method == "ind_kde":
+    innovations = np.zeros((n_samples, self.H, N))
+    for j, s in enumerate(series_ids):
+        if self.n_calib is not None:
+            for h in range(self.H):
+                try:
+                    kde_h = gaussian_kde(self.resid[s][h])
+                    innovations[:, h, j] = kde_h.resample(size=n_samples, seed=rng.integers(0, 1_000_000))[0]
+                except Exception:
+                    innovations[:, h, j] = rng.choice(self.resid[s][h], size=n_samples, replace=True)
+        else:
+            try:
+                kde_s = gaussian_kde(self.resid[s])
+                for h in range(self.H):
+                    innovations[:, h, j] = kde_s.resample(size=n_samples, seed=rng.integers(0, 1_000_000))[0]
+            except Exception:
+                for h in range(self.H):
+                    innovations[:, h, j] = rng.choice(self.resid[s], size=n_samples, replace=True)
+```
+
+### Mathematical Formulation
+Instead of fitting a single high-dimensional joint KDE with bandwidth matrix $\mathbf{H} \in \mathbb{R}^{N \times N}$, `ind_kde` fits independent 1-dimensional Parzen-Rosenblatt kernel density estimates on the residuals of each series $s$:
+$$\hat{f}_{s, h}(e) = \frac{1}{K \lambda_{s, h}} \sum_{k=1}^K K_\phi\left(\frac{e - e_{s, h, k}}{\lambda_{s, h}}\right)$$
+
+Because each kernel estimator is strictly 1-dimensional, it is **completely immune to the curse of dimensionality**, scaling efficiently to thousands of series while providing smooth, continuous non-parametric predictive distributions without discrete sampling artifacts.
+
+---
+
 # Deep-Dive: Multivariate Kernel Density Estimation (`method="kde"`)
 
 ## The Code Under Scrutiny
@@ -490,8 +548,10 @@ As $M \to \infty$, $b \to 0$, so $\operatorname{Cov}(\tilde{\mathbf{e}}) \to \ha
 
 | Method | Applicable Classes | Target Scope | Inter-Horizon Covariance | Cross-Series Covariance | Tail Weight Flexibility | Non-Gaussian Marginals | Computational Complexity |
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **`empirical`** | `prob_forecasts`, `multi_prob_forecasts` | Discrete empirical | Horizon-by-horizon (Univariate) / Contemporaneous (Multi) | Yes (Multi) | Empirical | Yes (Exact empirical) | $\mathcal{O}(S \cdot H \cdot N)$ |
+| **`empirical`** | `prob_forecasts`, `multi_prob_forecasts` | Discrete empirical | Horizon-by-horizon (Univariate) / Contemporaneous (Multi) | Yes (Multi joint rows) | Empirical | Yes (Exact empirical) | $\mathcal{O}(S \cdot H \cdot N)$ |
+| **`ind_empirical`** | `multi_prob_forecasts` | Discrete empirical per series | Horizon-by-horizon | No (Independent per series) | Empirical | Yes (Exact empirical) | $\mathcal{O}(S \cdot H \cdot N)$ |
 | **`kde`** | `prob_forecasts`, `multi_prob_forecasts` | Continuous smoothed non-parametric | Horizon-by-horizon (Univariate) | Yes (Multi, Scott's mixture) | Continuous smoothed | Yes (Kernel smoothed) | $\mathcal{O}(S \cdot H \cdot N)$ |
+| **`ind_kde`** | `multi_prob_forecasts` | Continuous smoothed 1D KDE per series | Horizon-by-horizon | No (Independent per series) | Continuous smoothed | Yes (1D Kernel smoothed) | $\mathcal{O}(S \cdot H \cdot N)$ |
 | **`gaussian` / `mvn`** | `prob_forecasts`, `multi_prob_forecasts` | Continuous parametric Gaussian | Full $H \times H$ (Univariate) | Full $N \times N$ (Multi) | Light (Gaussian) | No (Elliptical) | $\mathcal{O}(H^3 + S \cdot H)$ or $\mathcal{O}(N^3 + S \cdot N)$ |
 | **`student_t`** | `multi_prob_forecasts` | Continuous parametric heavy-tailed | N/A | Full $N \times N$ (Multi) | Heavy (Controlled by $\nu$) | No (Elliptical) | $\mathcal{O}(N^3 + S \cdot N)$ |
 | **`copula`** | `prob_forecasts`, `multi_prob_forecasts` | Semi-parametric Copula | Full $H \times H$ (Univariate) | Full $N \times N$ (Multi) | Empirical tails | Yes (Quantile inverted) | $\mathcal{O}(H^3 + S \cdot H \log K)$ |
