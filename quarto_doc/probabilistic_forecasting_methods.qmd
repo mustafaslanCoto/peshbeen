@@ -257,10 +257,19 @@ $$\mathbb{P}\left(Y_{T+h} \in \mathcal{C}_{1-\delta}(Y_{T+h})\right) \ge 1 - \de
 
 ## Architecture & Calibration Workflow
 
-`multi_prob_forecasts` operates over a panel of $N$ interdependent time series. It constructs the **Contemporaneous Joint Error Matrix**:
-$$\mathbf{E} \in \mathbb{R}^{M \times N}$$
-where each row $m \in \{1, \dots, M\}$ represents an aligned cross-sectional snapshot of errors:
-$$\mathbf{e}_m = \left[ e_{m, 1}, \, e_{m, 2}, \, \dots, \, e_{m, N} \right]^\top \in \mathbb{R}^N$$
+`multi_prob_forecasts` operates over a panel of $N$ interdependent time series across forecast horizon $H$. It constructs the **Joint Error Matrix** under two distinct calibration regimes:
+
+1. **Cross-Validation Calibration (`n_calibration = K`) — Full Cross-Series & Cross-Horizon Covariance**:
+   In each fold $k \in \{1, \dots, K\}$, the forecaster generates multi-step predictions $\hat{y}_{s, h, k}$ for every series $s$ across all horizons $h \in \{1, \dots, H\}$. The errors are concatenated into a $D = (H \cdot N)$-dimensional joint trajectory vector:
+   $$\mathbf{e}_k = \left[ e_{1, 1, k}, \, e_{2, 1, k}, \, \dots, \, e_{N, 1, k}, \, e_{1, 2, k}, \, \dots, \, e_{N, H, k} \right]^\top \in \mathbb{R}^{H \cdot N}$$
+   Arranged into the $(K \times HN)$ Joint Error Matrix:
+   $$\mathbf{E} \in \mathbb{R}^{K \times (H \cdot N)}$$
+   The regularized covariance matrix $\mathbf{\Sigma}_{\text{psd}} \in \mathbb{R}^{(HN) \times (HN)}$ captures **both contemporaneous cross-series correlation AND multi-step cross-horizon autocovariance**.
+
+2. **In-Sample Residuals (`n_calibration = None`) — Cross-Sectional Covariance**:
+   When calibration is omitted, 1-step in-sample residuals from $M$ historical time steps form an $(M \times N)$ error matrix:
+   $$\mathbf{E} \in \mathbb{R}^{M \times N}$$
+   yielding an $(N \times N)$ cross-series covariance matrix $\mathbf{\Sigma}_{\text{psd}} \in \mathbb{R}^{N \times N}$.
 
 ```mermaid
 flowchart LR
@@ -283,15 +292,22 @@ flowchart LR
 ### Python Implementation
 ```python
 if method == "mvn":
-    innovations = np.zeros((n_samples, self.H, N))
-    for h in range(self.H):
-        innovations[:, h, :] = rng.multivariate_normal(mean=np.zeros(N), cov=cov_psd, size=n_samples)
+    if self.n_calib is not None:
+        innov_flat = rng.multivariate_normal(mean=np.zeros(self.H * N), cov=cov_psd, size=n_samples)
+        innovations = innov_flat.reshape(n_samples, self.H, N)
+    else:
+        innovations = np.zeros((n_samples, self.H, N))
+        for h in range(self.H):
+            innovations[:, h, :] = rng.multivariate_normal(mean=np.zeros(N), cov=cov_psd, size=n_samples)
 ```
 
 ### Mathematical Formulation
-$$\mathbf{e}_h \sim \mathcal{N}_N\left(\mathbf{0}, \, \mathbf{\Sigma}_{\text{psd}}\right)$$
-$$\mathbf{\Sigma}_{\text{psd}} = \mathbf{V} \operatorname{diag}\left(\max(\lambda_i, 10^{-8})\right) \mathbf{V}^\top$$
-Draws Gaussian shocks across all $N$ series simultaneously, maintaining the empirical covariance $\mathbf{\Sigma}$.
+- **When Calibrated (`n_calibration=K`)**:
+  Draws full multi-step trajectory vectors simultaneously from the $(H \cdot N)$-dimensional Multivariate Normal:
+  $$\mathbf{e}^{(s)} \sim \mathcal{N}_{HN}\left(\mathbf{0}, \, \mathbf{\Sigma}_{\text{psd}}\right) \in \mathbb{R}^{H \cdot N}$$
+  Reshaped to $(H \times N)$ per simulated path. This preserves both cross-series contemporaneous relationships and temporal auto-correlations across forecast horizons $h=1, \dots, H$.
+- **When In-Sample (`n_calibration=None`)**:
+  Draws $N$-dimensional contemporaneous normal vectors $\mathbf{e}_h \sim \mathcal{N}_N(\mathbf{0}, \mathbf{\Sigma}_{\text{psd}})$ independently for each horizon step.
 
 ---
 
@@ -300,12 +316,19 @@ Draws Gaussian shocks across all $N$ series simultaneously, maintaining the empi
 ### Python Implementation
 ```python
 elif method == "student_t":
-    innovations = np.zeros((n_samples, self.H, N))
-    for h in range(self.H):
-        Z_h = rng.multivariate_normal(mean=np.zeros(N), cov=cov_psd, size=n_samples)
-        W_h = rng.chisquare(df=df_t_deg, size=(n_samples, 1))
-        scale_h = np.sqrt(W_h / df_t_deg)
-        innovations[:, h, :] = Z_h / scale_h
+    if self.n_calib is not None:
+        D = self.H * N
+        Z = rng.multivariate_normal(mean=np.zeros(D), cov=cov_psd, size=n_samples)
+        W = rng.chisquare(df=df_t_deg, size=(n_samples, 1))
+        scale = np.sqrt(W / df_t_deg)
+        innovations = (Z / scale).reshape(n_samples, self.H, N)
+    else:
+        innovations = np.zeros((n_samples, self.H, N))
+        for h in range(self.H):
+            Z_h = rng.multivariate_normal(mean=np.zeros(N), cov=cov_psd, size=n_samples)
+            W_h = rng.chisquare(df=df_t_deg, size=(n_samples, 1))
+            scale_h = np.sqrt(W_h / df_t_deg)
+            innovations[:, h, :] = Z_h / scale_h
 ```
 
 ### Mathematical Formulation
@@ -324,15 +347,25 @@ where:
 ### Python Implementation
 ```python
 elif method == "copula":
-    innovations = np.zeros((n_samples, self.H, N))
-    for h in range(self.H):
-        Z_h = rng.multivariate_normal(mean=np.zeros(N), cov=corr_mat, size=n_samples)
-        U_h = norm.cdf(Z_h)
-        U_h = np.clip(U_h, 1e-6, 1.0 - 1e-6)
-
-        for j, s in enumerate(series_ids):
-            s_res = self.joint_error_matrix[:, j]
-            innovations[:, h, j] = np.quantile(s_res, U_h[:, j])
+    if self.n_calib is not None:
+        D = self.H * N
+        Z = rng.multivariate_normal(mean=np.zeros(D), cov=corr_mat, size=n_samples)
+        U = np.clip(norm.cdf(Z), 1e-6, 1.0 - 1e-6)
+        innovations = np.zeros((n_samples, self.H, N))
+        for h in range(self.H):
+            for j, s in enumerate(series_ids):
+                u_hj = U[:, h * N + j]
+                s_res = self.resid[s][h]
+                innovations[:, h, j] = np.quantile(s_res, u_hj)
+    else:
+        innovations = np.zeros((n_samples, self.H, N))
+        for h in range(self.H):
+            Z_h = rng.multivariate_normal(mean=np.zeros(N), cov=corr_mat, size=n_samples)
+            U_h = norm.cdf(Z_h)
+            U_h = np.clip(U_h, 1e-6, 1.0 - 1e-6)
+            for j, s in enumerate(series_ids):
+                s_res = self.joint_error_matrix[:, j]
+                innovations[:, h, j] = np.quantile(s_res, U_h[:, j])
 ```
 
 ### Mathematical Formulation
@@ -345,11 +378,16 @@ Couples the regularized cross-series correlation matrix $\mathbf{R} \in \mathbb{
 ### Python Implementation
 ```python
 elif method == "empirical":
-    n_rows = len(self.joint_error_matrix)
-    innovations = np.zeros((n_samples, self.H, N))
-    for h in range(self.H):
+    if self.n_calib is not None:
+        n_rows = len(self.joint_error_matrix)
         row_indices = rng.choice(n_rows, size=n_samples, replace=True)
-        innovations[:, h, :] = self.joint_error_matrix[row_indices, :]
+        innovations = self.joint_error_matrix[row_indices, :].reshape(n_samples, self.H, N)
+    else:
+        n_rows = len(self.joint_error_matrix)
+        innovations = np.zeros((n_samples, self.H, N))
+        for h in range(self.H):
+            row_indices = rng.choice(n_rows, size=n_samples, replace=True)
+            innovations[:, h, :] = self.joint_error_matrix[row_indices, :]
 ```
 
 ### Mathematical Formulation
@@ -421,15 +459,25 @@ Because each kernel estimator is strictly 1-dimensional, it is **completely immu
 
 ```python
 elif method == "kde":
-    M_rows = len(self.joint_error_matrix)
-    bw_factor = M_rows ** (-1.0 / (N + 4.0))
-    kde_cov = (bw_factor ** 2) * cov_psd
-    innovations = np.zeros((n_samples, self.H, N))
-    for h in range(self.H):
+    if self.n_calib is not None:
+        D = self.H * N
+        M_rows = len(self.joint_error_matrix)
+        bw_factor = M_rows ** (-1.0 / (D + 4.0))
+        kde_cov = (bw_factor ** 2) * cov_psd
         row_indices = rng.choice(M_rows, size=n_samples, replace=True)
         centers = self.joint_error_matrix[row_indices, :]
-        noise = rng.multivariate_normal(mean=np.zeros(N), cov=kde_cov, size=n_samples)
-        innovations[:, h, :] = centers + noise
+        noise = rng.multivariate_normal(mean=np.zeros(D), cov=kde_cov, size=n_samples)
+        innovations = (centers + noise).reshape(n_samples, self.H, N)
+    else:
+        M_rows = len(self.joint_error_matrix)
+        bw_factor = M_rows ** (-1.0 / (N + 4.0))
+        kde_cov = (bw_factor ** 2) * cov_psd
+        innovations = np.zeros((n_samples, self.H, N))
+        for h in range(self.H):
+            row_indices = rng.choice(M_rows, size=n_samples, replace=True)
+            centers = self.joint_error_matrix[row_indices, :]
+            noise = rng.multivariate_normal(mean=np.zeros(N), cov=kde_cov, size=n_samples)
+            innovations[:, h, :] = centers + noise
 ```
 
 Let us dissect each component with mathematical precision.

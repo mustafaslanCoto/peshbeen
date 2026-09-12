@@ -675,13 +675,16 @@ class multi_prob_forecasts:
             self.resid = {s: np.column_stack(fold_residuals[s]) for s in series_ids}
             self.non_conform = {s: np.abs(self.resid[s]) for s in series_ids}
 
-            E_rows = []
-            for k in range(self.n_calib):
-                for h in range(self.H):
-                    row = [self.resid[s][h, k] for s in series_ids]
-                    E_rows.append(row)
-            self.joint_error_matrix = np.array(E_rows)
+            # E_rows = [] # joint error matrix rows
+            # for k in range(self.n_calib):
+            #     for h in range(self.H):
+            #         row = [self.resid[s][h, k] for s in series_ids]
+            #         E_rows.append(row)
+            # self.joint_error_matrix = np.array(E_rows)
 
+            # Vectorized construction: (n_calib, H * N) capturing both cross-series and cross-horizon error covariance
+            stacked_resids = np.stack([self.resid[s] for s in series_ids], axis=-1)  # (H, n_calib, N)
+            self.joint_error_matrix = stacked_resids.transpose(1, 0, 2).reshape(self.n_calib, self.H * N)
         else:
             self.model.fit(dfc)
             _, in_samp_resids = self.model.predict_in_sample()
@@ -697,11 +700,11 @@ class multi_prob_forecasts:
         if cov_raw.ndim == 0:
             cov_raw = np.array([[float(cov_raw)]])
 
-        cov_sym = 0.5 * (cov_raw + cov_raw.T)
-        eigvals, eigvecs = np.linalg.eigh(cov_sym)
-        eigvals_clipped = np.maximum(eigvals, 1e-8)
-        cov_psd = eigvecs @ np.diag(eigvals_clipped) @ eigvecs.T
-        self.cov_matrix_ = cov_psd
+        cov_sym = 0.5 * (cov_raw + cov_raw.T) # make symmetric
+        eigvals, eigvecs = np.linalg.eigh(cov_sym) # eigen decomposition for positive semi-definite projection
+        eigvals_clipped = np.maximum(eigvals, 1e-8)  # clip eigenvalues to avoid negative or zero values
+        cov_psd = eigvecs @ np.diag(eigvals_clipped) @ eigvecs.T # reconstruct the covariance matrix
+        self.cov_matrix_ = cov_psd # store the positive semi-definite covariance matrix
 
         stds = np.sqrt(np.diag(cov_psd))
         stds[stds == 0] = 1e-8
@@ -710,8 +713,13 @@ class multi_prob_forecasts:
         np.fill_diagonal(corr_mat, 1.0)
         self.corr_matrix_ = corr_mat
 
-        self.cov_df = pd.DataFrame(self.cov_matrix_, index=series_ids, columns=series_ids)
-        self.corr_df = pd.DataFrame(self.corr_matrix_, index=series_ids, columns=series_ids)
+        if self.corr_matrix_.shape[0] == len(series_ids): 
+            self.cov_df = pd.DataFrame(self.cov_matrix_, index=series_ids, columns=series_ids)
+            self.corr_df = pd.DataFrame(self.corr_matrix_, index=series_ids, columns=series_ids)
+        elif self.corr_matrix_.shape[0] == self.H * len(series_ids): # if the covariance matrix is for all horizons and series, create a multi-index for the DataFrame
+            horizon_series_ids = [f"{s}_h{h+1}" for h in range(self.H) for s in series_ids]
+            self.cov_df = pd.DataFrame(self.cov_matrix_, index=horizon_series_ids, columns=horizon_series_ids)
+            self.corr_df = pd.DataFrame(self.corr_matrix_, index=horizon_series_ids, columns=horizon_series_ids)
 
     def _require_residuals(self, df: pd.DataFrame) -> None:
         if not hasattr(self, "cov_matrix_"):
@@ -802,46 +810,82 @@ class multi_prob_forecasts:
         corr_mat = self.corr_matrix_
 
         if method == "mvn":
-            innovations = np.zeros((n_samples, self.H, N))
-            for h in range(self.H):
-                innovations[:, h, :] = rng.multivariate_normal(mean=np.zeros(N), cov=cov_psd, size=n_samples)
+            if self.n_calib is not None:
+                innov_flat = rng.multivariate_normal(mean=np.zeros(self.H * N), cov=cov_psd, size=n_samples)
+                innovations = innov_flat.reshape(n_samples, self.H, N) # reshape to (n_samples, H, N) to match the series and horizons
+            else:
+                innovations = np.zeros((n_samples, self.H, N))
+                for h in range(self.H):
+                    innovations[:, h, :] = rng.multivariate_normal(mean=np.zeros(N), cov=cov_psd, size=n_samples)
 
         elif method == "student_t":
-            innovations = np.zeros((n_samples, self.H, N))
-            for h in range(self.H):
-                Z_h = rng.multivariate_normal(mean=np.zeros(N), cov=cov_psd, size=n_samples)
-                W_h = rng.chisquare(df=df_t_deg, size=(n_samples, 1))
-                scale_h = np.sqrt(W_h / df_t_deg)
-                innovations[:, h, :] = Z_h / scale_h
+            if self.n_calib is not None:
+                D = self.H * N
+                Z = rng.multivariate_normal(mean=np.zeros(D), cov=cov_psd, size=n_samples) # generate correlated standard normal samples with shape (n_samples, H*N)
+                W = rng.chisquare(df=df_t_deg, size=(n_samples, 1))
+                scale = np.sqrt(W / df_t_deg)
+                innovations = (Z / scale).reshape(n_samples, self.H, N) # reshape to (n_samples, H, N) to match the series and horizons
+            else:
+                innovations = np.zeros((n_samples, self.H, N))
+                for h in range(self.H):
+                    Z_h = rng.multivariate_normal(mean=np.zeros(N), cov=cov_psd, size=n_samples)
+                    W_h = rng.chisquare(df=df_t_deg, size=(n_samples, 1))
+                    scale_h = np.sqrt(W_h / df_t_deg)
+                    innovations[:, h, :] = Z_h / scale_h
 
         elif method == "copula":
-            innovations = np.zeros((n_samples, self.H, N))
-            for h in range(self.H):
-                Z_h = rng.multivariate_normal(mean=np.zeros(N), cov=corr_mat, size=n_samples) # generate correlated standard normals for horizon h
-                U_h = norm.cdf(Z_h) # transform to uniform marginals. In copula sampling, we use the empirical CDF of the residuals to transform these uniform samples into the desired marginal distributions.
-                U_h = np.clip(U_h, 1e-6, 1.0 - 1e-6)
-
-                for j, s in enumerate(series_ids):
-                    s_res = self.joint_error_matrix[:, j] # empirical residuals for series s
-                    innovations[:, h, j] = np.quantile(s_res, U_h[:, j]) # inverse CDF of empirical residuals. Formula: F^{-1}(U) where F is the empirical CDF of the residuals for series s.
+            if self.n_calib is not None:
+                D = self.H * N
+                Z = rng.multivariate_normal(mean=np.zeros(D), cov=corr_mat, size=n_samples) # generate correlated standard normal samples with shape (n_samples, H*N)
+                U = np.clip(norm.cdf(Z), 1e-6, 1.0 - 1e-6)
+                innovations = np.zeros((n_samples, self.H, N))
+                for h in range(self.H):
+                    for j, s in enumerate(series_ids):
+                        u_hj = U[:, h * N + j]
+                        s_res = self.resid[s][h]
+                        innovations[:, h, j] = np.quantile(s_res, u_hj)
+            else:
+                innovations = np.zeros((n_samples, self.H, N))
+                for h in range(self.H):
+                    Z_h = rng.multivariate_normal(mean=np.zeros(N), cov=corr_mat, size=n_samples)
+                    U_h = norm.cdf(Z_h)
+                    U_h = np.clip(U_h, 1e-6, 1.0 - 1e-6)
+                    for j, s in enumerate(series_ids):
+                        s_res = self.joint_error_matrix[:, j]
+                        innovations[:, h, j] = np.quantile(s_res, U_h[:, j])
 
         elif method == "empirical":
-            n_rows = len(self.joint_error_matrix)
-            innovations = np.zeros((n_samples, self.H, N))
-            for h in range(self.H):
+            if self.n_calib is not None:
+                n_rows = len(self.joint_error_matrix)
                 row_indices = rng.choice(n_rows, size=n_samples, replace=True)
-                innovations[:, h, :] = self.joint_error_matrix[row_indices, :]
+                innovations = self.joint_error_matrix[row_indices, :].reshape(n_samples, self.H, N)
+            else:
+                n_rows = len(self.joint_error_matrix)
+                innovations = np.zeros((n_samples, self.H, N))
+                for h in range(self.H):
+                    row_indices = rng.choice(n_rows, size=n_samples, replace=True)
+                    innovations[:, h, :] = self.joint_error_matrix[row_indices, :]
 
         elif method == "kde":
-            M_rows = len(self.joint_error_matrix)
-            bw_factor = M_rows ** (-1.0 / (N + 4.0)) 
-            kde_cov = (bw_factor ** 2) * cov_psd
-            innovations = np.zeros((n_samples, self.H, N))
-            for h in range(self.H):
+            if self.n_calib is not None:
+                D = self.H * N
+                M_rows = len(self.joint_error_matrix)
+                bw_factor = M_rows ** (-1.0 / (D + 4.0))
+                kde_cov = (bw_factor ** 2) * cov_psd
                 row_indices = rng.choice(M_rows, size=n_samples, replace=True)
                 centers = self.joint_error_matrix[row_indices, :]
-                noise = rng.multivariate_normal(mean=np.zeros(N), cov=kde_cov, size=n_samples)
-                innovations[:, h, :] = centers + noise
+                noise = rng.multivariate_normal(mean=np.zeros(D), cov=kde_cov, size=n_samples)
+                innovations = (centers + noise).reshape(n_samples, self.H, N)
+            else:
+                M_rows = len(self.joint_error_matrix)
+                bw_factor = M_rows ** (-1.0 / (N + 4.0))
+                kde_cov = (bw_factor ** 2) * cov_psd
+                innovations = np.zeros((n_samples, self.H, N))
+                for h in range(self.H):
+                    row_indices = rng.choice(M_rows, size=n_samples, replace=True)
+                    centers = self.joint_error_matrix[row_indices, :]
+                    noise = rng.multivariate_normal(mean=np.zeros(N), cov=kde_cov, size=n_samples)
+                    innovations[:, h, :] = centers + noise
 
         elif method == "ind_empirical":
             innovations = np.zeros((n_samples, self.H, N))

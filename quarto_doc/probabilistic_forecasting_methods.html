@@ -448,7 +448,11 @@ window.Quarto = {
 <h1 data-number="3"><span class="header-section-number">3</span> Multi-Series Probabilistic Forecasting (<code>multi_prob_forecasts</code>)</h1>
 <section id="architecture-calibration-workflow-1" class="level2" data-number="3.1">
 <h2 data-number="3.1" class="anchored" data-anchor-id="architecture-calibration-workflow-1"><span class="header-section-number">3.1</span> Architecture &amp; Calibration Workflow</h2>
-<p><code>multi_prob_forecasts</code> operates over a panel of <span class="math inline">\(N\)</span> interdependent time series. It constructs the <strong>Contemporaneous Joint Error Matrix</strong>: <span class="math display">\[\mathbf{E} \in \mathbb{R}^{M \times N}\]</span> where each row <span class="math inline">\(m \in \{1, \dots, M\}\)</span> represents an aligned cross-sectional snapshot of errors: <span class="math display">\[\mathbf{e}_m = \left[ e_{m, 1}, \, e_{m, 2}, \, \dots, \, e_{m, N} \right]^\top \in \mathbb{R}^N\]</span></p>
+<p><code>multi_prob_forecasts</code> operates over a panel of <span class="math inline">\(N\)</span> interdependent time series across forecast horizon <span class="math inline">\(H\)</span>. It constructs the <strong>Joint Error Matrix</strong> under two distinct calibration regimes:</p>
+<ol type="1">
+<li><p><strong>Cross-Validation Calibration (<code>n_calibration = K</code>) — Full Cross-Series &amp; Cross-Horizon Covariance</strong>: In each fold <span class="math inline">\(k \in \{1, \dots, K\}\)</span>, the forecaster generates multi-step predictions <span class="math inline">\(\hat{y}_{s, h, k}\)</span> for every series <span class="math inline">\(s\)</span> across all horizons <span class="math inline">\(h \in \{1, \dots, H\}\)</span>. The errors are concatenated into a <span class="math inline">\(D = (H \cdot N)\)</span>-dimensional joint trajectory vector: <span class="math display">\[\mathbf{e}_k = \left[ e_{1, 1, k}, \, e_{2, 1, k}, \, \dots, \, e_{N, 1, k}, \, e_{1, 2, k}, \, \dots, \, e_{N, H, k} \right]^\top \in \mathbb{R}^{H \cdot N}\]</span> Arranged into the <span class="math inline">\((K \times HN)\)</span> Joint Error Matrix: <span class="math display">\[\mathbf{E} \in \mathbb{R}^{K \times (H \cdot N)}\]</span> The regularized covariance matrix <span class="math inline">\(\mathbf{\Sigma}_{\text{psd}} \in \mathbb{R}^{(HN) \times (HN)}\)</span> captures <strong>both contemporaneous cross-series correlation AND multi-step cross-horizon autocovariance</strong>.</p></li>
+<li><p><strong>In-Sample Residuals (<code>n_calibration = None</code>) — Cross-Sectional Covariance</strong>: When calibration is omitted, 1-step in-sample residuals from <span class="math inline">\(M\)</span> historical time steps form an <span class="math inline">\((M \times N)\)</span> error matrix: <span class="math display">\[\mathbf{E} \in \mathbb{R}^{M \times N}\]</span> yielding an <span class="math inline">\((N \times N)\)</span> cross-series covariance matrix <span class="math inline">\(\mathbf{\Sigma}_{\text{psd}} \in \mathbb{R}^{N \times N}\)</span>.</p></li>
+</ol>
 <pre class="mermaid"><code>flowchart LR
     A["Multi-Series Panel df"] --&gt; B["ml_multi_forecaster"]
     B --&gt; C["Align Cross-Series Residuals"]
@@ -467,13 +471,20 @@ window.Quarto = {
 <section id="python-implementation-4" class="level3" data-number="3.2.1">
 <h3 data-number="3.2.1" class="anchored" data-anchor-id="python-implementation-4"><span class="header-section-number">3.2.1</span> Python Implementation</h3>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> method <span class="op">==</span> <span class="st">"mvn"</span>:</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>        innovations[:, h, :] <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(N), cov<span class="op">=</span>cov_psd, size<span class="op">=</span>n_samples)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="va">self</span>.n_calib <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>        innov_flat <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(<span class="va">self</span>.H <span class="op">*</span> N), cov<span class="op">=</span>cov_psd, size<span class="op">=</span>n_samples)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> innov_flat.reshape(n_samples, <span class="va">self</span>.H, N)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>            innovations[:, h, :] <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(N), cov<span class="op">=</span>cov_psd, size<span class="op">=</span>n_samples)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="mathematical-formulation" class="level3" data-number="3.2.2">
 <h3 data-number="3.2.2" class="anchored" data-anchor-id="mathematical-formulation"><span class="header-section-number">3.2.2</span> Mathematical Formulation</h3>
-<p><span class="math display">\[\mathbf{e}_h \sim \mathcal{N}_N\left(\mathbf{0}, \, \mathbf{\Sigma}_{\text{psd}}\right)\]</span> <span class="math display">\[\mathbf{\Sigma}_{\text{psd}} = \mathbf{V} \operatorname{diag}\left(\max(\lambda_i, 10^{-8})\right) \mathbf{V}^\top\]</span> Draws Gaussian shocks across all <span class="math inline">\(N\)</span> series simultaneously, maintaining the empirical covariance <span class="math inline">\(\mathbf{\Sigma}\)</span>.</p>
+<ul>
+<li><strong>When Calibrated (<code>n_calibration=K</code>)</strong>: Draws full multi-step trajectory vectors simultaneously from the <span class="math inline">\((H \cdot N)\)</span>-dimensional Multivariate Normal: <span class="math display">\[\mathbf{e}^{(s)} \sim \mathcal{N}_{HN}\left(\mathbf{0}, \, \mathbf{\Sigma}_{\text{psd}}\right) \in \mathbb{R}^{H \cdot N}\]</span> Reshaped to <span class="math inline">\((H \times N)\)</span> per simulated path. This preserves both cross-series contemporaneous relationships and temporal auto-correlations across forecast horizons <span class="math inline">\(h=1, \dots, H\)</span>.</li>
+<li><strong>When In-Sample (<code>n_calibration=None</code>)</strong>: Draws <span class="math inline">\(N\)</span>-dimensional contemporaneous normal vectors <span class="math inline">\(\mathbf{e}_h \sim \mathcal{N}_N(\mathbf{0}, \mathbf{\Sigma}_{\text{psd}})\)</span> independently for each horizon step.</li>
+</ul>
 <hr>
 </section>
 </section>
@@ -482,12 +493,19 @@ window.Quarto = {
 <section id="python-implementation-5" class="level3" data-number="3.3.1">
 <h3 data-number="3.3.1" class="anchored" data-anchor-id="python-implementation-5"><span class="header-section-number">3.3.1</span> Python Implementation</h3>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> method <span class="op">==</span> <span class="st">"student_t"</span>:</span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>        Z_h <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(N), cov<span class="op">=</span>cov_psd, size<span class="op">=</span>n_samples)</span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>        W_h <span class="op">=</span> rng.chisquare(df<span class="op">=</span>df_t_deg, size<span class="op">=</span>(n_samples, <span class="dv">1</span>))</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>        scale_h <span class="op">=</span> np.sqrt(W_h <span class="op">/</span> df_t_deg)</span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>        innovations[:, h, :] <span class="op">=</span> Z_h <span class="op">/</span> scale_h</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="va">self</span>.n_calib <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>        D <span class="op">=</span> <span class="va">self</span>.H <span class="op">*</span> N</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>        Z <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(D), cov<span class="op">=</span>cov_psd, size<span class="op">=</span>n_samples)</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>        W <span class="op">=</span> rng.chisquare(df<span class="op">=</span>df_t_deg, size<span class="op">=</span>(n_samples, <span class="dv">1</span>))</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>        scale <span class="op">=</span> np.sqrt(W <span class="op">/</span> df_t_deg)</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> (Z <span class="op">/</span> scale).reshape(n_samples, <span class="va">self</span>.H, N)</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>            Z_h <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(N), cov<span class="op">=</span>cov_psd, size<span class="op">=</span>n_samples)</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>            W_h <span class="op">=</span> rng.chisquare(df<span class="op">=</span>df_t_deg, size<span class="op">=</span>(n_samples, <span class="dv">1</span>))</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>            scale_h <span class="op">=</span> np.sqrt(W_h <span class="op">/</span> df_t_deg)</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>            innovations[:, h, :] <span class="op">=</span> Z_h <span class="op">/</span> scale_h</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="mathematical-formulation-1" class="level3" data-number="3.3.2">
 <h3 data-number="3.3.2" class="anchored" data-anchor-id="mathematical-formulation-1"><span class="header-section-number">3.3.2</span> Mathematical Formulation</h3>
@@ -501,15 +519,25 @@ window.Quarto = {
 <section id="python-implementation-6" class="level3" data-number="3.4.1">
 <h3 data-number="3.4.1" class="anchored" data-anchor-id="python-implementation-6"><span class="header-section-number">3.4.1</span> Python Implementation</h3>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> method <span class="op">==</span> <span class="st">"copula"</span>:</span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>        Z_h <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(N), cov<span class="op">=</span>corr_mat, size<span class="op">=</span>n_samples)</span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>        U_h <span class="op">=</span> norm.cdf(Z_h)</span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>        U_h <span class="op">=</span> np.clip(U_h, <span class="fl">1e-6</span>, <span class="fl">1.0</span> <span class="op">-</span> <span class="fl">1e-6</span>)</span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> j, s <span class="kw">in</span> <span class="bu">enumerate</span>(series_ids):</span>
-<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>            s_res <span class="op">=</span> <span class="va">self</span>.joint_error_matrix[:, j]</span>
-<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>            innovations[:, h, j] <span class="op">=</span> np.quantile(s_res, U_h[:, j])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="va">self</span>.n_calib <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>        D <span class="op">=</span> <span class="va">self</span>.H <span class="op">*</span> N</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>        Z <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(D), cov<span class="op">=</span>corr_mat, size<span class="op">=</span>n_samples)</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>        U <span class="op">=</span> np.clip(norm.cdf(Z), <span class="fl">1e-6</span>, <span class="fl">1.0</span> <span class="op">-</span> <span class="fl">1e-6</span>)</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> j, s <span class="kw">in</span> <span class="bu">enumerate</span>(series_ids):</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>                u_hj <span class="op">=</span> U[:, h <span class="op">*</span> N <span class="op">+</span> j]</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>                s_res <span class="op">=</span> <span class="va">self</span>.resid[s][h]</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>                innovations[:, h, j] <span class="op">=</span> np.quantile(s_res, u_hj)</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>            Z_h <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(N), cov<span class="op">=</span>corr_mat, size<span class="op">=</span>n_samples)</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>            U_h <span class="op">=</span> norm.cdf(Z_h)</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>            U_h <span class="op">=</span> np.clip(U_h, <span class="fl">1e-6</span>, <span class="fl">1.0</span> <span class="op">-</span> <span class="fl">1e-6</span>)</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> j, s <span class="kw">in</span> <span class="bu">enumerate</span>(series_ids):</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>                s_res <span class="op">=</span> <span class="va">self</span>.joint_error_matrix[:, j]</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>                innovations[:, h, j] <span class="op">=</span> np.quantile(s_res, U_h[:, j])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="mathematical-formulation-2" class="level3" data-number="3.4.2">
 <h3 data-number="3.4.2" class="anchored" data-anchor-id="mathematical-formulation-2"><span class="header-section-number">3.4.2</span> Mathematical Formulation</h3>
@@ -522,11 +550,16 @@ window.Quarto = {
 <section id="python-implementation-7" class="level3" data-number="3.5.1">
 <h3 data-number="3.5.1" class="anchored" data-anchor-id="python-implementation-7"><span class="header-section-number">3.5.1</span> Python Implementation</h3>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> method <span class="op">==</span> <span class="st">"empirical"</span>:</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    n_rows <span class="op">=</span> <span class="bu">len</span>(<span class="va">self</span>.joint_error_matrix)</span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>        row_indices <span class="op">=</span> rng.choice(n_rows, size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>        innovations[:, h, :] <span class="op">=</span> <span class="va">self</span>.joint_error_matrix[row_indices, :]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="va">self</span>.n_calib <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>        n_rows <span class="op">=</span> <span class="bu">len</span>(<span class="va">self</span>.joint_error_matrix)</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>        row_indices <span class="op">=</span> rng.choice(n_rows, size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> <span class="va">self</span>.joint_error_matrix[row_indices, :].reshape(n_samples, <span class="va">self</span>.H, N)</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>        n_rows <span class="op">=</span> <span class="bu">len</span>(<span class="va">self</span>.joint_error_matrix)</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>            row_indices <span class="op">=</span> rng.choice(n_rows, size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>            innovations[:, h, :] <span class="op">=</span> <span class="va">self</span>.joint_error_matrix[row_indices, :]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="mathematical-formulation-3" class="level3" data-number="3.5.2">
 <h3 data-number="3.5.2" class="anchored" data-anchor-id="mathematical-formulation-3"><span class="header-section-number">3.5.2</span> Mathematical Formulation</h3>
@@ -592,15 +625,25 @@ window.Quarto = {
 <section id="the-code-under-scrutiny" class="level2" data-number="4.1">
 <h2 data-number="4.1" class="anchored" data-anchor-id="the-code-under-scrutiny"><span class="header-section-number">4.1</span> The Code Under Scrutiny</h2>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> method <span class="op">==</span> <span class="st">"kde"</span>:</span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    M_rows <span class="op">=</span> <span class="bu">len</span>(<span class="va">self</span>.joint_error_matrix)</span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    bw_factor <span class="op">=</span> M_rows <span class="op">**</span> (<span class="op">-</span><span class="fl">1.0</span> <span class="op">/</span> (N <span class="op">+</span> <span class="fl">4.0</span>))</span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    kde_cov <span class="op">=</span> (bw_factor <span class="op">**</span> <span class="dv">2</span>) <span class="op">*</span> cov_psd</span>
-<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>    innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
-<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="va">self</span>.n_calib <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>        D <span class="op">=</span> <span class="va">self</span>.H <span class="op">*</span> N</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>        M_rows <span class="op">=</span> <span class="bu">len</span>(<span class="va">self</span>.joint_error_matrix)</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>        bw_factor <span class="op">=</span> M_rows <span class="op">**</span> (<span class="op">-</span><span class="fl">1.0</span> <span class="op">/</span> (D <span class="op">+</span> <span class="fl">4.0</span>))</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>        kde_cov <span class="op">=</span> (bw_factor <span class="op">**</span> <span class="dv">2</span>) <span class="op">*</span> cov_psd</span>
 <span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>        row_indices <span class="op">=</span> rng.choice(M_rows, size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
 <span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>        centers <span class="op">=</span> <span class="va">self</span>.joint_error_matrix[row_indices, :]</span>
-<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>        noise <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(N), cov<span class="op">=</span>kde_cov, size<span class="op">=</span>n_samples)</span>
-<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>        innovations[:, h, :] <span class="op">=</span> centers <span class="op">+</span> noise</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>        noise <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(D), cov<span class="op">=</span>kde_cov, size<span class="op">=</span>n_samples)</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> (centers <span class="op">+</span> noise).reshape(n_samples, <span class="va">self</span>.H, N)</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>        M_rows <span class="op">=</span> <span class="bu">len</span>(<span class="va">self</span>.joint_error_matrix)</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>        bw_factor <span class="op">=</span> M_rows <span class="op">**</span> (<span class="op">-</span><span class="fl">1.0</span> <span class="op">/</span> (N <span class="op">+</span> <span class="fl">4.0</span>))</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>        kde_cov <span class="op">=</span> (bw_factor <span class="op">**</span> <span class="dv">2</span>) <span class="op">*</span> cov_psd</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>            row_indices <span class="op">=</span> rng.choice(M_rows, size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>            centers <span class="op">=</span> <span class="va">self</span>.joint_error_matrix[row_indices, :]</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>            noise <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(N), cov<span class="op">=</span>kde_cov, size<span class="op">=</span>n_samples)</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a>            innovations[:, h, :] <span class="op">=</span> centers <span class="op">+</span> noise</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Let us dissect each component with mathematical precision.</p>
 <hr>
 </section>
@@ -1507,319 +1550,367 @@ window.Quarto = {
 <span id="cb18-257"><a href="#cb18-257" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-258"><a href="#cb18-258" aria-hidden="true" tabindex="-1"></a><span class="fu">## Architecture &amp; Calibration Workflow</span></span>
 <span id="cb18-259"><a href="#cb18-259" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-260"><a href="#cb18-260" aria-hidden="true" tabindex="-1"></a><span class="in">`multi_prob_forecasts`</span> operates over a panel of $N$ interdependent time series. It constructs the **Contemporaneous Joint Error Matrix**:</span>
-<span id="cb18-261"><a href="#cb18-261" aria-hidden="true" tabindex="-1"></a>$$\mathbf{E} \in \mathbb{R}^{M \times N}$$</span>
-<span id="cb18-262"><a href="#cb18-262" aria-hidden="true" tabindex="-1"></a>where each row $m \in <span class="sc">\{</span>1, \dots, M<span class="sc">\}</span>$ represents an aligned cross-sectional snapshot of errors:</span>
-<span id="cb18-263"><a href="#cb18-263" aria-hidden="true" tabindex="-1"></a>$$\mathbf{e}_m = \left[ e_{m, 1}, \, e_{m, 2}, \, \dots, \, e_{m, N} \right]^\top \in \mathbb{R}^N$$</span>
-<span id="cb18-264"><a href="#cb18-264" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-265"><a href="#cb18-265" aria-hidden="true" tabindex="-1"></a><span class="in">```mermaid</span></span>
-<span id="cb18-266"><a href="#cb18-266" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
-<span id="cb18-267"><a href="#cb18-267" aria-hidden="true" tabindex="-1"></a>    A[<span class="ot">"</span><span class="st">Multi-Series Panel df</span><span class="ot">"</span>] --&gt; B[<span class="ot">"</span><span class="st">ml_multi_forecaster</span><span class="ot">"</span>]</span>
-<span id="cb18-268"><a href="#cb18-268" aria-hidden="true" tabindex="-1"></a>    B --&gt; C[<span class="ot">"</span><span class="st">Align Cross-Series Residuals</span><span class="ot">"</span>]</span>
-<span id="cb18-269"><a href="#cb18-269" aria-hidden="true" tabindex="-1"></a>    C --&gt; D[<span class="ot">"</span><span class="st">Joint Error Matrix E in R^{M x N}</span><span class="ot">"</span>]</span>
-<span id="cb18-270"><a href="#cb18-270" aria-hidden="true" tabindex="-1"></a>    D --&gt; E[<span class="ot">"</span><span class="st">PSD Regularized Covariance Sigma_{psd}</span><span class="ot">"</span>]</span>
-<span id="cb18-271"><a href="#cb18-271" aria-hidden="true" tabindex="-1"></a>    E --&gt; F{<span class="ot">"</span><span class="st">sample(method=...)</span><span class="ot">"</span>}</span>
-<span id="cb18-272"><a href="#cb18-272" aria-hidden="true" tabindex="-1"></a>    F --&gt; G[<span class="ot">"</span><span class="st">'mvn'</span><span class="ot">"</span>]</span>
-<span id="cb18-273"><a href="#cb18-273" aria-hidden="true" tabindex="-1"></a>    F --&gt; H[<span class="ot">"</span><span class="st">'student_t'</span><span class="ot">"</span>]</span>
-<span id="cb18-274"><a href="#cb18-274" aria-hidden="true" tabindex="-1"></a>    F --&gt; I[<span class="ot">"</span><span class="st">'copula'</span><span class="ot">"</span>]</span>
-<span id="cb18-275"><a href="#cb18-275" aria-hidden="true" tabindex="-1"></a>    F --&gt; J[<span class="ot">"</span><span class="st">'empirical'</span><span class="ot">"</span>]</span>
-<span id="cb18-276"><a href="#cb18-276" aria-hidden="true" tabindex="-1"></a>    F --&gt; K[<span class="ot">"</span><span class="st">'kde' (Scott's Rule Mixture)</span><span class="ot">"</span>]</span>
-<span id="cb18-277"><a href="#cb18-277" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb18-278"><a href="#cb18-278" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-279"><a href="#cb18-279" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb18-280"><a href="#cb18-280" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-281"><a href="#cb18-281" aria-hidden="true" tabindex="-1"></a><span class="fu">## Method 1: Multivariate Normal (`method="mvn"`)</span></span>
-<span id="cb18-282"><a href="#cb18-282" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-283"><a href="#cb18-283" aria-hidden="true" tabindex="-1"></a><span class="fu">### Python Implementation</span></span>
-<span id="cb18-284"><a href="#cb18-284" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb18-285"><a href="#cb18-285" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> method <span class="op">==</span> <span class="st">"mvn"</span>:</span>
-<span id="cb18-286"><a href="#cb18-286" aria-hidden="true" tabindex="-1"></a>    innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
-<span id="cb18-287"><a href="#cb18-287" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
-<span id="cb18-288"><a href="#cb18-288" aria-hidden="true" tabindex="-1"></a>        innovations[:, h, :] <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(N), cov<span class="op">=</span>cov_psd, size<span class="op">=</span>n_samples)</span>
-<span id="cb18-289"><a href="#cb18-289" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb18-290"><a href="#cb18-290" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-291"><a href="#cb18-291" aria-hidden="true" tabindex="-1"></a><span class="fu">### Mathematical Formulation</span></span>
-<span id="cb18-292"><a href="#cb18-292" aria-hidden="true" tabindex="-1"></a>$$\mathbf{e}_h \sim \mathcal{N}_N\left(\mathbf{0}, \, \mathbf{\Sigma}_{\text{psd}}\right)$$</span>
-<span id="cb18-293"><a href="#cb18-293" aria-hidden="true" tabindex="-1"></a>$$\mathbf{\Sigma}_{\text{psd}} = \mathbf{V} \operatorname{diag}\left(\max(\lambda_i, 10^{-8})\right) \mathbf{V}^\top$$</span>
-<span id="cb18-294"><a href="#cb18-294" aria-hidden="true" tabindex="-1"></a>Draws Gaussian shocks across all $N$ series simultaneously, maintaining the empirical covariance $\mathbf{\Sigma}$.</span>
-<span id="cb18-295"><a href="#cb18-295" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-296"><a href="#cb18-296" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb18-297"><a href="#cb18-297" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-298"><a href="#cb18-298" aria-hidden="true" tabindex="-1"></a><span class="fu">## Method 2: Multivariate Student-$t$ (`method="student_t"`)</span></span>
-<span id="cb18-299"><a href="#cb18-299" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-300"><a href="#cb18-300" aria-hidden="true" tabindex="-1"></a><span class="fu">### Python Implementation</span></span>
-<span id="cb18-301"><a href="#cb18-301" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb18-302"><a href="#cb18-302" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> method <span class="op">==</span> <span class="st">"student_t"</span>:</span>
-<span id="cb18-303"><a href="#cb18-303" aria-hidden="true" tabindex="-1"></a>    innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
-<span id="cb18-304"><a href="#cb18-304" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
-<span id="cb18-305"><a href="#cb18-305" aria-hidden="true" tabindex="-1"></a>        Z_h <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(N), cov<span class="op">=</span>cov_psd, size<span class="op">=</span>n_samples)</span>
-<span id="cb18-306"><a href="#cb18-306" aria-hidden="true" tabindex="-1"></a>        W_h <span class="op">=</span> rng.chisquare(df<span class="op">=</span>df_t_deg, size<span class="op">=</span>(n_samples, <span class="dv">1</span>))</span>
-<span id="cb18-307"><a href="#cb18-307" aria-hidden="true" tabindex="-1"></a>        scale_h <span class="op">=</span> np.sqrt(W_h <span class="op">/</span> df_t_deg)</span>
-<span id="cb18-308"><a href="#cb18-308" aria-hidden="true" tabindex="-1"></a>        innovations[:, h, :] <span class="op">=</span> Z_h <span class="op">/</span> scale_h</span>
-<span id="cb18-309"><a href="#cb18-309" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb18-310"><a href="#cb18-310" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-311"><a href="#cb18-311" aria-hidden="true" tabindex="-1"></a><span class="fu">### Mathematical Formulation</span></span>
-<span id="cb18-312"><a href="#cb18-312" aria-hidden="true" tabindex="-1"></a>The Multivariate Student-$t$ distribution $t_N(\nu, \mathbf{0}, \mathbf{\Sigma})$ is represented as a scale mixture of Gaussians:</span>
-<span id="cb18-313"><a href="#cb18-313" aria-hidden="true" tabindex="-1"></a>$$\mathbf{X} = \frac{\mathbf{Z}}{\sqrt{W / \nu}}$$</span>
-<span id="cb18-314"><a href="#cb18-314" aria-hidden="true" tabindex="-1"></a>where:</span>
-<span id="cb18-315"><a href="#cb18-315" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$\mathbf{Z} \sim \mathcal{N}_N(\mathbf{0}, \mathbf{\Sigma})$</span>
-<span id="cb18-316"><a href="#cb18-316" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$W \sim \chi^2(\nu)$ is an independent chi-squared scalar with $\nu$ degrees of freedom (<span class="in">`df_t_deg`</span>).</span>
-<span id="cb18-317"><a href="#cb18-317" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-318"><a href="#cb18-318" aria-hidden="true" tabindex="-1"></a>**Statistical Utility**: For $\nu \le 5$, the distribution exhibits heavy power-law tails. Extreme shocks (e.g. system-wide demand surges or liquidity events) occur jointly across multiple series with substantially higher probability than under a thin-tailed Gaussian distribution.</span>
-<span id="cb18-319"><a href="#cb18-319" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-320"><a href="#cb18-320" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb18-321"><a href="#cb18-321" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-322"><a href="#cb18-322" aria-hidden="true" tabindex="-1"></a><span class="fu">## Method 3: Gaussian Copula (`method="copula"`)</span></span>
-<span id="cb18-323"><a href="#cb18-323" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-324"><a href="#cb18-324" aria-hidden="true" tabindex="-1"></a><span class="fu">### Python Implementation</span></span>
-<span id="cb18-325"><a href="#cb18-325" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb18-326"><a href="#cb18-326" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> method <span class="op">==</span> <span class="st">"copula"</span>:</span>
-<span id="cb18-327"><a href="#cb18-327" aria-hidden="true" tabindex="-1"></a>    innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
-<span id="cb18-328"><a href="#cb18-328" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
-<span id="cb18-329"><a href="#cb18-329" aria-hidden="true" tabindex="-1"></a>        Z_h <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(N), cov<span class="op">=</span>corr_mat, size<span class="op">=</span>n_samples)</span>
-<span id="cb18-330"><a href="#cb18-330" aria-hidden="true" tabindex="-1"></a>        U_h <span class="op">=</span> norm.cdf(Z_h)</span>
-<span id="cb18-331"><a href="#cb18-331" aria-hidden="true" tabindex="-1"></a>        U_h <span class="op">=</span> np.clip(U_h, <span class="fl">1e-6</span>, <span class="fl">1.0</span> <span class="op">-</span> <span class="fl">1e-6</span>)</span>
-<span id="cb18-332"><a href="#cb18-332" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-333"><a href="#cb18-333" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> j, s <span class="kw">in</span> <span class="bu">enumerate</span>(series_ids):</span>
-<span id="cb18-334"><a href="#cb18-334" aria-hidden="true" tabindex="-1"></a>            s_res <span class="op">=</span> <span class="va">self</span>.joint_error_matrix[:, j]</span>
-<span id="cb18-335"><a href="#cb18-335" aria-hidden="true" tabindex="-1"></a>            innovations[:, h, j] <span class="op">=</span> np.quantile(s_res, U_h[:, j])</span>
-<span id="cb18-336"><a href="#cb18-336" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb18-337"><a href="#cb18-337" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-338"><a href="#cb18-338" aria-hidden="true" tabindex="-1"></a><span class="fu">### Mathematical Formulation</span></span>
-<span id="cb18-339"><a href="#cb18-339" aria-hidden="true" tabindex="-1"></a>Couples the regularized cross-series correlation matrix $\mathbf{R} \in \mathbb{R}^{N \times N}$ with the empirical 1-dimensional marginal quantiles $\hat{F}_j^{-1}(u)$ of each individual series $j \in <span class="sc">\{</span>1, \dots, N<span class="sc">\}</span>$.</span>
+<span id="cb18-260"><a href="#cb18-260" aria-hidden="true" tabindex="-1"></a><span class="in">`multi_prob_forecasts`</span> operates over a panel of $N$ interdependent time series across forecast horizon $H$. It constructs the **Joint Error Matrix** under two distinct calibration regimes:</span>
+<span id="cb18-261"><a href="#cb18-261" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-262"><a href="#cb18-262" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Cross-Validation Calibration (`n_calibration = K`) — Full Cross-Series &amp; Cross-Horizon Covariance**:</span>
+<span id="cb18-263"><a href="#cb18-263" aria-hidden="true" tabindex="-1"></a>   In each fold $k \in <span class="sc">\{</span>1, \dots, K<span class="sc">\}</span>$, the forecaster generates multi-step predictions $\hat{y}_{s, h, k}$ for every series $s$ across all horizons $h \in <span class="sc">\{</span>1, \dots, H<span class="sc">\}</span>$. The errors are concatenated into a $D = (H \cdot N)$-dimensional joint trajectory vector:</span>
+<span id="cb18-264"><a href="#cb18-264" aria-hidden="true" tabindex="-1"></a>   $$\mathbf{e}_k = \left[ e_{1, 1, k}, \, e_{2, 1, k}, \, \dots, \, e_{N, 1, k}, \, e_{1, 2, k}, \, \dots, \, e_{N, H, k} \right]^\top \in \mathbb{R}^{H \cdot N}$$</span>
+<span id="cb18-265"><a href="#cb18-265" aria-hidden="true" tabindex="-1"></a>   Arranged into the $(K \times HN)$ Joint Error Matrix:</span>
+<span id="cb18-266"><a href="#cb18-266" aria-hidden="true" tabindex="-1"></a>   $$\mathbf{E} \in \mathbb{R}^{K \times (H \cdot N)}$$</span>
+<span id="cb18-267"><a href="#cb18-267" aria-hidden="true" tabindex="-1"></a>   The regularized covariance matrix $\mathbf{\Sigma}_{\text{psd}} \in \mathbb{R}^{(HN) \times (HN)}$ captures **both contemporaneous cross-series correlation AND multi-step cross-horizon autocovariance**.</span>
+<span id="cb18-268"><a href="#cb18-268" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-269"><a href="#cb18-269" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**In-Sample Residuals (`n_calibration = None`) — Cross-Sectional Covariance**:</span>
+<span id="cb18-270"><a href="#cb18-270" aria-hidden="true" tabindex="-1"></a>   When calibration is omitted, 1-step in-sample residuals from $M$ historical time steps form an $(M \times N)$ error matrix:</span>
+<span id="cb18-271"><a href="#cb18-271" aria-hidden="true" tabindex="-1"></a>   $$\mathbf{E} \in \mathbb{R}^{M \times N}$$</span>
+<span id="cb18-272"><a href="#cb18-272" aria-hidden="true" tabindex="-1"></a>   yielding an $(N \times N)$ cross-series covariance matrix $\mathbf{\Sigma}_{\text{psd}} \in \mathbb{R}^{N \times N}$.</span>
+<span id="cb18-273"><a href="#cb18-273" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-274"><a href="#cb18-274" aria-hidden="true" tabindex="-1"></a><span class="in">```mermaid</span></span>
+<span id="cb18-275"><a href="#cb18-275" aria-hidden="true" tabindex="-1"></a>flowchart LR</span>
+<span id="cb18-276"><a href="#cb18-276" aria-hidden="true" tabindex="-1"></a>    A[<span class="ot">"</span><span class="st">Multi-Series Panel df</span><span class="ot">"</span>] --&gt; B[<span class="ot">"</span><span class="st">ml_multi_forecaster</span><span class="ot">"</span>]</span>
+<span id="cb18-277"><a href="#cb18-277" aria-hidden="true" tabindex="-1"></a>    B --&gt; C[<span class="ot">"</span><span class="st">Align Cross-Series Residuals</span><span class="ot">"</span>]</span>
+<span id="cb18-278"><a href="#cb18-278" aria-hidden="true" tabindex="-1"></a>    C --&gt; D[<span class="ot">"</span><span class="st">Joint Error Matrix E in R^{M x N}</span><span class="ot">"</span>]</span>
+<span id="cb18-279"><a href="#cb18-279" aria-hidden="true" tabindex="-1"></a>    D --&gt; E[<span class="ot">"</span><span class="st">PSD Regularized Covariance Sigma_{psd}</span><span class="ot">"</span>]</span>
+<span id="cb18-280"><a href="#cb18-280" aria-hidden="true" tabindex="-1"></a>    E --&gt; F{<span class="ot">"</span><span class="st">sample(method=...)</span><span class="ot">"</span>}</span>
+<span id="cb18-281"><a href="#cb18-281" aria-hidden="true" tabindex="-1"></a>    F --&gt; G[<span class="ot">"</span><span class="st">'mvn'</span><span class="ot">"</span>]</span>
+<span id="cb18-282"><a href="#cb18-282" aria-hidden="true" tabindex="-1"></a>    F --&gt; H[<span class="ot">"</span><span class="st">'student_t'</span><span class="ot">"</span>]</span>
+<span id="cb18-283"><a href="#cb18-283" aria-hidden="true" tabindex="-1"></a>    F --&gt; I[<span class="ot">"</span><span class="st">'copula'</span><span class="ot">"</span>]</span>
+<span id="cb18-284"><a href="#cb18-284" aria-hidden="true" tabindex="-1"></a>    F --&gt; J[<span class="ot">"</span><span class="st">'empirical'</span><span class="ot">"</span>]</span>
+<span id="cb18-285"><a href="#cb18-285" aria-hidden="true" tabindex="-1"></a>    F --&gt; K[<span class="ot">"</span><span class="st">'kde' (Scott's Rule Mixture)</span><span class="ot">"</span>]</span>
+<span id="cb18-286"><a href="#cb18-286" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-287"><a href="#cb18-287" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-288"><a href="#cb18-288" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb18-289"><a href="#cb18-289" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-290"><a href="#cb18-290" aria-hidden="true" tabindex="-1"></a><span class="fu">## Method 1: Multivariate Normal (`method="mvn"`)</span></span>
+<span id="cb18-291"><a href="#cb18-291" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-292"><a href="#cb18-292" aria-hidden="true" tabindex="-1"></a><span class="fu">### Python Implementation</span></span>
+<span id="cb18-293"><a href="#cb18-293" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb18-294"><a href="#cb18-294" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> method <span class="op">==</span> <span class="st">"mvn"</span>:</span>
+<span id="cb18-295"><a href="#cb18-295" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="va">self</span>.n_calib <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb18-296"><a href="#cb18-296" aria-hidden="true" tabindex="-1"></a>        innov_flat <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(<span class="va">self</span>.H <span class="op">*</span> N), cov<span class="op">=</span>cov_psd, size<span class="op">=</span>n_samples)</span>
+<span id="cb18-297"><a href="#cb18-297" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> innov_flat.reshape(n_samples, <span class="va">self</span>.H, N)</span>
+<span id="cb18-298"><a href="#cb18-298" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb18-299"><a href="#cb18-299" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
+<span id="cb18-300"><a href="#cb18-300" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
+<span id="cb18-301"><a href="#cb18-301" aria-hidden="true" tabindex="-1"></a>            innovations[:, h, :] <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(N), cov<span class="op">=</span>cov_psd, size<span class="op">=</span>n_samples)</span>
+<span id="cb18-302"><a href="#cb18-302" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-303"><a href="#cb18-303" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-304"><a href="#cb18-304" aria-hidden="true" tabindex="-1"></a><span class="fu">### Mathematical Formulation</span></span>
+<span id="cb18-305"><a href="#cb18-305" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**When Calibrated (`n_calibration=K`)**:</span>
+<span id="cb18-306"><a href="#cb18-306" aria-hidden="true" tabindex="-1"></a>  Draws full multi-step trajectory vectors simultaneously from the $(H \cdot N)$-dimensional Multivariate Normal:</span>
+<span id="cb18-307"><a href="#cb18-307" aria-hidden="true" tabindex="-1"></a>  $$\mathbf{e}^{(s)} \sim \mathcal{N}_{HN}\left(\mathbf{0}, \, \mathbf{\Sigma}_{\text{psd}}\right) \in \mathbb{R}^{H \cdot N}$$</span>
+<span id="cb18-308"><a href="#cb18-308" aria-hidden="true" tabindex="-1"></a>  Reshaped to $(H \times N)$ per simulated path. This preserves both cross-series contemporaneous relationships and temporal auto-correlations across forecast horizons $h=1, \dots, H$.</span>
+<span id="cb18-309"><a href="#cb18-309" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**When In-Sample (`n_calibration=None`)**:</span>
+<span id="cb18-310"><a href="#cb18-310" aria-hidden="true" tabindex="-1"></a>  Draws $N$-dimensional contemporaneous normal vectors $\mathbf{e}_h \sim \mathcal{N}_N(\mathbf{0}, \mathbf{\Sigma}_{\text{psd}})$ independently for each horizon step.</span>
+<span id="cb18-311"><a href="#cb18-311" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-312"><a href="#cb18-312" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb18-313"><a href="#cb18-313" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-314"><a href="#cb18-314" aria-hidden="true" tabindex="-1"></a><span class="fu">## Method 2: Multivariate Student-$t$ (`method="student_t"`)</span></span>
+<span id="cb18-315"><a href="#cb18-315" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-316"><a href="#cb18-316" aria-hidden="true" tabindex="-1"></a><span class="fu">### Python Implementation</span></span>
+<span id="cb18-317"><a href="#cb18-317" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb18-318"><a href="#cb18-318" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> method <span class="op">==</span> <span class="st">"student_t"</span>:</span>
+<span id="cb18-319"><a href="#cb18-319" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="va">self</span>.n_calib <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb18-320"><a href="#cb18-320" aria-hidden="true" tabindex="-1"></a>        D <span class="op">=</span> <span class="va">self</span>.H <span class="op">*</span> N</span>
+<span id="cb18-321"><a href="#cb18-321" aria-hidden="true" tabindex="-1"></a>        Z <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(D), cov<span class="op">=</span>cov_psd, size<span class="op">=</span>n_samples)</span>
+<span id="cb18-322"><a href="#cb18-322" aria-hidden="true" tabindex="-1"></a>        W <span class="op">=</span> rng.chisquare(df<span class="op">=</span>df_t_deg, size<span class="op">=</span>(n_samples, <span class="dv">1</span>))</span>
+<span id="cb18-323"><a href="#cb18-323" aria-hidden="true" tabindex="-1"></a>        scale <span class="op">=</span> np.sqrt(W <span class="op">/</span> df_t_deg)</span>
+<span id="cb18-324"><a href="#cb18-324" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> (Z <span class="op">/</span> scale).reshape(n_samples, <span class="va">self</span>.H, N)</span>
+<span id="cb18-325"><a href="#cb18-325" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb18-326"><a href="#cb18-326" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
+<span id="cb18-327"><a href="#cb18-327" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
+<span id="cb18-328"><a href="#cb18-328" aria-hidden="true" tabindex="-1"></a>            Z_h <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(N), cov<span class="op">=</span>cov_psd, size<span class="op">=</span>n_samples)</span>
+<span id="cb18-329"><a href="#cb18-329" aria-hidden="true" tabindex="-1"></a>            W_h <span class="op">=</span> rng.chisquare(df<span class="op">=</span>df_t_deg, size<span class="op">=</span>(n_samples, <span class="dv">1</span>))</span>
+<span id="cb18-330"><a href="#cb18-330" aria-hidden="true" tabindex="-1"></a>            scale_h <span class="op">=</span> np.sqrt(W_h <span class="op">/</span> df_t_deg)</span>
+<span id="cb18-331"><a href="#cb18-331" aria-hidden="true" tabindex="-1"></a>            innovations[:, h, :] <span class="op">=</span> Z_h <span class="op">/</span> scale_h</span>
+<span id="cb18-332"><a href="#cb18-332" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-333"><a href="#cb18-333" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-334"><a href="#cb18-334" aria-hidden="true" tabindex="-1"></a><span class="fu">### Mathematical Formulation</span></span>
+<span id="cb18-335"><a href="#cb18-335" aria-hidden="true" tabindex="-1"></a>The Multivariate Student-$t$ distribution $t_N(\nu, \mathbf{0}, \mathbf{\Sigma})$ is represented as a scale mixture of Gaussians:</span>
+<span id="cb18-336"><a href="#cb18-336" aria-hidden="true" tabindex="-1"></a>$$\mathbf{X} = \frac{\mathbf{Z}}{\sqrt{W / \nu}}$$</span>
+<span id="cb18-337"><a href="#cb18-337" aria-hidden="true" tabindex="-1"></a>where:</span>
+<span id="cb18-338"><a href="#cb18-338" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$\mathbf{Z} \sim \mathcal{N}_N(\mathbf{0}, \mathbf{\Sigma})$</span>
+<span id="cb18-339"><a href="#cb18-339" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$W \sim \chi^2(\nu)$ is an independent chi-squared scalar with $\nu$ degrees of freedom (<span class="in">`df_t_deg`</span>).</span>
 <span id="cb18-340"><a href="#cb18-340" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-341"><a href="#cb18-341" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb18-341"><a href="#cb18-341" aria-hidden="true" tabindex="-1"></a>**Statistical Utility**: For $\nu \le 5$, the distribution exhibits heavy power-law tails. Extreme shocks (e.g. system-wide demand surges or liquidity events) occur jointly across multiple series with substantially higher probability than under a thin-tailed Gaussian distribution.</span>
 <span id="cb18-342"><a href="#cb18-342" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-343"><a href="#cb18-343" aria-hidden="true" tabindex="-1"></a><span class="fu">## Method 4: Joint Empirical Resampling (`method="empirical"`)</span></span>
+<span id="cb18-343"><a href="#cb18-343" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb18-344"><a href="#cb18-344" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-345"><a href="#cb18-345" aria-hidden="true" tabindex="-1"></a><span class="fu">### Python Implementation</span></span>
-<span id="cb18-346"><a href="#cb18-346" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb18-347"><a href="#cb18-347" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> method <span class="op">==</span> <span class="st">"empirical"</span>:</span>
-<span id="cb18-348"><a href="#cb18-348" aria-hidden="true" tabindex="-1"></a>    n_rows <span class="op">=</span> <span class="bu">len</span>(<span class="va">self</span>.joint_error_matrix)</span>
-<span id="cb18-349"><a href="#cb18-349" aria-hidden="true" tabindex="-1"></a>    innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
-<span id="cb18-350"><a href="#cb18-350" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
-<span id="cb18-351"><a href="#cb18-351" aria-hidden="true" tabindex="-1"></a>        row_indices <span class="op">=</span> rng.choice(n_rows, size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb18-352"><a href="#cb18-352" aria-hidden="true" tabindex="-1"></a>        innovations[:, h, :] <span class="op">=</span> <span class="va">self</span>.joint_error_matrix[row_indices, :]</span>
-<span id="cb18-353"><a href="#cb18-353" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb18-354"><a href="#cb18-354" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-355"><a href="#cb18-355" aria-hidden="true" tabindex="-1"></a><span class="fu">### Mathematical Formulation</span></span>
-<span id="cb18-356"><a href="#cb18-356" aria-hidden="true" tabindex="-1"></a>Resamples complete rows $\mathbf{e}_m = [e_{m, 1}, \dots, e_{m, N}]$ with replacement. Preserves non-linear dependency structures, asymmetric joint tail clustering, and empirical bounds without parametric assumptions.</span>
-<span id="cb18-357"><a href="#cb18-357" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-358"><a href="#cb18-358" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb18-359"><a href="#cb18-359" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-360"><a href="#cb18-360" aria-hidden="true" tabindex="-1"></a><span class="fu">## Method 5: Independent Series-Wise Empirical Resampling (`method="ind_empirical"` or `"ind_emp"`)</span></span>
-<span id="cb18-361"><a href="#cb18-361" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-362"><a href="#cb18-362" aria-hidden="true" tabindex="-1"></a><span class="fu">### Python Implementation</span></span>
-<span id="cb18-363"><a href="#cb18-363" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb18-364"><a href="#cb18-364" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> method <span class="op">==</span> <span class="st">"ind_empirical"</span>:</span>
-<span id="cb18-365"><a href="#cb18-365" aria-hidden="true" tabindex="-1"></a>    innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
-<span id="cb18-366"><a href="#cb18-366" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> j, s <span class="kw">in</span> <span class="bu">enumerate</span>(series_ids):</span>
-<span id="cb18-367"><a href="#cb18-367" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.n_calib <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
-<span id="cb18-368"><a href="#cb18-368" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
-<span id="cb18-369"><a href="#cb18-369" aria-hidden="true" tabindex="-1"></a>                innovations[:, h, j] <span class="op">=</span> rng.choice(<span class="va">self</span>.resid[s][h], size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb18-370"><a href="#cb18-370" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
-<span id="cb18-371"><a href="#cb18-371" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
-<span id="cb18-372"><a href="#cb18-372" aria-hidden="true" tabindex="-1"></a>                innovations[:, h, j] <span class="op">=</span> rng.choice(<span class="va">self</span>.resid[s], size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb18-373"><a href="#cb18-373" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb18-374"><a href="#cb18-374" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-375"><a href="#cb18-375" aria-hidden="true" tabindex="-1"></a><span class="fu">### Mathematical Formulation</span></span>
-<span id="cb18-376"><a href="#cb18-376" aria-hidden="true" tabindex="-1"></a>When cross-series correlation is weak, noisy, or intentionally ignored to avoid over-fitting cross-sectional covariance, <span class="in">`ind_empirical`</span> samples historical errors independently for each series $s \in <span class="sc">\{</span>1, \dots, N<span class="sc">\}</span>$ and horizon $h \in <span class="sc">\{</span>1, \dots, H<span class="sc">\}</span>$.</span>
+<span id="cb18-345"><a href="#cb18-345" aria-hidden="true" tabindex="-1"></a><span class="fu">## Method 3: Gaussian Copula (`method="copula"`)</span></span>
+<span id="cb18-346"><a href="#cb18-346" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-347"><a href="#cb18-347" aria-hidden="true" tabindex="-1"></a><span class="fu">### Python Implementation</span></span>
+<span id="cb18-348"><a href="#cb18-348" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb18-349"><a href="#cb18-349" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> method <span class="op">==</span> <span class="st">"copula"</span>:</span>
+<span id="cb18-350"><a href="#cb18-350" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="va">self</span>.n_calib <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb18-351"><a href="#cb18-351" aria-hidden="true" tabindex="-1"></a>        D <span class="op">=</span> <span class="va">self</span>.H <span class="op">*</span> N</span>
+<span id="cb18-352"><a href="#cb18-352" aria-hidden="true" tabindex="-1"></a>        Z <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(D), cov<span class="op">=</span>corr_mat, size<span class="op">=</span>n_samples)</span>
+<span id="cb18-353"><a href="#cb18-353" aria-hidden="true" tabindex="-1"></a>        U <span class="op">=</span> np.clip(norm.cdf(Z), <span class="fl">1e-6</span>, <span class="fl">1.0</span> <span class="op">-</span> <span class="fl">1e-6</span>)</span>
+<span id="cb18-354"><a href="#cb18-354" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
+<span id="cb18-355"><a href="#cb18-355" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
+<span id="cb18-356"><a href="#cb18-356" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> j, s <span class="kw">in</span> <span class="bu">enumerate</span>(series_ids):</span>
+<span id="cb18-357"><a href="#cb18-357" aria-hidden="true" tabindex="-1"></a>                u_hj <span class="op">=</span> U[:, h <span class="op">*</span> N <span class="op">+</span> j]</span>
+<span id="cb18-358"><a href="#cb18-358" aria-hidden="true" tabindex="-1"></a>                s_res <span class="op">=</span> <span class="va">self</span>.resid[s][h]</span>
+<span id="cb18-359"><a href="#cb18-359" aria-hidden="true" tabindex="-1"></a>                innovations[:, h, j] <span class="op">=</span> np.quantile(s_res, u_hj)</span>
+<span id="cb18-360"><a href="#cb18-360" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb18-361"><a href="#cb18-361" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
+<span id="cb18-362"><a href="#cb18-362" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
+<span id="cb18-363"><a href="#cb18-363" aria-hidden="true" tabindex="-1"></a>            Z_h <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(N), cov<span class="op">=</span>corr_mat, size<span class="op">=</span>n_samples)</span>
+<span id="cb18-364"><a href="#cb18-364" aria-hidden="true" tabindex="-1"></a>            U_h <span class="op">=</span> norm.cdf(Z_h)</span>
+<span id="cb18-365"><a href="#cb18-365" aria-hidden="true" tabindex="-1"></a>            U_h <span class="op">=</span> np.clip(U_h, <span class="fl">1e-6</span>, <span class="fl">1.0</span> <span class="op">-</span> <span class="fl">1e-6</span>)</span>
+<span id="cb18-366"><a href="#cb18-366" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> j, s <span class="kw">in</span> <span class="bu">enumerate</span>(series_ids):</span>
+<span id="cb18-367"><a href="#cb18-367" aria-hidden="true" tabindex="-1"></a>                s_res <span class="op">=</span> <span class="va">self</span>.joint_error_matrix[:, j]</span>
+<span id="cb18-368"><a href="#cb18-368" aria-hidden="true" tabindex="-1"></a>                innovations[:, h, j] <span class="op">=</span> np.quantile(s_res, U_h[:, j])</span>
+<span id="cb18-369"><a href="#cb18-369" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-370"><a href="#cb18-370" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-371"><a href="#cb18-371" aria-hidden="true" tabindex="-1"></a><span class="fu">### Mathematical Formulation</span></span>
+<span id="cb18-372"><a href="#cb18-372" aria-hidden="true" tabindex="-1"></a>Couples the regularized cross-series correlation matrix $\mathbf{R} \in \mathbb{R}^{N \times N}$ with the empirical 1-dimensional marginal quantiles $\hat{F}_j^{-1}(u)$ of each individual series $j \in <span class="sc">\{</span>1, \dots, N<span class="sc">\}</span>$.</span>
+<span id="cb18-373"><a href="#cb18-373" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-374"><a href="#cb18-374" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb18-375"><a href="#cb18-375" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-376"><a href="#cb18-376" aria-hidden="true" tabindex="-1"></a><span class="fu">## Method 4: Joint Empirical Resampling (`method="empirical"`)</span></span>
 <span id="cb18-377"><a href="#cb18-377" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-378"><a href="#cb18-378" aria-hidden="true" tabindex="-1"></a>For each series $s$:</span>
-<span id="cb18-379"><a href="#cb18-379" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>If calibrated (<span class="in">`n_calibration=K`</span>): draws uniformly with replacement from the multi-step fold residuals $<span class="sc">\{</span>e_{s, h, 1}, \dots, e_{s, h, K}<span class="sc">\}</span>$.</span>
-<span id="cb18-380"><a href="#cb18-380" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>If in-sample (<span class="in">`n_calibration=None`</span>): draws uniformly with replacement from the pooled historical residuals $<span class="sc">\{</span>e_{s, 1}, \dots, e_{s, T}<span class="sc">\}</span>$.</span>
-<span id="cb18-381"><a href="#cb18-381" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-382"><a href="#cb18-382" aria-hidden="true" tabindex="-1"></a>This matches the behavior of univariate <span class="in">`prob_forecasts`</span> independently executed across all $N$ series.</span>
-<span id="cb18-383"><a href="#cb18-383" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-384"><a href="#cb18-384" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb18-385"><a href="#cb18-385" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-386"><a href="#cb18-386" aria-hidden="true" tabindex="-1"></a><span class="fu">## Method 6: Independent Series-Wise Kernel Density Estimation (`method="ind_kde"`)</span></span>
-<span id="cb18-387"><a href="#cb18-387" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-388"><a href="#cb18-388" aria-hidden="true" tabindex="-1"></a><span class="fu">### Python Implementation</span></span>
-<span id="cb18-389"><a href="#cb18-389" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb18-390"><a href="#cb18-390" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> method <span class="op">==</span> <span class="st">"ind_kde"</span>:</span>
-<span id="cb18-391"><a href="#cb18-391" aria-hidden="true" tabindex="-1"></a>    innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
-<span id="cb18-392"><a href="#cb18-392" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> j, s <span class="kw">in</span> <span class="bu">enumerate</span>(series_ids):</span>
-<span id="cb18-393"><a href="#cb18-393" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.n_calib <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
-<span id="cb18-394"><a href="#cb18-394" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
-<span id="cb18-395"><a href="#cb18-395" aria-hidden="true" tabindex="-1"></a>                <span class="cf">try</span>:</span>
-<span id="cb18-396"><a href="#cb18-396" aria-hidden="true" tabindex="-1"></a>                    kde_h <span class="op">=</span> gaussian_kde(<span class="va">self</span>.resid[s][h])</span>
-<span id="cb18-397"><a href="#cb18-397" aria-hidden="true" tabindex="-1"></a>                    innovations[:, h, j] <span class="op">=</span> kde_h.resample(size<span class="op">=</span>n_samples, seed<span class="op">=</span>rng.integers(<span class="dv">0</span>, <span class="dv">1_000_000</span>))[<span class="dv">0</span>]</span>
-<span id="cb18-398"><a href="#cb18-398" aria-hidden="true" tabindex="-1"></a>                <span class="cf">except</span> <span class="pp">Exception</span>:</span>
-<span id="cb18-399"><a href="#cb18-399" aria-hidden="true" tabindex="-1"></a>                    innovations[:, h, j] <span class="op">=</span> rng.choice(<span class="va">self</span>.resid[s][h], size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb18-400"><a href="#cb18-400" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
-<span id="cb18-401"><a href="#cb18-401" aria-hidden="true" tabindex="-1"></a>            <span class="cf">try</span>:</span>
-<span id="cb18-402"><a href="#cb18-402" aria-hidden="true" tabindex="-1"></a>                kde_s <span class="op">=</span> gaussian_kde(<span class="va">self</span>.resid[s])</span>
-<span id="cb18-403"><a href="#cb18-403" aria-hidden="true" tabindex="-1"></a>                <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
-<span id="cb18-404"><a href="#cb18-404" aria-hidden="true" tabindex="-1"></a>                    innovations[:, h, j] <span class="op">=</span> kde_s.resample(size<span class="op">=</span>n_samples, seed<span class="op">=</span>rng.integers(<span class="dv">0</span>, <span class="dv">1_000_000</span>))[<span class="dv">0</span>]</span>
-<span id="cb18-405"><a href="#cb18-405" aria-hidden="true" tabindex="-1"></a>            <span class="cf">except</span> <span class="pp">Exception</span>:</span>
-<span id="cb18-406"><a href="#cb18-406" aria-hidden="true" tabindex="-1"></a>                <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
-<span id="cb18-407"><a href="#cb18-407" aria-hidden="true" tabindex="-1"></a>                    innovations[:, h, j] <span class="op">=</span> rng.choice(<span class="va">self</span>.resid[s], size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb18-408"><a href="#cb18-408" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb18-409"><a href="#cb18-409" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-410"><a href="#cb18-410" aria-hidden="true" tabindex="-1"></a><span class="fu">### Mathematical Formulation</span></span>
-<span id="cb18-411"><a href="#cb18-411" aria-hidden="true" tabindex="-1"></a>Instead of fitting a single high-dimensional joint KDE with bandwidth matrix $\mathbf{H} \in \mathbb{R}^{N \times N}$, <span class="in">`ind_kde`</span> fits independent 1-dimensional Parzen-Rosenblatt kernel density estimates on the residuals of each series $s$:</span>
-<span id="cb18-412"><a href="#cb18-412" aria-hidden="true" tabindex="-1"></a>$$\hat{f}_{s, h}(e) = \frac{1}{K \lambda_{s, h}} \sum_{k=1}^K K_\phi\left(\frac{e - e_{s, h, k}}{\lambda_{s, h}}\right)$$</span>
-<span id="cb18-413"><a href="#cb18-413" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-414"><a href="#cb18-414" aria-hidden="true" tabindex="-1"></a>Because each kernel estimator is strictly 1-dimensional, it is **completely immune to the curse of dimensionality**, scaling efficiently to thousands of series while providing smooth, continuous non-parametric predictive distributions without discrete sampling artifacts.</span>
+<span id="cb18-378"><a href="#cb18-378" aria-hidden="true" tabindex="-1"></a><span class="fu">### Python Implementation</span></span>
+<span id="cb18-379"><a href="#cb18-379" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb18-380"><a href="#cb18-380" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> method <span class="op">==</span> <span class="st">"empirical"</span>:</span>
+<span id="cb18-381"><a href="#cb18-381" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="va">self</span>.n_calib <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb18-382"><a href="#cb18-382" aria-hidden="true" tabindex="-1"></a>        n_rows <span class="op">=</span> <span class="bu">len</span>(<span class="va">self</span>.joint_error_matrix)</span>
+<span id="cb18-383"><a href="#cb18-383" aria-hidden="true" tabindex="-1"></a>        row_indices <span class="op">=</span> rng.choice(n_rows, size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb18-384"><a href="#cb18-384" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> <span class="va">self</span>.joint_error_matrix[row_indices, :].reshape(n_samples, <span class="va">self</span>.H, N)</span>
+<span id="cb18-385"><a href="#cb18-385" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb18-386"><a href="#cb18-386" aria-hidden="true" tabindex="-1"></a>        n_rows <span class="op">=</span> <span class="bu">len</span>(<span class="va">self</span>.joint_error_matrix)</span>
+<span id="cb18-387"><a href="#cb18-387" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
+<span id="cb18-388"><a href="#cb18-388" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
+<span id="cb18-389"><a href="#cb18-389" aria-hidden="true" tabindex="-1"></a>            row_indices <span class="op">=</span> rng.choice(n_rows, size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb18-390"><a href="#cb18-390" aria-hidden="true" tabindex="-1"></a>            innovations[:, h, :] <span class="op">=</span> <span class="va">self</span>.joint_error_matrix[row_indices, :]</span>
+<span id="cb18-391"><a href="#cb18-391" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-392"><a href="#cb18-392" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-393"><a href="#cb18-393" aria-hidden="true" tabindex="-1"></a><span class="fu">### Mathematical Formulation</span></span>
+<span id="cb18-394"><a href="#cb18-394" aria-hidden="true" tabindex="-1"></a>Resamples complete rows $\mathbf{e}_m = [e_{m, 1}, \dots, e_{m, N}]$ with replacement. Preserves non-linear dependency structures, asymmetric joint tail clustering, and empirical bounds without parametric assumptions.</span>
+<span id="cb18-395"><a href="#cb18-395" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-396"><a href="#cb18-396" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb18-397"><a href="#cb18-397" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-398"><a href="#cb18-398" aria-hidden="true" tabindex="-1"></a><span class="fu">## Method 5: Independent Series-Wise Empirical Resampling (`method="ind_empirical"` or `"ind_emp"`)</span></span>
+<span id="cb18-399"><a href="#cb18-399" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-400"><a href="#cb18-400" aria-hidden="true" tabindex="-1"></a><span class="fu">### Python Implementation</span></span>
+<span id="cb18-401"><a href="#cb18-401" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb18-402"><a href="#cb18-402" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> method <span class="op">==</span> <span class="st">"ind_empirical"</span>:</span>
+<span id="cb18-403"><a href="#cb18-403" aria-hidden="true" tabindex="-1"></a>    innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
+<span id="cb18-404"><a href="#cb18-404" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> j, s <span class="kw">in</span> <span class="bu">enumerate</span>(series_ids):</span>
+<span id="cb18-405"><a href="#cb18-405" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.n_calib <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb18-406"><a href="#cb18-406" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
+<span id="cb18-407"><a href="#cb18-407" aria-hidden="true" tabindex="-1"></a>                innovations[:, h, j] <span class="op">=</span> rng.choice(<span class="va">self</span>.resid[s][h], size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb18-408"><a href="#cb18-408" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb18-409"><a href="#cb18-409" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
+<span id="cb18-410"><a href="#cb18-410" aria-hidden="true" tabindex="-1"></a>                innovations[:, h, j] <span class="op">=</span> rng.choice(<span class="va">self</span>.resid[s], size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb18-411"><a href="#cb18-411" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-412"><a href="#cb18-412" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-413"><a href="#cb18-413" aria-hidden="true" tabindex="-1"></a><span class="fu">### Mathematical Formulation</span></span>
+<span id="cb18-414"><a href="#cb18-414" aria-hidden="true" tabindex="-1"></a>When cross-series correlation is weak, noisy, or intentionally ignored to avoid over-fitting cross-sectional covariance, <span class="in">`ind_empirical`</span> samples historical errors independently for each series $s \in <span class="sc">\{</span>1, \dots, N<span class="sc">\}</span>$ and horizon $h \in <span class="sc">\{</span>1, \dots, H<span class="sc">\}</span>$.</span>
 <span id="cb18-415"><a href="#cb18-415" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-416"><a href="#cb18-416" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb18-417"><a href="#cb18-417" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-418"><a href="#cb18-418" aria-hidden="true" tabindex="-1"></a><span class="fu"># Deep-Dive: Multivariate Kernel Density Estimation (`method="kde"`)</span></span>
+<span id="cb18-416"><a href="#cb18-416" aria-hidden="true" tabindex="-1"></a>For each series $s$:</span>
+<span id="cb18-417"><a href="#cb18-417" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>If calibrated (<span class="in">`n_calibration=K`</span>): draws uniformly with replacement from the multi-step fold residuals $<span class="sc">\{</span>e_{s, h, 1}, \dots, e_{s, h, K}<span class="sc">\}</span>$.</span>
+<span id="cb18-418"><a href="#cb18-418" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>If in-sample (<span class="in">`n_calibration=None`</span>): draws uniformly with replacement from the pooled historical residuals $<span class="sc">\{</span>e_{s, 1}, \dots, e_{s, T}<span class="sc">\}</span>$.</span>
 <span id="cb18-419"><a href="#cb18-419" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-420"><a href="#cb18-420" aria-hidden="true" tabindex="-1"></a><span class="fu">## The Code Under Scrutiny</span></span>
+<span id="cb18-420"><a href="#cb18-420" aria-hidden="true" tabindex="-1"></a>This matches the behavior of univariate <span class="in">`prob_forecasts`</span> independently executed across all $N$ series.</span>
 <span id="cb18-421"><a href="#cb18-421" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-422"><a href="#cb18-422" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb18-423"><a href="#cb18-423" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> method <span class="op">==</span> <span class="st">"kde"</span>:</span>
-<span id="cb18-424"><a href="#cb18-424" aria-hidden="true" tabindex="-1"></a>    M_rows <span class="op">=</span> <span class="bu">len</span>(<span class="va">self</span>.joint_error_matrix)</span>
-<span id="cb18-425"><a href="#cb18-425" aria-hidden="true" tabindex="-1"></a>    bw_factor <span class="op">=</span> M_rows <span class="op">**</span> (<span class="op">-</span><span class="fl">1.0</span> <span class="op">/</span> (N <span class="op">+</span> <span class="fl">4.0</span>))</span>
-<span id="cb18-426"><a href="#cb18-426" aria-hidden="true" tabindex="-1"></a>    kde_cov <span class="op">=</span> (bw_factor <span class="op">**</span> <span class="dv">2</span>) <span class="op">*</span> cov_psd</span>
-<span id="cb18-427"><a href="#cb18-427" aria-hidden="true" tabindex="-1"></a>    innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
-<span id="cb18-428"><a href="#cb18-428" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
-<span id="cb18-429"><a href="#cb18-429" aria-hidden="true" tabindex="-1"></a>        row_indices <span class="op">=</span> rng.choice(M_rows, size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb18-430"><a href="#cb18-430" aria-hidden="true" tabindex="-1"></a>        centers <span class="op">=</span> <span class="va">self</span>.joint_error_matrix[row_indices, :]</span>
-<span id="cb18-431"><a href="#cb18-431" aria-hidden="true" tabindex="-1"></a>        noise <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(N), cov<span class="op">=</span>kde_cov, size<span class="op">=</span>n_samples)</span>
-<span id="cb18-432"><a href="#cb18-432" aria-hidden="true" tabindex="-1"></a>        innovations[:, h, :] <span class="op">=</span> centers <span class="op">+</span> noise</span>
-<span id="cb18-433"><a href="#cb18-433" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb18-434"><a href="#cb18-434" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-435"><a href="#cb18-435" aria-hidden="true" tabindex="-1"></a>Let us dissect each component with mathematical precision.</span>
-<span id="cb18-436"><a href="#cb18-436" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-437"><a href="#cb18-437" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb18-438"><a href="#cb18-438" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-439"><a href="#cb18-439" aria-hidden="true" tabindex="-1"></a><span class="fu">## Line 1: Sample Size and Dimensionality</span></span>
-<span id="cb18-440"><a href="#cb18-440" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb18-441"><a href="#cb18-441" aria-hidden="true" tabindex="-1"></a>M_rows <span class="op">=</span> <span class="bu">len</span>(<span class="va">self</span>.joint_error_matrix)</span>
-<span id="cb18-442"><a href="#cb18-442" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb18-443"><a href="#cb18-443" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$M$: The number of available contemporaneous residual observations (sample size).</span>
-<span id="cb18-444"><a href="#cb18-444" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$N$: The number of time series (dimension of the random vector space $\mathbb{R}^N$).</span>
-<span id="cb18-445"><a href="#cb18-445" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-446"><a href="#cb18-446" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb18-422"><a href="#cb18-422" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb18-423"><a href="#cb18-423" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-424"><a href="#cb18-424" aria-hidden="true" tabindex="-1"></a><span class="fu">## Method 6: Independent Series-Wise Kernel Density Estimation (`method="ind_kde"`)</span></span>
+<span id="cb18-425"><a href="#cb18-425" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-426"><a href="#cb18-426" aria-hidden="true" tabindex="-1"></a><span class="fu">### Python Implementation</span></span>
+<span id="cb18-427"><a href="#cb18-427" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb18-428"><a href="#cb18-428" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> method <span class="op">==</span> <span class="st">"ind_kde"</span>:</span>
+<span id="cb18-429"><a href="#cb18-429" aria-hidden="true" tabindex="-1"></a>    innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
+<span id="cb18-430"><a href="#cb18-430" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> j, s <span class="kw">in</span> <span class="bu">enumerate</span>(series_ids):</span>
+<span id="cb18-431"><a href="#cb18-431" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.n_calib <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb18-432"><a href="#cb18-432" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
+<span id="cb18-433"><a href="#cb18-433" aria-hidden="true" tabindex="-1"></a>                <span class="cf">try</span>:</span>
+<span id="cb18-434"><a href="#cb18-434" aria-hidden="true" tabindex="-1"></a>                    kde_h <span class="op">=</span> gaussian_kde(<span class="va">self</span>.resid[s][h])</span>
+<span id="cb18-435"><a href="#cb18-435" aria-hidden="true" tabindex="-1"></a>                    innovations[:, h, j] <span class="op">=</span> kde_h.resample(size<span class="op">=</span>n_samples, seed<span class="op">=</span>rng.integers(<span class="dv">0</span>, <span class="dv">1_000_000</span>))[<span class="dv">0</span>]</span>
+<span id="cb18-436"><a href="#cb18-436" aria-hidden="true" tabindex="-1"></a>                <span class="cf">except</span> <span class="pp">Exception</span>:</span>
+<span id="cb18-437"><a href="#cb18-437" aria-hidden="true" tabindex="-1"></a>                    innovations[:, h, j] <span class="op">=</span> rng.choice(<span class="va">self</span>.resid[s][h], size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb18-438"><a href="#cb18-438" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb18-439"><a href="#cb18-439" aria-hidden="true" tabindex="-1"></a>            <span class="cf">try</span>:</span>
+<span id="cb18-440"><a href="#cb18-440" aria-hidden="true" tabindex="-1"></a>                kde_s <span class="op">=</span> gaussian_kde(<span class="va">self</span>.resid[s])</span>
+<span id="cb18-441"><a href="#cb18-441" aria-hidden="true" tabindex="-1"></a>                <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
+<span id="cb18-442"><a href="#cb18-442" aria-hidden="true" tabindex="-1"></a>                    innovations[:, h, j] <span class="op">=</span> kde_s.resample(size<span class="op">=</span>n_samples, seed<span class="op">=</span>rng.integers(<span class="dv">0</span>, <span class="dv">1_000_000</span>))[<span class="dv">0</span>]</span>
+<span id="cb18-443"><a href="#cb18-443" aria-hidden="true" tabindex="-1"></a>            <span class="cf">except</span> <span class="pp">Exception</span>:</span>
+<span id="cb18-444"><a href="#cb18-444" aria-hidden="true" tabindex="-1"></a>                <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
+<span id="cb18-445"><a href="#cb18-445" aria-hidden="true" tabindex="-1"></a>                    innovations[:, h, j] <span class="op">=</span> rng.choice(<span class="va">self</span>.resid[s], size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb18-446"><a href="#cb18-446" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb18-447"><a href="#cb18-447" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-448"><a href="#cb18-448" aria-hidden="true" tabindex="-1"></a><span class="fu">## Line 2: The Bandwidth Factor $M^{-1/(N+4)}$ (Scott's Rule of Thumb)</span></span>
-<span id="cb18-449"><a href="#cb18-449" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb18-450"><a href="#cb18-450" aria-hidden="true" tabindex="-1"></a>bw_factor <span class="op">=</span> M_rows <span class="op">**</span> (<span class="op">-</span><span class="fl">1.0</span> <span class="op">/</span> (N <span class="op">+</span> <span class="fl">4.0</span>))</span>
-<span id="cb18-451"><a href="#cb18-451" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb18-452"><a href="#cb18-452" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-453"><a href="#cb18-453" aria-hidden="true" tabindex="-1"></a><span class="fu">### The Parzen-Rosenblatt Estimator in $\mathbb{R}^N$</span></span>
-<span id="cb18-454"><a href="#cb18-454" aria-hidden="true" tabindex="-1"></a>Let $\mathbf{x}_1, \dots, \mathbf{x}_M \in \mathbb{R}^N$ be independent identically distributed error vectors. The multivariate kernel density estimator with symmetric bandwidth matrix $\mathbf{H} \in \mathbb{R}^{N \times N}$ is defined as:</span>
-<span id="cb18-455"><a href="#cb18-455" aria-hidden="true" tabindex="-1"></a>$$\hat{f}(\mathbf{x}) = \frac{1}{M |\mathbf{H}|^{1/2}} \sum_{m=1}^M K\left(\mathbf{H}^{-1/2}(\mathbf{x} - \mathbf{x}_m)\right)$$</span>
-<span id="cb18-456"><a href="#cb18-456" aria-hidden="true" tabindex="-1"></a>where $K(\mathbf{u}) = (2\pi)^{-N/2} \exp\left(-\frac{1}{2}\mathbf{u}^\top \mathbf{u}\right)$ is the standard Gaussian kernel.</span>
+<span id="cb18-448"><a href="#cb18-448" aria-hidden="true" tabindex="-1"></a><span class="fu">### Mathematical Formulation</span></span>
+<span id="cb18-449"><a href="#cb18-449" aria-hidden="true" tabindex="-1"></a>Instead of fitting a single high-dimensional joint KDE with bandwidth matrix $\mathbf{H} \in \mathbb{R}^{N \times N}$, <span class="in">`ind_kde`</span> fits independent 1-dimensional Parzen-Rosenblatt kernel density estimates on the residuals of each series $s$:</span>
+<span id="cb18-450"><a href="#cb18-450" aria-hidden="true" tabindex="-1"></a>$$\hat{f}_{s, h}(e) = \frac{1}{K \lambda_{s, h}} \sum_{k=1}^K K_\phi\left(\frac{e - e_{s, h, k}}{\lambda_{s, h}}\right)$$</span>
+<span id="cb18-451"><a href="#cb18-451" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-452"><a href="#cb18-452" aria-hidden="true" tabindex="-1"></a>Because each kernel estimator is strictly 1-dimensional, it is **completely immune to the curse of dimensionality**, scaling efficiently to thousands of series while providing smooth, continuous non-parametric predictive distributions without discrete sampling artifacts.</span>
+<span id="cb18-453"><a href="#cb18-453" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-454"><a href="#cb18-454" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb18-455"><a href="#cb18-455" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-456"><a href="#cb18-456" aria-hidden="true" tabindex="-1"></a><span class="fu"># Deep-Dive: Multivariate Kernel Density Estimation (`method="kde"`)</span></span>
 <span id="cb18-457"><a href="#cb18-457" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-458"><a href="#cb18-458" aria-hidden="true" tabindex="-1"></a><span class="fu">### Derivation from the AMISE Bias-Variance Tradeoff</span></span>
-<span id="cb18-459"><a href="#cb18-459" aria-hidden="true" tabindex="-1"></a>The quality of a density estimator is measured by the **Mean Integrated Squared Error (MISE)**:</span>
-<span id="cb18-460"><a href="#cb18-460" aria-hidden="true" tabindex="-1"></a>$$\operatorname{MISE}(\hat{f}) = \mathbb{E}\left<span class="co">[</span><span class="ot">\int_{\mathbb{R}^N} \left(\hat{f}(\mathbf{x}) - f(\mathbf{x})\right)^2 d\mathbf{x}\right</span><span class="co">]</span> = \int_{\mathbb{R}^N} \operatorname{Var}(\hat{f}(\mathbf{x})) d\mathbf{x} + \int_{\mathbb{R}^N} \left(\operatorname{Bias}(\hat{f}(\mathbf{x}))\right)^2 d\mathbf{x}$$</span>
-<span id="cb18-461"><a href="#cb18-461" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-462"><a href="#cb18-462" aria-hidden="true" tabindex="-1"></a>Using a multivariate Taylor expansion (Scott, 1992; Wand &amp; Jones, 1995), the asymptotic approximations are:</span>
-<span id="cb18-463"><a href="#cb18-463" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Asymptotic Integrated Variance**:</span>
-<span id="cb18-464"><a href="#cb18-464" aria-hidden="true" tabindex="-1"></a>   $$\operatorname{IVar}(\hat{f}) = \frac{1}{M |\mathbf{H}|^{1/2}} R(K) = \frac{1}{M |\mathbf{H}|^{1/2}} (4\pi)^{-N/2}$$</span>
-<span id="cb18-465"><a href="#cb18-465" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Asymptotic Integrated Squared Bias**:</span>
-<span id="cb18-466"><a href="#cb18-466" aria-hidden="true" tabindex="-1"></a>   $$\operatorname{ISB}(\hat{f}) = \frac{1}{4} \mu_2(K)^2 \int_{\mathbb{R}^N} \left(\operatorname{tr}\left(\mathbf{H} \, \mathcal{H}_f(\mathbf{x})\right)\right)^2 d\mathbf{x}$$</span>
-<span id="cb18-467"><a href="#cb18-467" aria-hidden="true" tabindex="-1"></a>   where $\mathcal{H}_f(\mathbf{x}) = \nabla^2 f(\mathbf{x})$ is the Hessian matrix of $f$.</span>
-<span id="cb18-468"><a href="#cb18-468" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-469"><a href="#cb18-469" aria-hidden="true" tabindex="-1"></a>If we set the bandwidth matrix proportional to the data covariance matrix:</span>
-<span id="cb18-470"><a href="#cb18-470" aria-hidden="true" tabindex="-1"></a>$$\mathbf{H} = b^2 \mathbf{\Sigma}$$</span>
-<span id="cb18-471"><a href="#cb18-471" aria-hidden="true" tabindex="-1"></a>then $|\mathbf{H}|^{1/2} = (b^2)^{N/2} |\mathbf{\Sigma}|^{1/2} = b^N |\mathbf{\Sigma}|^{1/2}$.</span>
-<span id="cb18-472"><a href="#cb18-472" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-473"><a href="#cb18-473" aria-hidden="true" tabindex="-1"></a>Substituting this into the Asymptotic MISE (AMISE):</span>
-<span id="cb18-474"><a href="#cb18-474" aria-hidden="true" tabindex="-1"></a>$$\operatorname{AMISE}(b) = \frac{C_1}{M b^N} + C_2 \, b^4$$</span>
-<span id="cb18-475"><a href="#cb18-475" aria-hidden="true" tabindex="-1"></a>where $C_1, C_2 &gt; 0$ are constants depending on $N$ and $\mathbf{\Sigma}$.</span>
-<span id="cb18-476"><a href="#cb18-476" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-477"><a href="#cb18-477" aria-hidden="true" tabindex="-1"></a>To find the optimal bandwidth scale $b^*$, differentiate with respect to $b$:</span>
-<span id="cb18-478"><a href="#cb18-478" aria-hidden="true" tabindex="-1"></a>$$\frac{d}{db} \operatorname{AMISE}(b) = -\frac{N C_1}{M b^{N+1}} + 4 C_2 b^3 = 0$$</span>
-<span id="cb18-479"><a href="#cb18-479" aria-hidden="true" tabindex="-1"></a>$$4 C_2 b^3 = \frac{N C_1}{M b^{N+1}} \implies b^{N+4} = \frac{N C_1}{4 C_2} \cdot \frac{1}{M}$$</span>
-<span id="cb18-480"><a href="#cb18-480" aria-hidden="true" tabindex="-1"></a>Taking the $(N+4)$-th root:</span>
-<span id="cb18-481"><a href="#cb18-481" aria-hidden="true" tabindex="-1"></a>$$b^* \propto M^{-\frac{1}{N+4}}$$</span>
+<span id="cb18-458"><a href="#cb18-458" aria-hidden="true" tabindex="-1"></a><span class="fu">## The Code Under Scrutiny</span></span>
+<span id="cb18-459"><a href="#cb18-459" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-460"><a href="#cb18-460" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb18-461"><a href="#cb18-461" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> method <span class="op">==</span> <span class="st">"kde"</span>:</span>
+<span id="cb18-462"><a href="#cb18-462" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="va">self</span>.n_calib <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb18-463"><a href="#cb18-463" aria-hidden="true" tabindex="-1"></a>        D <span class="op">=</span> <span class="va">self</span>.H <span class="op">*</span> N</span>
+<span id="cb18-464"><a href="#cb18-464" aria-hidden="true" tabindex="-1"></a>        M_rows <span class="op">=</span> <span class="bu">len</span>(<span class="va">self</span>.joint_error_matrix)</span>
+<span id="cb18-465"><a href="#cb18-465" aria-hidden="true" tabindex="-1"></a>        bw_factor <span class="op">=</span> M_rows <span class="op">**</span> (<span class="op">-</span><span class="fl">1.0</span> <span class="op">/</span> (D <span class="op">+</span> <span class="fl">4.0</span>))</span>
+<span id="cb18-466"><a href="#cb18-466" aria-hidden="true" tabindex="-1"></a>        kde_cov <span class="op">=</span> (bw_factor <span class="op">**</span> <span class="dv">2</span>) <span class="op">*</span> cov_psd</span>
+<span id="cb18-467"><a href="#cb18-467" aria-hidden="true" tabindex="-1"></a>        row_indices <span class="op">=</span> rng.choice(M_rows, size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb18-468"><a href="#cb18-468" aria-hidden="true" tabindex="-1"></a>        centers <span class="op">=</span> <span class="va">self</span>.joint_error_matrix[row_indices, :]</span>
+<span id="cb18-469"><a href="#cb18-469" aria-hidden="true" tabindex="-1"></a>        noise <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(D), cov<span class="op">=</span>kde_cov, size<span class="op">=</span>n_samples)</span>
+<span id="cb18-470"><a href="#cb18-470" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> (centers <span class="op">+</span> noise).reshape(n_samples, <span class="va">self</span>.H, N)</span>
+<span id="cb18-471"><a href="#cb18-471" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb18-472"><a href="#cb18-472" aria-hidden="true" tabindex="-1"></a>        M_rows <span class="op">=</span> <span class="bu">len</span>(<span class="va">self</span>.joint_error_matrix)</span>
+<span id="cb18-473"><a href="#cb18-473" aria-hidden="true" tabindex="-1"></a>        bw_factor <span class="op">=</span> M_rows <span class="op">**</span> (<span class="op">-</span><span class="fl">1.0</span> <span class="op">/</span> (N <span class="op">+</span> <span class="fl">4.0</span>))</span>
+<span id="cb18-474"><a href="#cb18-474" aria-hidden="true" tabindex="-1"></a>        kde_cov <span class="op">=</span> (bw_factor <span class="op">**</span> <span class="dv">2</span>) <span class="op">*</span> cov_psd</span>
+<span id="cb18-475"><a href="#cb18-475" aria-hidden="true" tabindex="-1"></a>        innovations <span class="op">=</span> np.zeros((n_samples, <span class="va">self</span>.H, N))</span>
+<span id="cb18-476"><a href="#cb18-476" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> h <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.H):</span>
+<span id="cb18-477"><a href="#cb18-477" aria-hidden="true" tabindex="-1"></a>            row_indices <span class="op">=</span> rng.choice(M_rows, size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb18-478"><a href="#cb18-478" aria-hidden="true" tabindex="-1"></a>            centers <span class="op">=</span> <span class="va">self</span>.joint_error_matrix[row_indices, :]</span>
+<span id="cb18-479"><a href="#cb18-479" aria-hidden="true" tabindex="-1"></a>            noise <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(N), cov<span class="op">=</span>kde_cov, size<span class="op">=</span>n_samples)</span>
+<span id="cb18-480"><a href="#cb18-480" aria-hidden="true" tabindex="-1"></a>            innovations[:, h, :] <span class="op">=</span> centers <span class="op">+</span> noise</span>
+<span id="cb18-481"><a href="#cb18-481" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb18-482"><a href="#cb18-482" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-483"><a href="#cb18-483" aria-hidden="true" tabindex="-1"></a>This proves why the bandwidth factor must scale exactly as $M^{-1/(N+4)}$. This is known as **Scott's Rule of Thumb** (Scott, 1992).</span>
+<span id="cb18-483"><a href="#cb18-483" aria-hidden="true" tabindex="-1"></a>Let us dissect each component with mathematical precision.</span>
 <span id="cb18-484"><a href="#cb18-484" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-485"><a href="#cb18-485" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb18-486"><a href="#cb18-486" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-487"><a href="#cb18-487" aria-hidden="true" tabindex="-1"></a><span class="fu">## Line 3: Bandwidth Covariance Scaling</span></span>
+<span id="cb18-487"><a href="#cb18-487" aria-hidden="true" tabindex="-1"></a><span class="fu">## Line 1: Sample Size and Dimensionality</span></span>
 <span id="cb18-488"><a href="#cb18-488" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb18-489"><a href="#cb18-489" aria-hidden="true" tabindex="-1"></a>kde_cov <span class="op">=</span> (bw_factor <span class="op">**</span> <span class="dv">2</span>) <span class="op">*</span> cov_psd</span>
+<span id="cb18-489"><a href="#cb18-489" aria-hidden="true" tabindex="-1"></a>M_rows <span class="op">=</span> <span class="bu">len</span>(<span class="va">self</span>.joint_error_matrix)</span>
 <span id="cb18-490"><a href="#cb18-490" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb18-491"><a href="#cb18-491" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-492"><a href="#cb18-492" aria-hidden="true" tabindex="-1"></a>Because $\mathbf{H} = b^2 \mathbf{\Sigma}$, the covariance matrix governing the Gaussian kernel is:</span>
-<span id="cb18-493"><a href="#cb18-493" aria-hidden="true" tabindex="-1"></a>$$\mathbf{H} = \left(M^{-\frac{1}{N+4}}\right)^2 \mathbf{\Sigma}_{\text{psd}} = M^{-\frac{2}{N+4}} \mathbf{\Sigma}_{\text{psd}}$$</span>
-<span id="cb18-494"><a href="#cb18-494" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-495"><a href="#cb18-495" aria-hidden="true" tabindex="-1"></a><span class="fu">### Why multiply by `cov_psd` instead of the Identity matrix $\mathbf{I}_N$?</span></span>
-<span id="cb18-496"><a href="#cb18-496" aria-hidden="true" tabindex="-1"></a>If one smoothed using a spherical kernel $\mathbf{H} = b^2 \mathbf{I}_N$, the smoothing would be isotropic (equal in all directions), ignoring the fact that error variables may have wildly different variances and strong cross-correlations.</span>
-<span id="cb18-497"><a href="#cb18-497" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-498"><a href="#cb18-498" aria-hidden="true" tabindex="-1"></a>By using $\mathbf{H} = b^2 \mathbf{\Sigma}_{\text{psd}}$:</span>
-<span id="cb18-499"><a href="#cb18-499" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The iso-density contours of the smoothing kernel are **ellipsoids** oriented along the eigenvectors of $\mathbf{\Sigma}_{\text{psd}}$.</span>
-<span id="cb18-500"><a href="#cb18-500" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Variables with larger variance receive proportionally wider smoothing.</span>
-<span id="cb18-501"><a href="#cb18-501" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Strongly correlated series are smoothed along their ridge of correlation, preventing probability mass from spilling into impossible orthogonal regions.</span>
-<span id="cb18-502"><a href="#cb18-502" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-503"><a href="#cb18-503" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb18-504"><a href="#cb18-504" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-505"><a href="#cb18-505" aria-hidden="true" tabindex="-1"></a><span class="fu">## Lines 4–10: Generative Mixture Sampling Without Numerical Integration</span></span>
-<span id="cb18-506"><a href="#cb18-506" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb18-507"><a href="#cb18-507" aria-hidden="true" tabindex="-1"></a>row_indices <span class="op">=</span> rng.choice(M_rows, size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb18-508"><a href="#cb18-508" aria-hidden="true" tabindex="-1"></a>centers <span class="op">=</span> <span class="va">self</span>.joint_error_matrix[row_indices, :]</span>
-<span id="cb18-509"><a href="#cb18-509" aria-hidden="true" tabindex="-1"></a>noise <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(N), cov<span class="op">=</span>kde_cov, size<span class="op">=</span>n_samples)</span>
-<span id="cb18-510"><a href="#cb18-510" aria-hidden="true" tabindex="-1"></a>innovations[:, h, :] <span class="op">=</span> centers <span class="op">+</span> noise</span>
-<span id="cb18-511"><a href="#cb18-511" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb18-512"><a href="#cb18-512" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-513"><a href="#cb18-513" aria-hidden="true" tabindex="-1"></a><span class="fu">### The Continuous Mixture Representation</span></span>
-<span id="cb18-514"><a href="#cb18-514" aria-hidden="true" tabindex="-1"></a>Notice that $\hat{f}(\mathbf{x})$ is an equally weighted mixture of $M$ Gaussian distributions centered at the observed data points $\mathbf{x}_m$:</span>
-<span id="cb18-515"><a href="#cb18-515" aria-hidden="true" tabindex="-1"></a>$$\hat{f}(\mathbf{x}) = \frac{1}{M} \sum_{m=1}^M \mathcal{N}_N\left(\mathbf{x}; \, \mathbf{x}_m, \, \mathbf{H}\right)$$</span>
+<span id="cb18-491"><a href="#cb18-491" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$M$: The number of available contemporaneous residual observations (sample size).</span>
+<span id="cb18-492"><a href="#cb18-492" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$N$: The number of time series (dimension of the random vector space $\mathbb{R}^N$).</span>
+<span id="cb18-493"><a href="#cb18-493" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-494"><a href="#cb18-494" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb18-495"><a href="#cb18-495" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-496"><a href="#cb18-496" aria-hidden="true" tabindex="-1"></a><span class="fu">## Line 2: The Bandwidth Factor $M^{-1/(N+4)}$ (Scott's Rule of Thumb)</span></span>
+<span id="cb18-497"><a href="#cb18-497" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb18-498"><a href="#cb18-498" aria-hidden="true" tabindex="-1"></a>bw_factor <span class="op">=</span> M_rows <span class="op">**</span> (<span class="op">-</span><span class="fl">1.0</span> <span class="op">/</span> (N <span class="op">+</span> <span class="fl">4.0</span>))</span>
+<span id="cb18-499"><a href="#cb18-499" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-500"><a href="#cb18-500" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-501"><a href="#cb18-501" aria-hidden="true" tabindex="-1"></a><span class="fu">### The Parzen-Rosenblatt Estimator in $\mathbb{R}^N$</span></span>
+<span id="cb18-502"><a href="#cb18-502" aria-hidden="true" tabindex="-1"></a>Let $\mathbf{x}_1, \dots, \mathbf{x}_M \in \mathbb{R}^N$ be independent identically distributed error vectors. The multivariate kernel density estimator with symmetric bandwidth matrix $\mathbf{H} \in \mathbb{R}^{N \times N}$ is defined as:</span>
+<span id="cb18-503"><a href="#cb18-503" aria-hidden="true" tabindex="-1"></a>$$\hat{f}(\mathbf{x}) = \frac{1}{M |\mathbf{H}|^{1/2}} \sum_{m=1}^M K\left(\mathbf{H}^{-1/2}(\mathbf{x} - \mathbf{x}_m)\right)$$</span>
+<span id="cb18-504"><a href="#cb18-504" aria-hidden="true" tabindex="-1"></a>where $K(\mathbf{u}) = (2\pi)^{-N/2} \exp\left(-\frac{1}{2}\mathbf{u}^\top \mathbf{u}\right)$ is the standard Gaussian kernel.</span>
+<span id="cb18-505"><a href="#cb18-505" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-506"><a href="#cb18-506" aria-hidden="true" tabindex="-1"></a><span class="fu">### Derivation from the AMISE Bias-Variance Tradeoff</span></span>
+<span id="cb18-507"><a href="#cb18-507" aria-hidden="true" tabindex="-1"></a>The quality of a density estimator is measured by the **Mean Integrated Squared Error (MISE)**:</span>
+<span id="cb18-508"><a href="#cb18-508" aria-hidden="true" tabindex="-1"></a>$$\operatorname{MISE}(\hat{f}) = \mathbb{E}\left<span class="co">[</span><span class="ot">\int_{\mathbb{R}^N} \left(\hat{f}(\mathbf{x}) - f(\mathbf{x})\right)^2 d\mathbf{x}\right</span><span class="co">]</span> = \int_{\mathbb{R}^N} \operatorname{Var}(\hat{f}(\mathbf{x})) d\mathbf{x} + \int_{\mathbb{R}^N} \left(\operatorname{Bias}(\hat{f}(\mathbf{x}))\right)^2 d\mathbf{x}$$</span>
+<span id="cb18-509"><a href="#cb18-509" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-510"><a href="#cb18-510" aria-hidden="true" tabindex="-1"></a>Using a multivariate Taylor expansion (Scott, 1992; Wand &amp; Jones, 1995), the asymptotic approximations are:</span>
+<span id="cb18-511"><a href="#cb18-511" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Asymptotic Integrated Variance**:</span>
+<span id="cb18-512"><a href="#cb18-512" aria-hidden="true" tabindex="-1"></a>   $$\operatorname{IVar}(\hat{f}) = \frac{1}{M |\mathbf{H}|^{1/2}} R(K) = \frac{1}{M |\mathbf{H}|^{1/2}} (4\pi)^{-N/2}$$</span>
+<span id="cb18-513"><a href="#cb18-513" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Asymptotic Integrated Squared Bias**:</span>
+<span id="cb18-514"><a href="#cb18-514" aria-hidden="true" tabindex="-1"></a>   $$\operatorname{ISB}(\hat{f}) = \frac{1}{4} \mu_2(K)^2 \int_{\mathbb{R}^N} \left(\operatorname{tr}\left(\mathbf{H} \, \mathcal{H}_f(\mathbf{x})\right)\right)^2 d\mathbf{x}$$</span>
+<span id="cb18-515"><a href="#cb18-515" aria-hidden="true" tabindex="-1"></a>   where $\mathcal{H}_f(\mathbf{x}) = \nabla^2 f(\mathbf{x})$ is the Hessian matrix of $f$.</span>
 <span id="cb18-516"><a href="#cb18-516" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-517"><a href="#cb18-517" aria-hidden="true" tabindex="-1"></a>Directly evaluating or numerically integrating an $N$-dimensional density grid is computationally intractable (curse of dimensionality). However, **generating random variates from this mixture is exact and instantaneous**:</span>
-<span id="cb18-518"><a href="#cb18-518" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-519"><a href="#cb18-519" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Component Selection**:</span>
-<span id="cb18-520"><a href="#cb18-520" aria-hidden="true" tabindex="-1"></a>   Draw an observation index $m^* \sim \text{DiscreteUniform}(1, M)$.</span>
-<span id="cb18-521"><a href="#cb18-521" aria-hidden="true" tabindex="-1"></a>   In code:</span>
-<span id="cb18-522"><a href="#cb18-522" aria-hidden="true" tabindex="-1"></a>   <span class="in">`row_indices = rng.choice(M_rows, size=n_samples, replace=True)`</span></span>
-<span id="cb18-523"><a href="#cb18-523" aria-hidden="true" tabindex="-1"></a>   <span class="in">`centers = self.joint_error_matrix[row_indices, :]`</span></span>
+<span id="cb18-517"><a href="#cb18-517" aria-hidden="true" tabindex="-1"></a>If we set the bandwidth matrix proportional to the data covariance matrix:</span>
+<span id="cb18-518"><a href="#cb18-518" aria-hidden="true" tabindex="-1"></a>$$\mathbf{H} = b^2 \mathbf{\Sigma}$$</span>
+<span id="cb18-519"><a href="#cb18-519" aria-hidden="true" tabindex="-1"></a>then $|\mathbf{H}|^{1/2} = (b^2)^{N/2} |\mathbf{\Sigma}|^{1/2} = b^N |\mathbf{\Sigma}|^{1/2}$.</span>
+<span id="cb18-520"><a href="#cb18-520" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-521"><a href="#cb18-521" aria-hidden="true" tabindex="-1"></a>Substituting this into the Asymptotic MISE (AMISE):</span>
+<span id="cb18-522"><a href="#cb18-522" aria-hidden="true" tabindex="-1"></a>$$\operatorname{AMISE}(b) = \frac{C_1}{M b^N} + C_2 \, b^4$$</span>
+<span id="cb18-523"><a href="#cb18-523" aria-hidden="true" tabindex="-1"></a>where $C_1, C_2 &gt; 0$ are constants depending on $N$ and $\mathbf{\Sigma}$.</span>
 <span id="cb18-524"><a href="#cb18-524" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-525"><a href="#cb18-525" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Kernel Noise Generation**:</span>
-<span id="cb18-526"><a href="#cb18-526" aria-hidden="true" tabindex="-1"></a>   Draw a random perturbation vector from the Gaussian kernel centered at zero:</span>
-<span id="cb18-527"><a href="#cb18-527" aria-hidden="true" tabindex="-1"></a>   $$\mathbf{w} \sim \mathcal{N}_N(\mathbf{0}, \mathbf{H})$$</span>
-<span id="cb18-528"><a href="#cb18-528" aria-hidden="true" tabindex="-1"></a>   In code:</span>
-<span id="cb18-529"><a href="#cb18-529" aria-hidden="true" tabindex="-1"></a>   <span class="in">`noise = rng.multivariate_normal(mean=np.zeros(N), cov=kde_cov, size=n_samples)`</span></span>
+<span id="cb18-525"><a href="#cb18-525" aria-hidden="true" tabindex="-1"></a>To find the optimal bandwidth scale $b^*$, differentiate with respect to $b$:</span>
+<span id="cb18-526"><a href="#cb18-526" aria-hidden="true" tabindex="-1"></a>$$\frac{d}{db} \operatorname{AMISE}(b) = -\frac{N C_1}{M b^{N+1}} + 4 C_2 b^3 = 0$$</span>
+<span id="cb18-527"><a href="#cb18-527" aria-hidden="true" tabindex="-1"></a>$$4 C_2 b^3 = \frac{N C_1}{M b^{N+1}} \implies b^{N+4} = \frac{N C_1}{4 C_2} \cdot \frac{1}{M}$$</span>
+<span id="cb18-528"><a href="#cb18-528" aria-hidden="true" tabindex="-1"></a>Taking the $(N+4)$-th root:</span>
+<span id="cb18-529"><a href="#cb18-529" aria-hidden="true" tabindex="-1"></a>$$b^* \propto M^{-\frac{1}{N+4}}$$</span>
 <span id="cb18-530"><a href="#cb18-530" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-531"><a href="#cb18-531" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Additive Convolution**:</span>
-<span id="cb18-532"><a href="#cb18-532" aria-hidden="true" tabindex="-1"></a>   $$\tilde{\mathbf{e}} = \mathbf{x}_{m^*} + \mathbf{w}$$</span>
-<span id="cb18-533"><a href="#cb18-533" aria-hidden="true" tabindex="-1"></a>   In code:</span>
-<span id="cb18-534"><a href="#cb18-534" aria-hidden="true" tabindex="-1"></a>   <span class="in">`innovations[:, h, :] = centers + noise`</span></span>
-<span id="cb18-535"><a href="#cb18-535" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-536"><a href="#cb18-536" aria-hidden="true" tabindex="-1"></a><span class="fu">### Moment Properties of the KDE Draws</span></span>
-<span id="cb18-537"><a href="#cb18-537" aria-hidden="true" tabindex="-1"></a>By the law of total expectation:</span>
-<span id="cb18-538"><a href="#cb18-538" aria-hidden="true" tabindex="-1"></a>$$\mathbb{E}<span class="co">[</span><span class="ot">\tilde{\mathbf{e}}</span><span class="co">]</span> = \mathbb{E}<span class="co">[</span><span class="ot">\mathbf{x}_{m^*}</span><span class="co">]</span> + \mathbb{E}<span class="co">[</span><span class="ot">\mathbf{w}</span><span class="co">]</span> = \bar{\mathbf{x}} + \mathbf{0} = \bar{\mathbf{x}}$$</span>
+<span id="cb18-531"><a href="#cb18-531" aria-hidden="true" tabindex="-1"></a>This proves why the bandwidth factor must scale exactly as $M^{-1/(N+4)}$. This is known as **Scott's Rule of Thumb** (Scott, 1992).</span>
+<span id="cb18-532"><a href="#cb18-532" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-533"><a href="#cb18-533" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb18-534"><a href="#cb18-534" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-535"><a href="#cb18-535" aria-hidden="true" tabindex="-1"></a><span class="fu">## Line 3: Bandwidth Covariance Scaling</span></span>
+<span id="cb18-536"><a href="#cb18-536" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb18-537"><a href="#cb18-537" aria-hidden="true" tabindex="-1"></a>kde_cov <span class="op">=</span> (bw_factor <span class="op">**</span> <span class="dv">2</span>) <span class="op">*</span> cov_psd</span>
+<span id="cb18-538"><a href="#cb18-538" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb18-539"><a href="#cb18-539" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-540"><a href="#cb18-540" aria-hidden="true" tabindex="-1"></a>By the law of total covariance:</span>
-<span id="cb18-541"><a href="#cb18-541" aria-hidden="true" tabindex="-1"></a>$$\operatorname{Cov}(\tilde{\mathbf{e}}) = \operatorname{Cov}(\mathbf{x}_{m^*}) + \operatorname{Cov}(\mathbf{w}) = \hat{\mathbf{\Sigma}} + \mathbf{H} = \left(1 + b^2\right) \hat{\mathbf{\Sigma}}$$</span>
+<span id="cb18-540"><a href="#cb18-540" aria-hidden="true" tabindex="-1"></a>Because $\mathbf{H} = b^2 \mathbf{\Sigma}$, the covariance matrix governing the Gaussian kernel is:</span>
+<span id="cb18-541"><a href="#cb18-541" aria-hidden="true" tabindex="-1"></a>$$\mathbf{H} = \left(M^{-\frac{1}{N+4}}\right)^2 \mathbf{\Sigma}_{\text{psd}} = M^{-\frac{2}{N+4}} \mathbf{\Sigma}_{\text{psd}}$$</span>
 <span id="cb18-542"><a href="#cb18-542" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-543"><a href="#cb18-543" aria-hidden="true" tabindex="-1"></a>As $M \to \infty$, $b \to 0$, so $\operatorname{Cov}(\tilde{\mathbf{e}}) \to \hat{\mathbf{\Sigma}}$. For finite $M$, the slight expansion factor $(1 + b^2)$ provides the necessary regularization to account for sample uncertainty.</span>
-<span id="cb18-544"><a href="#cb18-544" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-545"><a href="#cb18-545" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb18-546"><a href="#cb18-546" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-547"><a href="#cb18-547" aria-hidden="true" tabindex="-1"></a><span class="fu"># Summary Comparison Matrix</span></span>
-<span id="cb18-548"><a href="#cb18-548" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-549"><a href="#cb18-549" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Method <span class="pp">|</span> Applicable Classes <span class="pp">|</span> Target Scope <span class="pp">|</span> Inter-Horizon Covariance <span class="pp">|</span> Cross-Series Covariance <span class="pp">|</span> Tail Weight Flexibility <span class="pp">|</span> Non-Gaussian Marginals <span class="pp">|</span> Computational Complexity <span class="pp">|</span></span>
-<span id="cb18-550"><a href="#cb18-550" aria-hidden="true" tabindex="-1"></a><span class="pp">| :---</span> <span class="pp">| :---</span> <span class="pp">| :---</span> <span class="pp">| :---:</span> <span class="pp">| :---:</span> <span class="pp">| :---:</span> <span class="pp">| :---:</span> <span class="pp">| :---:</span> <span class="pp">|</span></span>
-<span id="cb18-551"><a href="#cb18-551" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **`empirical`** <span class="pp">|</span> <span class="in">`prob_forecasts`</span>, <span class="in">`multi_prob_forecasts`</span> <span class="pp">|</span> Discrete empirical <span class="pp">|</span> Horizon-by-horizon (Univariate) / Contemporaneous (Multi) <span class="pp">|</span> Yes (Multi joint rows) <span class="pp">|</span> Empirical <span class="pp">|</span> Yes (Exact empirical) <span class="pp">|</span> $\mathcal{O}(S \cdot H \cdot N)$ <span class="pp">|</span></span>
-<span id="cb18-552"><a href="#cb18-552" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **`ind_empirical`** <span class="pp">|</span> <span class="in">`multi_prob_forecasts`</span> <span class="pp">|</span> Discrete empirical per series <span class="pp">|</span> Horizon-by-horizon <span class="pp">|</span> No (Independent per series) <span class="pp">|</span> Empirical <span class="pp">|</span> Yes (Exact empirical) <span class="pp">|</span> $\mathcal{O}(S \cdot H \cdot N)$ <span class="pp">|</span></span>
-<span id="cb18-553"><a href="#cb18-553" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **`kde`** <span class="pp">|</span> <span class="in">`prob_forecasts`</span>, <span class="in">`multi_prob_forecasts`</span> <span class="pp">|</span> Continuous smoothed non-parametric <span class="pp">|</span> Horizon-by-horizon (Univariate) <span class="pp">|</span> Yes (Multi, Scott's mixture) <span class="pp">|</span> Continuous smoothed <span class="pp">|</span> Yes (Kernel smoothed) <span class="pp">|</span> $\mathcal{O}(S \cdot H \cdot N)$ <span class="pp">|</span></span>
-<span id="cb18-554"><a href="#cb18-554" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **`ind_kde`** <span class="pp">|</span> <span class="in">`multi_prob_forecasts`</span> <span class="pp">|</span> Continuous smoothed 1D KDE per series <span class="pp">|</span> Horizon-by-horizon <span class="pp">|</span> No (Independent per series) <span class="pp">|</span> Continuous smoothed <span class="pp">|</span> Yes (1D Kernel smoothed) <span class="pp">|</span> $\mathcal{O}(S \cdot H \cdot N)$ <span class="pp">|</span></span>
-<span id="cb18-555"><a href="#cb18-555" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **`gaussian` / `mvn`** <span class="pp">|</span> <span class="in">`prob_forecasts`</span>, <span class="in">`multi_prob_forecasts`</span> <span class="pp">|</span> Continuous parametric Gaussian <span class="pp">|</span> Full $H \times H$ (Univariate) <span class="pp">|</span> Full $N \times N$ (Multi) <span class="pp">|</span> Light (Gaussian) <span class="pp">|</span> No (Elliptical) <span class="pp">|</span> $\mathcal{O}(H^3 + S \cdot H)$ or $\mathcal{O}(N^3 + S \cdot N)$ <span class="pp">|</span></span>
-<span id="cb18-556"><a href="#cb18-556" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **`student_t`** <span class="pp">|</span> <span class="in">`multi_prob_forecasts`</span> <span class="pp">|</span> Continuous parametric heavy-tailed <span class="pp">|</span> N/A <span class="pp">|</span> Full $N \times N$ (Multi) <span class="pp">|</span> Heavy (Controlled by $\nu$) <span class="pp">|</span> No (Elliptical) <span class="pp">|</span> $\mathcal{O}(N^3 + S \cdot N)$ <span class="pp">|</span></span>
-<span id="cb18-557"><a href="#cb18-557" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **`copula`** <span class="pp">|</span> <span class="in">`prob_forecasts`</span>, <span class="in">`multi_prob_forecasts`</span> <span class="pp">|</span> Semi-parametric Copula <span class="pp">|</span> Full $H \times H$ (Univariate) <span class="pp">|</span> Full $N \times N$ (Multi) <span class="pp">|</span> Empirical tails <span class="pp">|</span> Yes (Quantile inverted) <span class="pp">|</span> $\mathcal{O}(H^3 + S \cdot H \log K)$ <span class="pp">|</span></span>
-<span id="cb18-558"><a href="#cb18-558" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **`conformal`** <span class="pp">|</span> <span class="in">`prob_forecasts`</span>, <span class="in">`multi_prob_forecasts`</span> <span class="pp">|</span> Finite-sample valid intervals <span class="pp">|</span> Individual horizons <span class="pp">|</span> Individual series <span class="pp">|</span> Distribution-free <span class="pp">|</span> Model-free <span class="pp">|</span> $\mathcal{O}(K \log K)$ <span class="pp">|</span></span>
-<span id="cb18-559"><a href="#cb18-559" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-560"><a href="#cb18-560" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb18-561"><a href="#cb18-561" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-562"><a href="#cb18-562" aria-hidden="true" tabindex="-1"></a><span class="fu"># References</span></span>
-<span id="cb18-563"><a href="#cb18-563" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-564"><a href="#cb18-564" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Scott, D. W. (1992)**. *Multivariate Density Estimation: Theory, Practice, and Visualization*. John Wiley &amp; Sons, New York.</span>
-<span id="cb18-565"><a href="#cb18-565" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Silverman, B. W. (1986)**. *Density Estimation for Statistics and Data Analysis*. Chapman and Hall, London.</span>
-<span id="cb18-566"><a href="#cb18-566" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Sklar, M. (1959)**. *Fonctions de répartition à n dimensions et leurs marges*. Publications de l'Institut de Statistique de l'Université de Paris, 8, 229–231.</span>
-<span id="cb18-567"><a href="#cb18-567" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Efron, B., &amp; Tibshirani, R. J. (1993)**. *An Introduction to the Bootstrap*. Chapman &amp; Hall/CRC, New York.</span>
-<span id="cb18-568"><a href="#cb18-568" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>**Vovk, V., Gammerman, A., &amp; Shafer, G. (2005)**. *Algorithmic Learning in a Random World*. Springer, Boston, MA.</span>
-<span id="cb18-569"><a href="#cb18-569" aria-hidden="true" tabindex="-1"></a><span class="ss">6. </span>**Wand, M. P., &amp; Jones, M. C. (1995)**. *Kernel Smoothing*. Chapman and Hall/CRC, London.</span>
-<span id="cb18-570"><a href="#cb18-570" aria-hidden="true" tabindex="-1"></a><span class="ss">7. </span>**Rosenblatt, M. (1956)**. Remarks on some non-parametric estimates of a density function. *The Annals of Mathematical Statistics*, 27(3), 832–837.</span>
-<span id="cb18-571"><a href="#cb18-571" aria-hidden="true" tabindex="-1"></a><span class="ss">8. </span>**Parzen, E. (1962)**. On estimation of a probability density function and mode. *The Annals of Mathematical Statistics*, 33(3), 1065–1076.</span>
-<span id="cb18-572"><a href="#cb18-572" aria-hidden="true" tabindex="-1"></a><span class="ss">9. </span>**Ledoit, O., &amp; Wolf, M. (2004)**. A well-conditioned estimator for large-dimensional covariance matrices. *Journal of Multivariate Analysis*, 88(2), 365–411.</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+<span id="cb18-543"><a href="#cb18-543" aria-hidden="true" tabindex="-1"></a><span class="fu">### Why multiply by `cov_psd` instead of the Identity matrix $\mathbf{I}_N$?</span></span>
+<span id="cb18-544"><a href="#cb18-544" aria-hidden="true" tabindex="-1"></a>If one smoothed using a spherical kernel $\mathbf{H} = b^2 \mathbf{I}_N$, the smoothing would be isotropic (equal in all directions), ignoring the fact that error variables may have wildly different variances and strong cross-correlations.</span>
+<span id="cb18-545"><a href="#cb18-545" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-546"><a href="#cb18-546" aria-hidden="true" tabindex="-1"></a>By using $\mathbf{H} = b^2 \mathbf{\Sigma}_{\text{psd}}$:</span>
+<span id="cb18-547"><a href="#cb18-547" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The iso-density contours of the smoothing kernel are **ellipsoids** oriented along the eigenvectors of $\mathbf{\Sigma}_{\text{psd}}$.</span>
+<span id="cb18-548"><a href="#cb18-548" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Variables with larger variance receive proportionally wider smoothing.</span>
+<span id="cb18-549"><a href="#cb18-549" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Strongly correlated series are smoothed along their ridge of correlation, preventing probability mass from spilling into impossible orthogonal regions.</span>
+<span id="cb18-550"><a href="#cb18-550" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-551"><a href="#cb18-551" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb18-552"><a href="#cb18-552" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-553"><a href="#cb18-553" aria-hidden="true" tabindex="-1"></a><span class="fu">## Lines 4–10: Generative Mixture Sampling Without Numerical Integration</span></span>
+<span id="cb18-554"><a href="#cb18-554" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb18-555"><a href="#cb18-555" aria-hidden="true" tabindex="-1"></a>row_indices <span class="op">=</span> rng.choice(M_rows, size<span class="op">=</span>n_samples, replace<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb18-556"><a href="#cb18-556" aria-hidden="true" tabindex="-1"></a>centers <span class="op">=</span> <span class="va">self</span>.joint_error_matrix[row_indices, :]</span>
+<span id="cb18-557"><a href="#cb18-557" aria-hidden="true" tabindex="-1"></a>noise <span class="op">=</span> rng.multivariate_normal(mean<span class="op">=</span>np.zeros(N), cov<span class="op">=</span>kde_cov, size<span class="op">=</span>n_samples)</span>
+<span id="cb18-558"><a href="#cb18-558" aria-hidden="true" tabindex="-1"></a>innovations[:, h, :] <span class="op">=</span> centers <span class="op">+</span> noise</span>
+<span id="cb18-559"><a href="#cb18-559" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb18-560"><a href="#cb18-560" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-561"><a href="#cb18-561" aria-hidden="true" tabindex="-1"></a><span class="fu">### The Continuous Mixture Representation</span></span>
+<span id="cb18-562"><a href="#cb18-562" aria-hidden="true" tabindex="-1"></a>Notice that $\hat{f}(\mathbf{x})$ is an equally weighted mixture of $M$ Gaussian distributions centered at the observed data points $\mathbf{x}_m$:</span>
+<span id="cb18-563"><a href="#cb18-563" aria-hidden="true" tabindex="-1"></a>$$\hat{f}(\mathbf{x}) = \frac{1}{M} \sum_{m=1}^M \mathcal{N}_N\left(\mathbf{x}; \, \mathbf{x}_m, \, \mathbf{H}\right)$$</span>
+<span id="cb18-564"><a href="#cb18-564" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-565"><a href="#cb18-565" aria-hidden="true" tabindex="-1"></a>Directly evaluating or numerically integrating an $N$-dimensional density grid is computationally intractable (curse of dimensionality). However, **generating random variates from this mixture is exact and instantaneous**:</span>
+<span id="cb18-566"><a href="#cb18-566" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-567"><a href="#cb18-567" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Component Selection**:</span>
+<span id="cb18-568"><a href="#cb18-568" aria-hidden="true" tabindex="-1"></a>   Draw an observation index $m^* \sim \text{DiscreteUniform}(1, M)$.</span>
+<span id="cb18-569"><a href="#cb18-569" aria-hidden="true" tabindex="-1"></a>   In code:</span>
+<span id="cb18-570"><a href="#cb18-570" aria-hidden="true" tabindex="-1"></a>   <span class="in">`row_indices = rng.choice(M_rows, size=n_samples, replace=True)`</span></span>
+<span id="cb18-571"><a href="#cb18-571" aria-hidden="true" tabindex="-1"></a>   <span class="in">`centers = self.joint_error_matrix[row_indices, :]`</span></span>
+<span id="cb18-572"><a href="#cb18-572" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-573"><a href="#cb18-573" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Kernel Noise Generation**:</span>
+<span id="cb18-574"><a href="#cb18-574" aria-hidden="true" tabindex="-1"></a>   Draw a random perturbation vector from the Gaussian kernel centered at zero:</span>
+<span id="cb18-575"><a href="#cb18-575" aria-hidden="true" tabindex="-1"></a>   $$\mathbf{w} \sim \mathcal{N}_N(\mathbf{0}, \mathbf{H})$$</span>
+<span id="cb18-576"><a href="#cb18-576" aria-hidden="true" tabindex="-1"></a>   In code:</span>
+<span id="cb18-577"><a href="#cb18-577" aria-hidden="true" tabindex="-1"></a>   <span class="in">`noise = rng.multivariate_normal(mean=np.zeros(N), cov=kde_cov, size=n_samples)`</span></span>
+<span id="cb18-578"><a href="#cb18-578" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-579"><a href="#cb18-579" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Additive Convolution**:</span>
+<span id="cb18-580"><a href="#cb18-580" aria-hidden="true" tabindex="-1"></a>   $$\tilde{\mathbf{e}} = \mathbf{x}_{m^*} + \mathbf{w}$$</span>
+<span id="cb18-581"><a href="#cb18-581" aria-hidden="true" tabindex="-1"></a>   In code:</span>
+<span id="cb18-582"><a href="#cb18-582" aria-hidden="true" tabindex="-1"></a>   <span class="in">`innovations[:, h, :] = centers + noise`</span></span>
+<span id="cb18-583"><a href="#cb18-583" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-584"><a href="#cb18-584" aria-hidden="true" tabindex="-1"></a><span class="fu">### Moment Properties of the KDE Draws</span></span>
+<span id="cb18-585"><a href="#cb18-585" aria-hidden="true" tabindex="-1"></a>By the law of total expectation:</span>
+<span id="cb18-586"><a href="#cb18-586" aria-hidden="true" tabindex="-1"></a>$$\mathbb{E}<span class="co">[</span><span class="ot">\tilde{\mathbf{e}}</span><span class="co">]</span> = \mathbb{E}<span class="co">[</span><span class="ot">\mathbf{x}_{m^*}</span><span class="co">]</span> + \mathbb{E}<span class="co">[</span><span class="ot">\mathbf{w}</span><span class="co">]</span> = \bar{\mathbf{x}} + \mathbf{0} = \bar{\mathbf{x}}$$</span>
+<span id="cb18-587"><a href="#cb18-587" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-588"><a href="#cb18-588" aria-hidden="true" tabindex="-1"></a>By the law of total covariance:</span>
+<span id="cb18-589"><a href="#cb18-589" aria-hidden="true" tabindex="-1"></a>$$\operatorname{Cov}(\tilde{\mathbf{e}}) = \operatorname{Cov}(\mathbf{x}_{m^*}) + \operatorname{Cov}(\mathbf{w}) = \hat{\mathbf{\Sigma}} + \mathbf{H} = \left(1 + b^2\right) \hat{\mathbf{\Sigma}}$$</span>
+<span id="cb18-590"><a href="#cb18-590" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-591"><a href="#cb18-591" aria-hidden="true" tabindex="-1"></a>As $M \to \infty$, $b \to 0$, so $\operatorname{Cov}(\tilde{\mathbf{e}}) \to \hat{\mathbf{\Sigma}}$. For finite $M$, the slight expansion factor $(1 + b^2)$ provides the necessary regularization to account for sample uncertainty.</span>
+<span id="cb18-592"><a href="#cb18-592" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-593"><a href="#cb18-593" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb18-594"><a href="#cb18-594" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-595"><a href="#cb18-595" aria-hidden="true" tabindex="-1"></a><span class="fu"># Summary Comparison Matrix</span></span>
+<span id="cb18-596"><a href="#cb18-596" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-597"><a href="#cb18-597" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Method <span class="pp">|</span> Applicable Classes <span class="pp">|</span> Target Scope <span class="pp">|</span> Inter-Horizon Covariance <span class="pp">|</span> Cross-Series Covariance <span class="pp">|</span> Tail Weight Flexibility <span class="pp">|</span> Non-Gaussian Marginals <span class="pp">|</span> Computational Complexity <span class="pp">|</span></span>
+<span id="cb18-598"><a href="#cb18-598" aria-hidden="true" tabindex="-1"></a><span class="pp">| :---</span> <span class="pp">| :---</span> <span class="pp">| :---</span> <span class="pp">| :---:</span> <span class="pp">| :---:</span> <span class="pp">| :---:</span> <span class="pp">| :---:</span> <span class="pp">| :---:</span> <span class="pp">|</span></span>
+<span id="cb18-599"><a href="#cb18-599" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **`empirical`** <span class="pp">|</span> <span class="in">`prob_forecasts`</span>, <span class="in">`multi_prob_forecasts`</span> <span class="pp">|</span> Discrete empirical <span class="pp">|</span> Horizon-by-horizon (Univariate) / Contemporaneous (Multi) <span class="pp">|</span> Yes (Multi joint rows) <span class="pp">|</span> Empirical <span class="pp">|</span> Yes (Exact empirical) <span class="pp">|</span> $\mathcal{O}(S \cdot H \cdot N)$ <span class="pp">|</span></span>
+<span id="cb18-600"><a href="#cb18-600" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **`ind_empirical`** <span class="pp">|</span> <span class="in">`multi_prob_forecasts`</span> <span class="pp">|</span> Discrete empirical per series <span class="pp">|</span> Horizon-by-horizon <span class="pp">|</span> No (Independent per series) <span class="pp">|</span> Empirical <span class="pp">|</span> Yes (Exact empirical) <span class="pp">|</span> $\mathcal{O}(S \cdot H \cdot N)$ <span class="pp">|</span></span>
+<span id="cb18-601"><a href="#cb18-601" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **`kde`** <span class="pp">|</span> <span class="in">`prob_forecasts`</span>, <span class="in">`multi_prob_forecasts`</span> <span class="pp">|</span> Continuous smoothed non-parametric <span class="pp">|</span> Horizon-by-horizon (Univariate) <span class="pp">|</span> Yes (Multi, Scott's mixture) <span class="pp">|</span> Continuous smoothed <span class="pp">|</span> Yes (Kernel smoothed) <span class="pp">|</span> $\mathcal{O}(S \cdot H \cdot N)$ <span class="pp">|</span></span>
+<span id="cb18-602"><a href="#cb18-602" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **`ind_kde`** <span class="pp">|</span> <span class="in">`multi_prob_forecasts`</span> <span class="pp">|</span> Continuous smoothed 1D KDE per series <span class="pp">|</span> Horizon-by-horizon <span class="pp">|</span> No (Independent per series) <span class="pp">|</span> Continuous smoothed <span class="pp">|</span> Yes (1D Kernel smoothed) <span class="pp">|</span> $\mathcal{O}(S \cdot H \cdot N)$ <span class="pp">|</span></span>
+<span id="cb18-603"><a href="#cb18-603" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **`gaussian` / `mvn`** <span class="pp">|</span> <span class="in">`prob_forecasts`</span>, <span class="in">`multi_prob_forecasts`</span> <span class="pp">|</span> Continuous parametric Gaussian <span class="pp">|</span> Full $H \times H$ (Univariate) <span class="pp">|</span> Full $N \times N$ (Multi) <span class="pp">|</span> Light (Gaussian) <span class="pp">|</span> No (Elliptical) <span class="pp">|</span> $\mathcal{O}(H^3 + S \cdot H)$ or $\mathcal{O}(N^3 + S \cdot N)$ <span class="pp">|</span></span>
+<span id="cb18-604"><a href="#cb18-604" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **`student_t`** <span class="pp">|</span> <span class="in">`multi_prob_forecasts`</span> <span class="pp">|</span> Continuous parametric heavy-tailed <span class="pp">|</span> N/A <span class="pp">|</span> Full $N \times N$ (Multi) <span class="pp">|</span> Heavy (Controlled by $\nu$) <span class="pp">|</span> No (Elliptical) <span class="pp">|</span> $\mathcal{O}(N^3 + S \cdot N)$ <span class="pp">|</span></span>
+<span id="cb18-605"><a href="#cb18-605" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **`copula`** <span class="pp">|</span> <span class="in">`prob_forecasts`</span>, <span class="in">`multi_prob_forecasts`</span> <span class="pp">|</span> Semi-parametric Copula <span class="pp">|</span> Full $H \times H$ (Univariate) <span class="pp">|</span> Full $N \times N$ (Multi) <span class="pp">|</span> Empirical tails <span class="pp">|</span> Yes (Quantile inverted) <span class="pp">|</span> $\mathcal{O}(H^3 + S \cdot H \log K)$ <span class="pp">|</span></span>
+<span id="cb18-606"><a href="#cb18-606" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **`conformal`** <span class="pp">|</span> <span class="in">`prob_forecasts`</span>, <span class="in">`multi_prob_forecasts`</span> <span class="pp">|</span> Finite-sample valid intervals <span class="pp">|</span> Individual horizons <span class="pp">|</span> Individual series <span class="pp">|</span> Distribution-free <span class="pp">|</span> Model-free <span class="pp">|</span> $\mathcal{O}(K \log K)$ <span class="pp">|</span></span>
+<span id="cb18-607"><a href="#cb18-607" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-608"><a href="#cb18-608" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb18-609"><a href="#cb18-609" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-610"><a href="#cb18-610" aria-hidden="true" tabindex="-1"></a><span class="fu"># References</span></span>
+<span id="cb18-611"><a href="#cb18-611" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-612"><a href="#cb18-612" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Scott, D. W. (1992)**. *Multivariate Density Estimation: Theory, Practice, and Visualization*. John Wiley &amp; Sons, New York.</span>
+<span id="cb18-613"><a href="#cb18-613" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Silverman, B. W. (1986)**. *Density Estimation for Statistics and Data Analysis*. Chapman and Hall, London.</span>
+<span id="cb18-614"><a href="#cb18-614" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Sklar, M. (1959)**. *Fonctions de répartition à n dimensions et leurs marges*. Publications de l'Institut de Statistique de l'Université de Paris, 8, 229–231.</span>
+<span id="cb18-615"><a href="#cb18-615" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Efron, B., &amp; Tibshirani, R. J. (1993)**. *An Introduction to the Bootstrap*. Chapman &amp; Hall/CRC, New York.</span>
+<span id="cb18-616"><a href="#cb18-616" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>**Vovk, V., Gammerman, A., &amp; Shafer, G. (2005)**. *Algorithmic Learning in a Random World*. Springer, Boston, MA.</span>
+<span id="cb18-617"><a href="#cb18-617" aria-hidden="true" tabindex="-1"></a><span class="ss">6. </span>**Wand, M. P., &amp; Jones, M. C. (1995)**. *Kernel Smoothing*. Chapman and Hall/CRC, London.</span>
+<span id="cb18-618"><a href="#cb18-618" aria-hidden="true" tabindex="-1"></a><span class="ss">7. </span>**Rosenblatt, M. (1956)**. Remarks on some non-parametric estimates of a density function. *The Annals of Mathematical Statistics*, 27(3), 832–837.</span>
+<span id="cb18-619"><a href="#cb18-619" aria-hidden="true" tabindex="-1"></a><span class="ss">8. </span>**Parzen, E. (1962)**. On estimation of a probability density function and mode. *The Annals of Mathematical Statistics*, 33(3), 1065–1076.</span>
+<span id="cb18-620"><a href="#cb18-620" aria-hidden="true" tabindex="-1"></a><span class="ss">9. </span>**Ledoit, O., &amp; Wolf, M. (2004)**. A well-conditioned estimator for large-dimensional covariance matrices. *Journal of Multivariate Analysis*, 88(2), 365–411.</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 
