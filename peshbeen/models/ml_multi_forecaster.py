@@ -66,7 +66,7 @@ class ml_multi_forecaster:
             Categorical encoding strategy for series identifiers. Options are:
             - 'dummy': One-hot indicator dummy variables for each series.
             - 'ordinal': Integer index encoding (0, 1, ..., N-1).
-            - None: Pass categorical column directly to tree models (only supported for LGBMRegressor and CatBoostRegressor).
+            - None: Pass categorical column directly to tree models with native categorical support (LGBMRegressor, CatBoostRegressor, XGBRegressor, and HistGradientBoostingRegressor).
         difference : int or dict of {str: int}, optional
             Order of ordinary differencing to apply to each series before modeling. Default is None (no differencing).
         seasonal_diff : int or dict of {str: int}, optional
@@ -89,9 +89,9 @@ class ml_multi_forecaster:
         target_scaler : object or dict of {str: object}, optional
             Scikit-learn compatible scaler instance (e.g. StandardScaler(), RobustScaler(), MinMaxScaler()) or dictionary of per-series scalers. Scalers are fitted on each series' target data and inverted on forecasts. Default is None.
         cat_variables : list of str, optional
-            List of categorical feature column names in exogenous data. Default is None.
+            List of categorical feature column names in exogenous data. When categorical_encoder is None, native categorical support is used (e.g. LGBMRegressor, CatBoostRegressor, XGBRegressor with enable_categorical=True, or HistGradientBoostingRegressor with categorical_features='from_dtype'). Default is None.
         categorical_encoder : object, optional
-            Scikit-learn compatible transformer (e.g. OneHotEncoder(drop='first', sparse_output=False)) to encode `cat_variables`. If None, categorical features must be natively supported by the model (e.g. LGBMRegressor or CatBoostRegressor). Default is None.
+            Scikit-learn compatible transformer (e.g. OneHotEncoder(drop='first', sparse_output=False)) to encode `cat_variables`. If None, categorical features must be natively supported by the model (e.g. LGBMRegressor, CatBoostRegressor, XGBRegressor, or HistGradientBoostingRegressor). Default is None.
 
         Returns
         -------
@@ -104,9 +104,9 @@ class ml_multi_forecaster:
         self.series_encoding = series_encoding
 
         if self.series_encoding is None:
-            if self.model_name not in ["LGBMRegressor", "CatBoostRegressor"]:
+            if self.model_name not in ["LGBMRegressor", "CatBoostRegressor", "XGBRegressor", "HistGradientBoostingRegressor"]:
                 raise ValueError(
-                    "series_encoding=None is only supported for LGBMRegressor and CatBoostRegressor. "
+                    "series_encoding=None is only supported for LGBMRegressor, CatBoostRegressor, XGBRegressor, and HistGradientBoostingRegressor. "
                     "Please set series_encoding='dummy' or 'ordinal'."
                 )
 
@@ -126,10 +126,25 @@ class ml_multi_forecaster:
         self.cat_dtypes = {}
 
         if self.cat_variables is not None and self.cat_encoder is None:
-            if self.model_name not in ["LGBMRegressor", "CatBoostRegressor"]:
+            if self.model_name not in ["LGBMRegressor", "CatBoostRegressor", "XGBRegressor", "HistGradientBoostingRegressor"]:
                 raise ValueError(
-                    "Model must be LGBMRegressor or CatBoostRegressor to handle categorical variables without an encoder."
+                    "Model must be LGBMRegressor, CatBoostRegressor, XGBRegressor, or HistGradientBoostingRegressor to handle categorical variables without an encoder."
                 )
+
+        has_native_cat = (self.series_encoding is None) or (self.cat_variables is not None and self.cat_encoder is None)
+        if has_native_cat:
+            if self.model_name == "XGBRegressor" and hasattr(self.model, "set_params"):
+                if not getattr(self.model, "enable_categorical", False):
+                    try:
+                        self.model.set_params(enable_categorical=True)
+                    except Exception:
+                        pass
+            elif self.model_name == "HistGradientBoostingRegressor" and hasattr(self.model, "set_params"):
+                if getattr(self.model, "categorical_features", None) is None:
+                    try:
+                        self.model.set_params(categorical_features="from_dtype")
+                    except Exception:
+                        pass
 
     def _get_per_series_param(self, param: Any, series_id: str, default: Any = None) -> Any:
         if isinstance(param, dict):
@@ -422,6 +437,18 @@ class ml_multi_forecaster:
                 fit_kwargs = {"categorical_feature": cat_cols}
             elif self.model_name == "CatBoostRegressor":
                 fit_kwargs = {"cat_features": cat_cols, "verbose": False}
+            elif self.model_name == "XGBRegressor":
+                if hasattr(self.model, "set_params") and not getattr(self.model, "enable_categorical", False):
+                    try:
+                        self.model.set_params(enable_categorical=True)
+                    except Exception:
+                        pass
+            elif self.model_name == "HistGradientBoostingRegressor":
+                if hasattr(self.model, "set_params") and getattr(self.model, "categorical_features", None) is None:
+                    try:
+                        self.model.set_params(categorical_features="from_dtype")
+                    except Exception:
+                        pass
 
         self.model_fit = self.model.fit(X, y, **fit_kwargs)
 

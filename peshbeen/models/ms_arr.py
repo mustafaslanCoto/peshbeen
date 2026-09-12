@@ -306,7 +306,7 @@ class ms_arr:
                 coeffs.append(coeff_i)
                 resid = self.y - self.X @ coeff_i
                 stds.append(np.sqrt(np.mean(resid ** 2)))
-            self.coeffs = np.row_stack(coeffs)
+            self.coeffs = np.vstack(coeffs)
             self.stds = np.array(stds)
 
         return df_clean
@@ -352,7 +352,7 @@ class ms_arr:
             pooled_var = np.sum(weighted_resid_all) / (np.sum(weights_all) - X.shape[1])
             stds = [np.sqrt(max(pooled_var, var_floor))] * self.N
 
-        self.coeffs = np.row_stack(coeffs)
+        self.coeffs = np.vstack(coeffs)
         self.stds = np.array(stds)
 
     # ─────────────────────────────────────────────────────────────────────────

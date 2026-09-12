@@ -68,9 +68,9 @@ class ml_forecaster:
         box_cox_biasadj : bool, optional
             Whether to apply bias adjustment when inverting the Box-Cox transformation on forecasts. Default is False.
         cat_variables : list of str, optional
-            List of categorical feature column names. If provided, these columns will be treated as categorical variables and encoded accordingly. Default is None (no categorical variables).
+            List of categorical feature column names. If provided, these columns will be treated as categorical variables and encoded accordingly. When categorical_encoder is None, native categorical support is used (e.g. LGBMRegressor, CatBoostRegressor, XGBRegressor with enable_categorical=True, or HistGradientBoostingRegressor with categorical_features='from_dtype'). Default is None (no categorical variables).
         categorical_encoder : object, optional
-            Categorical encoder object (e.g. OneHotEncoder(), MeanEncoder(), etc.) to apply to the categorical variables specified in cat_variables. The encoder should have fit() and transform() methods that can be applied to the input DataFrame. Default is None (no categorical encoding) and if None, categorical variables can only be used if the model can handle them natively (e.g. LGBM or CatBoost).
+            Categorical encoder object (e.g. OneHotEncoder(), MeanEncoder(), TargetEncoder(), etc.) to apply to the categorical variables specified in cat_variables. The encoder should have fit() and transform() methods that can be applied to the input DataFrame. Default is None (no categorical encoding) and if None, categorical variables can only be used if the model can handle them natively (e.g. LGBMRegressor, CatBoostRegressor, XGBRegressor, or HistGradientBoostingRegressor).
 
         Returns
         -------
@@ -84,11 +84,23 @@ class ml_forecaster:
         self.cat_encoder = categorical_encoder
 
         if self.cat_variables is not None and self.cat_encoder is None:
-            if self.model_name not in ["LGBMRegressor", "CatBoostRegressor"]:
+            if self.model_name not in ["LGBMRegressor", "CatBoostRegressor", "XGBRegressor", "HistGradientBoostingRegressor"]:
                 raise ValueError(
-                    "Model must be LGBMRegressor or CatBoostRegressor to handle categorical variables without a specified encoder "
+                    "Model must be LGBMRegressor, CatBoostRegressor, XGBRegressor, or HistGradientBoostingRegressor to handle categorical variables without a specified encoder "
                     "(or provide an encoder such as OneHotEncoder/MeanEncoder)."
                 )
+            if self.model_name == "XGBRegressor" and hasattr(self.model, "set_params"):
+                if not getattr(self.model, "enable_categorical", False):
+                    try:
+                        self.model.set_params(enable_categorical=True) ## enable native categorical support in XGBRegressor if not already enabled
+                    except Exception:
+                        pass
+            elif self.model_name == "HistGradientBoostingRegressor" and hasattr(self.model, "set_params"):
+                if getattr(self.model, "categorical_features", None) is None:
+                    try:
+                        self.model.set_params(categorical_features="from_dtype")
+                    except Exception:
+                        pass
             
         self.cps = change_points
         self.pol = pol_degree
@@ -298,6 +310,18 @@ class ml_forecaster:
             fit_kwargs = {"categorical_feature": self.cat_variables}
         elif self.model_name == "CatBoostRegressor" and self.cat_encoder is None:
             fit_kwargs = {"cat_features": self.cat_variables, "verbose": False}
+        elif self.model_name == "XGBRegressor" and self.cat_encoder is None:
+            if hasattr(self.model, "set_params") and not getattr(self.model, "enable_categorical", False):
+                try:
+                    self.model.set_params(enable_categorical=True)
+                except Exception:
+                    pass
+        elif self.model_name == "HistGradientBoostingRegressor" and self.cat_encoder is None:
+            if hasattr(self.model, "set_params") and getattr(self.model, "categorical_features", None) is None:
+                try:
+                    self.model.set_params(categorical_features="from_dtype")
+                except Exception:
+                    pass
 
         self.model_fit = self.model.fit(self.X, self.y, **fit_kwargs)
 
@@ -439,10 +463,10 @@ class ml_forecaster:
             inp = x_var + inp_lag + transform_lag
             df_inp = pd.DataFrame(np.array(inp).reshape(1, -1), columns=self.X.columns)
 
-            if (self.model_name in ['LGBMRegressor', 'CatBoostRegressor']) and self.cat_encoder is None:
+            if (self.model_name in ['LGBMRegressor', 'CatBoostRegressor', 'XGBRegressor', 'HistGradientBoostingRegressor']) and self.cat_encoder is None:
                 for c in df_inp.columns:
                     if c in (self.cat_variables or []):
-                        df_inp[c] = df_inp[c].astype('category')
+                        df_inp[c] = df_inp[c].astype(self.X[c].dtype if hasattr(self, 'X') and c in self.X.columns and isinstance(self.X[c].dtype, pd.CategoricalDtype) else 'category')
                     else:
                         df_inp[c] = df_inp[c].astype('float64')
 
