@@ -130,8 +130,12 @@ def seasonal_diff(data: Union[np.ndarray, pd.Series],
     array-like
         The seasonally differenced time series.
     """
-    orig_data = list(np.repeat(np.nan, seasonal_period))+[data[i] - data[i - seasonal_period] for i in range(seasonal_period, len(data))]
-    return np.array(orig_data)
+    arr = np.asarray(data)
+    res = np.empty_like(arr, dtype=np.float64)
+    res[:seasonal_period] = np.nan
+    res[seasonal_period:] = arr[seasonal_period:] - arr[:-seasonal_period]
+    return res
+
 
 # %% ../nbs/modules/08_helpers.ipynb #7ac782ee
 def undiff_ts(original_data: Union[np.ndarray, pd.Series],
@@ -154,12 +158,14 @@ def undiff_ts(original_data: Union[np.ndarray, pd.Series],
     array-like
         The reconstructed time series after inverting differencing.
     """
-    undiff_data = np.array(differenced_data)
+    orig_arr = np.asarray(original_data)
+    undiff_data = np.asarray(differenced_data)
     if n > 1:
         for i in range(n-1, 0, -1):
-            undiff_data = np.diff(original_data, i)[-1]+np.cumsum(undiff_data)
+            undiff_data = np.diff(orig_arr, i)[-1] + np.cumsum(undiff_data)
     
-    return original_data[-1]+np.cumsum(undiff_data)
+    return orig_arr[-1] + np.cumsum(undiff_data)
+
 
 # %% ../nbs/modules/08_helpers.ipynb #afb13e6f
 def invert_seasonal_diff(orig_data, diff_data, seasonal_period):
@@ -181,11 +187,14 @@ def invert_seasonal_diff(orig_data, diff_data, seasonal_period):
     array-like
         The reconstructed time series after inverting seasonal differencing.
     """
+    orig_arr = np.asarray(orig_data)
+    diff_arr = np.asarray(diff_data)
     # Start with the last seasonal_period original values
-    result = list(orig_data[-seasonal_period:])
-    for i in range(len(diff_data)):
+    result = list(orig_arr[-seasonal_period:])
+    for i in range(len(diff_arr)):
         # Each new value is previous season value + diff
-        val = diff_data[i] + result[i]
+        val = diff_arr[i] + result[i]
         result.append(val)
     # Only return the reconstructed values matching diff_data length
     return np.array(result[seasonal_period:])
+

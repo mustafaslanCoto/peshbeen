@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.18">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Peshbeen Package Documentation">
+
+<title>Deep Learning Forecasting in peshbeen (dl_forecaster)</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="dl_tutorial_files/libs/clipboard/clipboard.min.js"></script>
+<script src="dl_tutorial_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="dl_tutorial_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="dl_tutorial_files/libs/quarto-html/popper.min.js"></script>
+<script src="dl_tutorial_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="dl_tutorial_files/libs/quarto-html/anchor.min.js"></script>
+<link href="dl_tutorial_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="dl_tutorial_files/libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="dl_tutorial_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="dl_tutorial_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="dl_tutorial_files/libs/bootstrap/bootstrap-c2e55264ed47ce3b2e0326a2269f9400.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#introduction-bridging-deep-learning-and-time-series-workflows" id="toc-introduction-bridging-deep-learning-and-time-series-workflows" class="nav-link active" data-scroll-target="#introduction-bridging-deep-learning-and-time-series-workflows"><span class="header-section-number">1</span> Introduction: Bridging Deep Learning and Time Series Workflows</a></li>
+  <li><a href="#mathematical-foundations-how-each-neural-network-works" id="toc-mathematical-foundations-how-each-neural-network-works" class="nav-link" data-scroll-target="#mathematical-foundations-how-each-neural-network-works"><span class="header-section-number">2</span> Mathematical Foundations: How Each Neural Network Works</a>
+  <ul class="collapse">
+  <li><a href="#long-short-term-memory-lstm" id="toc-long-short-term-memory-lstm" class="nav-link" data-scroll-target="#long-short-term-memory-lstm"><span class="header-section-number">2.1</span> Long Short-Term Memory (LSTM)</a>
+  <ul class="collapse">
+  <li><a href="#plain-english-intuition" id="toc-plain-english-intuition" class="nav-link" data-scroll-target="#plain-english-intuition"><span class="header-section-number">2.1.1</span> Plain English Intuition</a></li>
+  <li><a href="#mathematical-formulation" id="toc-mathematical-formulation" class="nav-link" data-scroll-target="#mathematical-formulation"><span class="header-section-number">2.1.2</span> Mathematical Formulation</a></li>
+  </ul></li>
+  <li><a href="#gated-recurrent-unit-gru" id="toc-gated-recurrent-unit-gru" class="nav-link" data-scroll-target="#gated-recurrent-unit-gru"><span class="header-section-number">2.2</span> Gated Recurrent Unit (GRU)</a>
+  <ul class="collapse">
+  <li><a href="#plain-english-intuition-1" id="toc-plain-english-intuition-1" class="nav-link" data-scroll-target="#plain-english-intuition-1"><span class="header-section-number">2.2.1</span> Plain English Intuition</a></li>
+  <li><a href="#mathematical-formulation-1" id="toc-mathematical-formulation-1" class="nav-link" data-scroll-target="#mathematical-formulation-1"><span class="header-section-number">2.2.2</span> Mathematical Formulation</a></li>
+  </ul></li>
+  <li><a href="#vanilla-recurrent-neural-network-rnn" id="toc-vanilla-recurrent-neural-network-rnn" class="nav-link" data-scroll-target="#vanilla-recurrent-neural-network-rnn"><span class="header-section-number">2.3</span> Vanilla Recurrent Neural Network (RNN)</a>
+  <ul class="collapse">
+  <li><a href="#plain-english-intuition-2" id="toc-plain-english-intuition-2" class="nav-link" data-scroll-target="#plain-english-intuition-2"><span class="header-section-number">2.3.1</span> Plain English Intuition</a></li>
+  <li><a href="#mathematical-formulation-2" id="toc-mathematical-formulation-2" class="nav-link" data-scroll-target="#mathematical-formulation-2"><span class="header-section-number">2.3.2</span> Mathematical Formulation</a></li>
+  </ul></li>
+  <li><a href="#transformer-encoder-self-attention-positional-encoding" id="toc-transformer-encoder-self-attention-positional-encoding" class="nav-link" data-scroll-target="#transformer-encoder-self-attention-positional-encoding"><span class="header-section-number">2.4</span> Transformer Encoder (Self-Attention &amp; Positional Encoding)</a>
+  <ul class="collapse">
+  <li><a href="#plain-english-intuition-3" id="toc-plain-english-intuition-3" class="nav-link" data-scroll-target="#plain-english-intuition-3"><span class="header-section-number">2.4.1</span> Plain English Intuition</a></li>
+  <li><a href="#mathematical-formulation-3" id="toc-mathematical-formulation-3" class="nav-link" data-scroll-target="#mathematical-formulation-3"><span class="header-section-number">2.4.2</span> Mathematical Formulation</a></li>
+  </ul></li>
+  <li><a href="#multi-layer-perceptron-mlp" id="toc-multi-layer-perceptron-mlp" class="nav-link" data-scroll-target="#multi-layer-perceptron-mlp"><span class="header-section-number">2.5</span> Multi-Layer Perceptron (MLP)</a>
+  <ul class="collapse">
+  <li><a href="#plain-english-intuition-4" id="toc-plain-english-intuition-4" class="nav-link" data-scroll-target="#plain-english-intuition-4"><span class="header-section-number">2.5.1</span> Plain English Intuition</a></li>
+  <li><a href="#mathematical-formulation-4" id="toc-mathematical-formulation-4" class="nav-link" data-scroll-target="#mathematical-formulation-4"><span class="header-section-number">2.5.2</span> Mathematical Formulation</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#new-coding-object-oriented-concepts-explained" id="toc-new-coding-object-oriented-concepts-explained" class="nav-link" data-scroll-target="#new-coding-object-oriented-concepts-explained"><span class="header-section-number">3</span> New Coding &amp; Object-Oriented Concepts Explained</a>
+  <ul class="collapse">
+  <li><a href="#what-is-super.__init__" id="toc-what-is-super.__init__" class="nav-link" data-scroll-target="#what-is-super.__init__"><span class="header-section-number">3.1</span> What is <code>super().__init__()</code>?</a></li>
+  <li><a href="#what-is-typenn.module-in-type-hinting" id="toc-what-is-typenn.module-in-type-hinting" class="nav-link" data-scroll-target="#what-is-typenn.module-in-type-hinting"><span class="header-section-number">3.2</span> What is <code>Type[nn.Module]</code> in Type Hinting?</a></li>
+  <li><a href="#what-are-baseestimator-and-regressormixin-from-scikit-learn" id="toc-what-are-baseestimator-and-regressormixin-from-scikit-learn" class="nav-link" data-scroll-target="#what-are-baseestimator-and-regressormixin-from-scikit-learn"><span class="header-section-number">3.3</span> What are <code>BaseEstimator</code> and <code>RegressorMixin</code> from Scikit-Learn?</a></li>
+  <li><a href="#what-is-the-registry-pattern-model_registry" id="toc-what-is-the-registry-pattern-model_registry" class="nav-link" data-scroll-target="#what-is-the-registry-pattern-model_registry"><span class="header-section-number">3.4</span> What is the Registry Pattern (<code>MODEL_REGISTRY</code>)?</a></li>
+  <li><a href="#what-are-tensordataset-and-dataloader" id="toc-what-are-tensordataset-and-dataloader" class="nav-link" data-scroll-target="#what-are-tensordataset-and-dataloader"><span class="header-section-number">3.5</span> What are <code>TensorDataset</code> and <code>DataLoader</code>?</a></li>
+  <li><a href="#what-are-state_dict-and-deepcopy-for-early-stopping" id="toc-what-are-state_dict-and-deepcopy-for-early-stopping" class="nav-link" data-scroll-target="#what-are-state_dict-and-deepcopy-for-early-stopping"><span class="header-section-number">3.6</span> What are <code>state_dict()</code> and <code>deepcopy()</code> for Early Stopping?</a></li>
+  <li><a href="#what-are-model.eval-and-torch.no_grad" id="toc-what-are-model.eval-and-torch.no_grad" class="nav-link" data-scroll-target="#what-are-model.eval-and-torch.no_grad"><span class="header-section-number">3.7</span> What are <code>model.eval()</code> and <code>torch.no_grad()</code>?</a></li>
+  </ul></li>
+  <li><a href="#step-by-step-code-walkthrough" id="toc-step-by-step-code-walkthrough" class="nav-link" data-scroll-target="#step-by-step-code-walkthrough"><span class="header-section-number">4</span> Step-by-Step Code Walkthrough</a>
+  <ul class="collapse">
+  <li><a href="#step-1-the-model-registry" id="toc-step-1-the-model-registry" class="nav-link" data-scroll-target="#step-1-the-model-registry"><span class="header-section-number">4.1</span> Step 1: The Model Registry</a></li>
+  <li><a href="#step-2-the-torchregressor-class" id="toc-step-2-the-torchregressor-class" class="nav-link" data-scroll-target="#step-2-the-torchregressor-class"><span class="header-section-number">4.2</span> Step 2: The <code>TorchRegressor</code> Class</a>
+  <ul class="collapse">
+  <li><a href="#init__-storing-hyperparameters" id="toc-init__-storing-hyperparameters" class="nav-link" data-scroll-target="#init__-storing-hyperparameters"><span class="header-section-number">4.2.1</span> <code>__init__</code>: Storing Hyperparameters</a></li>
+  <li><a href="#get_device-hardware-auto-detection" id="toc-get_device-hardware-auto-detection" class="nav-link" data-scroll-target="#get_device-hardware-auto-detection"><span class="header-section-number">4.2.2</span> <code>_get_device</code>: Hardware Auto-Detection</a></li>
+  <li><a href="#build_model-constructing-the-architecture" id="toc-build_model-constructing-the-architecture" class="nav-link" data-scroll-target="#build_model-constructing-the-architecture"><span class="header-section-number">4.2.3</span> <code>_build_model</code>: Constructing the Architecture</a></li>
+  <li><a href="#fit-the-complete-training-loop" id="toc-fit-the-complete-training-loop" class="nav-link" data-scroll-target="#fit-the-complete-training-loop"><span class="header-section-number">4.2.4</span> <code>fit</code>: The Complete Training Loop</a></li>
+  <li><a href="#predict-inference-method" id="toc-predict-inference-method" class="nav-link" data-scroll-target="#predict-inference-method"><span class="header-section-number">4.2.5</span> <code>predict</code>: Inference Method</a></li>
+  <li><a href="#get_params-and-set_params-the-bridge-to-optuna_tune" id="toc-get_params-and-set_params-the-bridge-to-optuna_tune" class="nav-link" data-scroll-target="#get_params-and-set_params-the-bridge-to-optuna_tune"><span class="header-section-number">4.2.6</span> <code>get_params</code> and <code>set_params</code>: The Bridge to <code>optuna_tune</code></a></li>
+  </ul></li>
+  <li><a href="#step-3-convenient-subclasses-lstmregressor-gruregressor-etc." id="toc-step-3-convenient-subclasses-lstmregressor-gruregressor-etc." class="nav-link" data-scroll-target="#step-3-convenient-subclasses-lstmregressor-gruregressor-etc."><span class="header-section-number">4.3</span> Step 3: Convenient Subclasses (<code>LSTMRegressor</code>, <code>GRURegressor</code>, etc.)</a></li>
+  </ul></li>
+  <li><a href="#practical-tutorial-end-to-end-forecasting" id="toc-practical-tutorial-end-to-end-forecasting" class="nav-link" data-scroll-target="#practical-tutorial-end-to-end-forecasting"><span class="header-section-number">5</span> Practical Tutorial: End-to-End Forecasting</a>
+  <ul class="collapse">
+  <li><a href="#hyperparameter-tuning-with-optuna_tune" id="toc-hyperparameter-tuning-with-optuna_tune" class="nav-link" data-scroll-target="#hyperparameter-tuning-with-optuna_tune"><span class="header-section-number">5.1</span> Hyperparameter Tuning with <code>optuna_tune</code></a></li>
+  </ul></li>
+  <li><a href="#summary-comparison-tree-models-vs.-deep-learning-in-peshbeen" id="toc-summary-comparison-tree-models-vs.-deep-learning-in-peshbeen" class="nav-link" data-scroll-target="#summary-comparison-tree-models-vs.-deep-learning-in-peshbeen"><span class="header-section-number">6</span> Summary Comparison: Tree Models vs.&nbsp;Deep Learning in <code>peshbeen</code></a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Deep Learning Forecasting in <code>peshbeen</code> (<code>dl_forecaster</code>)</h1>
+<p class="subtitle lead">Mathematical Foundations, PyTorch Architecture, Scikit-Learn Estimator Design, and Step-by-Step Code Walkthrough</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Peshbeen Package Documentation </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="introduction-bridging-deep-learning-and-time-series-workflows" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> Introduction: Bridging Deep Learning and Time Series Workflows</h1>
+<p>In <code>peshbeen</code>, classical statistical models (such as ARIMA and ETS) and gradient-boosted tree models (such as LightGBM, CatBoost, and XGBoost) operate under a clean, unified API:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>forecaster <span class="op">=</span> ml_forecaster(model<span class="op">=</span>LGBMRegressor(), target_col<span class="op">=</span><span class="st">"admissions"</span>, lags<span class="op">=</span>[<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">7</span>])</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>forecaster.fit(df)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>forecasts <span class="op">=</span> forecaster.forecast(H<span class="op">=</span><span class="dv">30</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>This works seamlessly because Scikit-Learn regressors adhere to a standard contract: they take tabular 2D inputs <code>(n_samples, n_features)</code> and expose <code>.fit(X, y)</code> and <code>.predict(X)</code>.</p>
+<p>However, <strong>PyTorch deep learning models</strong> (such as LSTM, GRU, RNN, Transformer, and MLP) do not have <code>.fit()</code> or <code>.predict()</code> methods out of the box. Instead, PyTorch provides low-level tensor operations and computational graphs: - You must manually convert NumPy arrays and Pandas DataFrames into PyTorch tensors. - You must slice data into mini-batches using <code>DataLoader</code> and shuffle them. - You must manually write the forward pass, calculate loss functions, zero gradients, compute backpropagation (<code>loss.backward()</code>), and step the optimizer. - You must manage computing hardware (dispatching tensors to Apple Silicon <code>mps</code>, NVIDIA <code>cuda</code>, or <code>cpu</code>). - You must handle evaluation modes (<code>model.eval()</code>, <code>torch.no_grad()</code>) and early stopping.</p>
+<p>To bring Deep Learning into <code>peshbeen</code> without breaking the unified workflow, we designed a <strong>Two-Tier Architecture</strong>: 1. <strong>Tier 1 — Modular PyTorch Neural Networks (<code>nn.Module</code>)</strong>: <code>LSTMModel</code>, <code>GRUModel</code>, <code>RNNModel</code>, <code>TransformerModel</code>, and <code>MLPModel</code>. 2. <strong>Tier 2 — Scikit-Learn Compatible PyTorch Estimators</strong>: <code>TorchRegressor</code> and its drop-in subclasses (<code>LSTMRegressor</code>, <code>GRURegressor</code>, <code>TransformerRegressor</code>, etc.). 3. <strong>Tier 3 — High-Level Forecaster (<code>dl_forecaster</code>)</strong>: Handles lag generation, stationarity transformations, feature &amp; target scaling, recursive multi-step forecasting, and Optuna tuning.</p>
+<hr>
+</section>
+<section id="mathematical-foundations-how-each-neural-network-works" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> Mathematical Foundations: How Each Neural Network Works</h1>
+<p>Before examining the code, let us review the mathematical theory behind each deep learning architecture in plain English.</p>
+<section id="long-short-term-memory-lstm" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="long-short-term-memory-lstm"><span class="header-section-number">2.1</span> Long Short-Term Memory (LSTM)</h2>
+<section id="plain-english-intuition" class="level3" data-number="2.1.1">
+<h3 data-number="2.1.1" class="anchored" data-anchor-id="plain-english-intuition"><span class="header-section-number">2.1.1</span> Plain English Intuition</h3>
+<p>When time series data has long-term dependencies (e.g.&nbsp;weekly, monthly, or seasonal cycles), standard recurrent networks suffer from the <strong>vanishing gradient problem</strong>: as gradients are backpropagated through time, multiplying many numbers smaller than 1 causes the gradient to decay toward zero, making the network forget distant historical lags.</p>
+<p>The <strong>LSTM</strong> solves this by introducing a dedicated memory track called the <strong>Cell State</strong> (<span class="math inline">\(c_t\)</span>). Think of the cell state as a continuous conveyor belt running through time. Information is added or removed from this conveyor belt through three mathematical gates: 1. <strong>Forget Gate</strong>: Decides what past information is no longer relevant and should be erased. 2. <strong>Input Gate</strong>: Decides what fresh information from the current time step should be stored in memory. 3. <strong>Output Gate</strong>: Decides what part of the internal memory should be emitted as the observable hidden state <span class="math inline">\(h_t\)</span> and passed to the forecast.</p>
+</section>
+<section id="mathematical-formulation" class="level3" data-number="2.1.2">
+<h3 data-number="2.1.2" class="anchored" data-anchor-id="mathematical-formulation"><span class="header-section-number">2.1.2</span> Mathematical Formulation</h3>
+<p>At each sequential time step <span class="math inline">\(t\)</span>, with current input <span class="math inline">\(x_t\)</span> and previous hidden state <span class="math inline">\(h_{t-1}\)</span>:</p>
+<ol type="1">
+<li><p><strong>Forget Gate Activation</strong>: <span class="math display">\[f_t = \sigma\left(W_f x_t + U_f h_{t-1} + b_f\right)\]</span> <span class="math inline">\(\sigma(z) = \frac{1}{1 + e^{-z}}\)</span> outputs values between <span class="math inline">\(0\)</span> (completely forget) and <span class="math inline">\(1\)</span> (completely retain).</p></li>
+<li><p><strong>Input Gate Activation &amp; Candidate Memory</strong>: <span class="math display">\[i_t = \sigma\left(W_i x_t + U_i h_{t-1} + b_i\right)\]</span> <span class="math display">\[\tilde{c}_t = \tanh\left(W_c x_t + U_c h_{t-1} + b_c\right)\]</span> <span class="math inline">\(i_t\)</span> scales how much of the new candidate memory <span class="math inline">\(\tilde{c}_t\)</span> is written to the cell state.</p></li>
+<li><p><strong>Cell State Update (The Conveyor Belt)</strong>: <span class="math display">\[c_t = f_t \odot c_{t-1} + i_t \odot \tilde{c}_t\]</span> where <span class="math inline">\(\odot\)</span> denotes element-wise (Hadamard) multiplication. The old memory is attenuated by <span class="math inline">\(f_t\)</span> and augmented by <span class="math inline">\(i_t \odot \tilde{c}_t\)</span>.</p></li>
+<li><p><strong>Output Gate &amp; Hidden State</strong>: <span class="math display">\[o_t = \sigma\left(W_o x_t + U_o h_{t-1} + b_o\right)\]</span> <span class="math display">\[h_t = o_t \odot \tanh\left(c_t\right)\]</span> <span class="math inline">\(h_t\)</span> is the final representation passed to the next step and to the dense regression head.</p></li>
+</ol>
+<hr>
+</section>
+</section>
+<section id="gated-recurrent-unit-gru" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="gated-recurrent-unit-gru"><span class="header-section-number">2.2</span> Gated Recurrent Unit (GRU)</h2>
+<section id="plain-english-intuition-1" class="level3" data-number="2.2.1">
+<h3 data-number="2.2.1" class="anchored" data-anchor-id="plain-english-intuition-1"><span class="header-section-number">2.2.1</span> Plain English Intuition</h3>
+<p>The <strong>GRU</strong> is a streamlined, more computationally efficient evolution of the LSTM. While the LSTM maintains two separate tracks (the cell state <span class="math inline">\(c_t\)</span> and hidden state <span class="math inline">\(h_t\)</span>), the GRU merges them into a <strong>single hidden state <span class="math inline">\(h_t\)</span></strong>.</p>
+<p>Instead of three gates, the GRU uses only <strong>two gates</strong>: - <strong>Reset Gate (<span class="math inline">\(r_t\)</span>)</strong>: Controls how much of the previous memory to ignore when computing new candidate information. - <strong>Update Gate (<span class="math inline">\(z_t\)</span>)</strong>: Acts simultaneously as both forget gate and input gate, deciding how much of the old state to keep versus how much of the new candidate state to blend in.</p>
+<p>Because it has fewer parameters than an LSTM (approximately 25% fewer weights), the GRU trains faster and is less prone to overfitting on smaller time series datasets.</p>
+</section>
+<section id="mathematical-formulation-1" class="level3" data-number="2.2.2">
+<h3 data-number="2.2.2" class="anchored" data-anchor-id="mathematical-formulation-1"><span class="header-section-number">2.2.2</span> Mathematical Formulation</h3>
+<ol type="1">
+<li><p><strong>Reset Gate</strong>: <span class="math display">\[r_t = \sigma\left(W_r x_t + U_r h_{t-1} + b_r\right)\]</span></p></li>
+<li><p><strong>Update Gate</strong>: <span class="math display">\[z_t = \sigma\left(W_z x_t + U_z h_{t-1} + b_z\right)\]</span></p></li>
+<li><p><strong>Candidate Hidden State</strong>: <span class="math display">\[\tilde{h}_t = \tanh\left(W_h x_t + U_h (r_t \odot h_{t-1}) + b_h\right)\]</span> Notice that if <span class="math inline">\(r_t = 0\)</span>, the network completely ignores past memory and acts like a fresh input feedforward layer.</p></li>
+<li><p><strong>Hidden State Interpolation</strong>: <span class="math display">\[h_t = (1 - z_t) \odot h_{t-1} + z_t \odot \tilde{h}_t\]</span> The update gate <span class="math inline">\(z_t\)</span> acts as a linear blender: as <span class="math inline">\(z_t \to 1\)</span>, it adopts new candidate memory; as <span class="math inline">\(z_t \to 0\)</span>, it preserves the historical memory intact.</p></li>
+</ol>
+<hr>
+</section>
+</section>
+<section id="vanilla-recurrent-neural-network-rnn" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="vanilla-recurrent-neural-network-rnn"><span class="header-section-number">2.3</span> Vanilla Recurrent Neural Network (RNN)</h2>
+<section id="plain-english-intuition-2" class="level3" data-number="2.3.1">
+<h3 data-number="2.3.1" class="anchored" data-anchor-id="plain-english-intuition-2"><span class="header-section-number">2.3.1</span> Plain English Intuition</h3>
+<p>The standard <strong>Elman RNN</strong> is the simplest recurrent architecture. It maintains a hidden state vector that loops back on itself at each time step. While fast and conceptually straightforward, it lacks gating mechanisms, making it prone to vanishing gradients when modeling lags beyond 10–15 steps. It serves as an essential, lightweight baseline.</p>
+</section>
+<section id="mathematical-formulation-2" class="level3" data-number="2.3.2">
+<h3 data-number="2.3.2" class="anchored" data-anchor-id="mathematical-formulation-2"><span class="header-section-number">2.3.2</span> Mathematical Formulation</h3>
+<p><span class="math display">\[h_t = \tanh\left(W x_t + U h_{t-1} + b\right)\]</span> where <span class="math inline">\(W\)</span> weights the incoming feature and <span class="math inline">\(U\)</span> weights the recurrent connection from the previous step.</p>
+<hr>
+</section>
+</section>
+<section id="transformer-encoder-self-attention-positional-encoding" class="level2" data-number="2.4">
+<h2 data-number="2.4" class="anchored" data-anchor-id="transformer-encoder-self-attention-positional-encoding"><span class="header-section-number">2.4</span> Transformer Encoder (Self-Attention &amp; Positional Encoding)</h2>
+<section id="plain-english-intuition-3" class="level3" data-number="2.4.1">
+<h3 data-number="2.4.1" class="anchored" data-anchor-id="plain-english-intuition-3"><span class="header-section-number">2.4.1</span> Plain English Intuition</h3>
+<p>Recurrent architectures (LSTM, GRU, RNN) process time sequentially: step 1 must finish before step 2 can start, and step 2 must finish before step 3. If a shock happened at <code>lag_14</code> that directly influences today’s value, that signal must travel through 14 consecutive matrix multiplications to reach the output.</p>
+<p>The <strong>Transformer</strong> replaces recurrence entirely with <strong>Multi-Head Self-Attention</strong>. Every time step in the input sequence can look directly at every other time step in <span class="math inline">\(O(1)\)</span> operations, computing dynamic weights that reflect how relevant each past lag is to the forecast.</p>
+</section>
+<section id="mathematical-formulation-3" class="level3" data-number="2.4.2">
+<h3 data-number="2.4.2" class="anchored" data-anchor-id="mathematical-formulation-3"><span class="header-section-number">2.4.2</span> Mathematical Formulation</h3>
+<ol type="1">
+<li><p><strong>Positional Encoding</strong>: Because self-attention is permutation-invariant (it does not know which order tokens arrive in), we must inject temporal order information via sinusoidal waves of differing frequencies: <span class="math display">\[PE_{(pos, 2i)} = \sin\left(\frac{pos}{10000^{2i/d_{\text{model}}}}\right)\]</span> <span class="math display">\[PE_{(pos, 2i+1)} = \cos\left(\frac{pos}{10000^{2i/d_{\text{model}}}}\right)\]</span> where <span class="math inline">\(pos\)</span> is the lag position (<span class="math inline">\(0, 1, \dots, \text{seq\_len}-1\)</span>) and <span class="math inline">\(i\)</span> is the feature channel.</p></li>
+<li><p><strong>Scaled Dot-Product Attention</strong>: The input matrix is projected into three matrices: <strong>Queries (<span class="math inline">\(Q\)</span>)</strong>, <strong>Keys (<span class="math inline">\(K\)</span>)</strong>, and <strong>Values (<span class="math inline">\(V\)</span>)</strong>: <span class="math display">\[\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V\]</span></p>
+<ul>
+<li><span class="math inline">\(QK^T\)</span> measures the pairwise similarity between every lag.</li>
+<li><span class="math inline">\(\sqrt{d_k}\)</span> prevents dot products from growing excessively large for deep dimensions.</li>
+<li><span class="math inline">\(\text{softmax}\)</span> normalizes scores into attention weights summing to 1.</li>
+<li>Multiplying by <span class="math inline">\(V\)</span> computes a weighted sum of historical values based on attention relevance.</li>
+</ul></li>
+</ol>
+<hr>
+</section>
+</section>
+<section id="multi-layer-perceptron-mlp" class="level2" data-number="2.5">
+<h2 data-number="2.5" class="anchored" data-anchor-id="multi-layer-perceptron-mlp"><span class="header-section-number">2.5</span> Multi-Layer Perceptron (MLP)</h2>
+<section id="plain-english-intuition-4" class="level3" data-number="2.5.1">
+<h3 data-number="2.5.1" class="anchored" data-anchor-id="plain-english-intuition-4"><span class="header-section-number">2.5.1</span> Plain English Intuition</h3>
+<p>An <strong>MLP</strong> is a classical deep feedforward neural network. Rather than stepping through time sequentially, it flattens all engineered lag features (<code>lag_1, lag_2, ..., lag_k</code>, rolling means, quantiles, and exogenous features) into a single wide feature vector <span class="math inline">\(\mathbf{x} \in \mathbb{R}^D\)</span> and passes it through stacked dense layers with non-linear activation functions (ReLU or GELU) and Dropout regularization.</p>
+</section>
+<section id="mathematical-formulation-4" class="level3" data-number="2.5.2">
+<h3 data-number="2.5.2" class="anchored" data-anchor-id="mathematical-formulation-4"><span class="header-section-number">2.5.2</span> Mathematical Formulation</h3>
+<p><span class="math display">\[h^{(1)} = \text{ReLU}\left(W^{(1)} x + b^{(1)}\right)\]</span> <span class="math display">\[h^{(2)} = \text{ReLU}\left(W^{(2)} h^{(1)} + b^{(2)}\right)\]</span> <span class="math display">\[\hat{y} = W^{(\text{out})} h^{(2)} + b^{(\text{out})}\]</span></p>
+<hr>
+</section>
+</section>
+</section>
+<section id="new-coding-object-oriented-concepts-explained" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> New Coding &amp; Object-Oriented Concepts Explained</h1>
+<p>In building <code>dl_forecaster.py</code>, several Python and software architecture concepts were used that were not present in <code>ml_forecaster.ipynb</code>. Let us unpack each one clearly.</p>
+<section id="what-is-super.__init__" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="what-is-super.__init__"><span class="header-section-number">3.1</span> What is <code>super().__init__()</code>?</h2>
+<p>In Object-Oriented Programming (OOP), when a class inherits from a parent class, it must initialize the parent class’s internal machinery before setting its own attributes.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> LSTMModel(nn.Module):</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, input_size: <span class="bu">int</span>, hidden_size: <span class="bu">int</span> <span class="op">=</span> <span class="dv">64</span>, ...):</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">super</span>().<span class="fu">__init__</span>()  <span class="co"># Calls nn.Module.__init__()</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<ul>
+<li><strong>Why it matters in PyTorch</strong>: PyTorch’s <code>nn.Module</code> maintains internal dictionaries such as <code>_parameters</code>, <code>_buffers</code>, and <code>_modules</code>. Calling <code>super().__init__()</code> initializes these registries. If you omit this line, PyTorch cannot register your layers (<code>self.lstm</code>, <code>self.fc</code>), and calling <code>.to("mps")</code> or <code>optimizer.step()</code> will crash because PyTorch will think your model has zero trainable parameters.</li>
+<li><strong>Why it matters in <code>LSTMRegressor(TorchRegressor)</code></strong>: When <code>LSTMRegressor</code> subclasses <code>TorchRegressor</code>, <code>super().__init__(model='lstm', ...)</code> calls the constructor of <code>TorchRegressor</code>, passing all training loop parameters (epochs, learning rate, batch size) directly up to the parent engine.</li>
+</ul>
+</section>
+<section id="what-is-typenn.module-in-type-hinting" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="what-is-typenn.module-in-type-hinting"><span class="header-section-number">3.2</span> What is <code>Type[nn.Module]</code> in Type Hinting?</h2>
+<p>Notice the type annotation:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> Dict, Type, Union</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>MODEL_REGISTRY: Dict[<span class="bu">str</span>, Type[nn.Module]] <span class="op">=</span> {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">'lstm'</span>: LSTMModel,</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">'gru'</span>: GRUModel,</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    ...</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<ul>
+<li><code>nn.Module</code> refers to an <strong>instance</strong> (an already constructed object, like <code>LSTMModel(input_size=1)</code>).</li>
+<li><code>Type[nn.Module]</code> refers to the <strong>class itself as a factory</strong> (the blueprint, before parentheses <code>()</code> are added).</li>
+<li>This allows our code to accept either a string name (<code>'lstm'</code>), an uninstantiated class (<code>LSTMModel</code>), or an already instantiated object (<code>LSTMModel(...)</code>).</li>
+</ul>
+</section>
+<section id="what-are-baseestimator-and-regressormixin-from-scikit-learn" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="what-are-baseestimator-and-regressormixin-from-scikit-learn"><span class="header-section-number">3.3</span> What are <code>BaseEstimator</code> and <code>RegressorMixin</code> from Scikit-Learn?</h2>
+<p>In Scikit-Learn, models like <code>LinearRegression</code> or <code>RandomForestRegressor</code> inherit from two base classes:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.base <span class="im">import</span> BaseEstimator, RegressorMixin</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> TorchRegressor(BaseEstimator, RegressorMixin):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<ol type="1">
+<li><strong><code>BaseEstimator</code></strong>:
+<ul>
+<li>Automatically equips our PyTorch class with standard <code>.get_params(deep=True)</code> and <code>.set_params(**params)</code> methods.</li>
+<li>This is <strong>the key reason why <code>optuna_tune</code> works effortlessly</strong>! When Optuna wants to test <code>hidden_size=32</code> or <code>lr=0.005</code>, it calls <code>model.set_params(**params)</code>. Because <code>TorchRegressor</code> subclasses <code>BaseEstimator</code>, it conforms to the Scikit-Learn standard without any custom adapter code.</li>
+</ul></li>
+<li><strong><code>RegressorMixin</code></strong>:
+<ul>
+<li>Identifies our class as a regression model (rather than a classifier or transformer) and automatically provides a standard <code>.score(X, y)</code> method (computing the coefficient of determination <span class="math inline">\(R^2\)</span>).</li>
+</ul></li>
+</ol>
+</section>
+<section id="what-is-the-registry-pattern-model_registry" class="level2" data-number="3.4">
+<h2 data-number="3.4" class="anchored" data-anchor-id="what-is-the-registry-pattern-model_registry"><span class="header-section-number">3.4</span> What is the Registry Pattern (<code>MODEL_REGISTRY</code>)?</h2>
+<p>Instead of writing long, repetitive <code>if-elif-else</code> chains:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># The clumsy way:</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> model <span class="op">==</span> <span class="st">'lstm'</span>:</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    net <span class="op">=</span> LSTMModel(...)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> model <span class="op">==</span> <span class="st">'gru'</span>:</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    net <span class="op">=</span> GRUModel(...)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> model <span class="op">==</span> <span class="st">'transformer'</span>:</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    net <span class="op">=</span> TransformerModel(...)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>We use a <strong>Dictionary Registry</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>MODEL_REGISTRY: Dict[<span class="bu">str</span>, Type[nn.Module]] <span class="op">=</span> {</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">'lstm'</span>: LSTMModel,</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">'gru'</span>: GRUModel,</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">'rnn'</span>: RNNModel,</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">'transformer'</span>: TransformerModel,</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">'mlp'</span>: MLPModel</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>To instantiate a model dynamically, we simply do:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>model_cls <span class="op">=</span> MODEL_REGISTRY[model_name]</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>net <span class="op">=</span> model_cls(<span class="op">**</span>params)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>This makes the architecture open to extension: you can add a new neural network architecture simply by adding one entry to the dictionary.</p>
+</section>
+<section id="what-are-tensordataset-and-dataloader" class="level2" data-number="3.5">
+<h2 data-number="3.5" class="anchored" data-anchor-id="what-are-tensordataset-and-dataloader"><span class="header-section-number">3.5</span> What are <code>TensorDataset</code> and <code>DataLoader</code>?</h2>
+<p>PyTorch does not train on raw Pandas DataFrames. It requires: 1. <strong><code>TensorDataset</code></strong>: Bundles feature tensors <span class="math inline">\(\mathbf{X}\)</span> and target tensors <span class="math inline">\(\mathbf{y}\)</span> together so each row <span class="math inline">\(i\)</span> maps to target <span class="math inline">\(i\)</span>. 2. <strong><code>DataLoader</code></strong>: - Slices the dataset into manageable chunks called <strong>mini-batches</strong> (e.g.&nbsp;16 or 32 samples per step). - Shuffles the rows randomly at the start of each epoch so the network does not memorize the arbitrary order of training rows. - Feeds batches directly into the GPU or Apple Silicon MPS memory.</p>
+</section>
+<section id="what-are-state_dict-and-deepcopy-for-early-stopping" class="level2" data-number="3.6">
+<h2 data-number="3.6" class="anchored" data-anchor-id="what-are-state_dict-and-deepcopy-for-early-stopping"><span class="header-section-number">3.6</span> What are <code>state_dict()</code> and <code>deepcopy()</code> for Early Stopping?</h2>
+<p>During neural network training, if you train for 100 epochs, the model might reach its best validation accuracy at epoch 35 and then begin overfitting. - <code>self.network_.state_dict()</code> returns a Python dictionary containing all the weights and biases of the neural network. - <code>copy.deepcopy(self.network_.state_dict())</code> takes a complete, independent snapshot of those optimal weights at the moment validation loss reaches its minimum. - When training finishes (or triggers early stopping patience), <code>self.network_.load_state_dict(best_weights)</code> restores the optimal snapshot, discarding any overfitted weights from later epochs.</p>
+</section>
+<section id="what-are-model.eval-and-torch.no_grad" class="level2" data-number="3.7">
+<h2 data-number="3.7" class="anchored" data-anchor-id="what-are-model.eval-and-torch.no_grad"><span class="header-section-number">3.7</span> What are <code>model.eval()</code> and <code>torch.no_grad()</code>?</h2>
+<p>During training, PyTorch constructs a dynamic computational graph to calculate derivatives for backpropagation, and layers like <code>nn.Dropout</code> randomly deactivate neurons. During inference (when calling <code>.predict()</code> or <code>.forecast()</code>): - <strong><code>model.eval()</code></strong>: Deactivates dropout layers so the model generates consistent, deterministic outputs. - <strong><code>with torch.no_grad():</code></strong>: Disables gradient tracking entirely, cutting memory consumption in half and accelerating prediction speed.</p>
+<hr>
+</section>
+</section>
+<section id="step-by-step-code-walkthrough" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Step-by-Step Code Walkthrough</h1>
+<p>Now let us examine the code cell by cell, explaining exactly what occurs at each step.</p>
+<section id="step-1-the-model-registry" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="step-1-the-model-registry"><span class="header-section-number">4.1</span> Step 1: The Model Registry</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>MODEL_REGISTRY: Dict[<span class="bu">str</span>, Type[nn.Module]] <span class="op">=</span> {</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">'lstm'</span>: LSTMModel,</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">'gru'</span>: GRUModel,</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">'rnn'</span>: RNNModel,</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">'transformer'</span>: TransformerModel,</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">'mlp'</span>: MLPModel</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Purpose</strong>: Maps user-friendly lowercase strings (<code>'lstm'</code>, <code>'gru'</code>, <code>'transformer'</code>) to their corresponding PyTorch <code>nn.Module</code> class objects.</p>
+<hr>
+</section>
+<section id="step-2-the-torchregressor-class" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="step-2-the-torchregressor-class"><span class="header-section-number">4.2</span> Step 2: The <code>TorchRegressor</code> Class</h2>
+<section id="init__-storing-hyperparameters" class="level3" data-number="4.2.1">
+<h3 data-number="4.2.1" class="anchored" data-anchor-id="init__-storing-hyperparameters"><span class="header-section-number">4.2.1</span> <code>__init__</code>: Storing Hyperparameters</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> TorchRegressor(BaseEstimator, RegressorMixin):</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>,</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>        model: Union[<span class="bu">str</span>, nn.Module, Type[nn.Module]] <span class="op">=</span> <span class="st">'lstm'</span>,</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>        model_params: Optional[Dict[<span class="bu">str</span>, Any]] <span class="op">=</span> <span class="va">None</span>,</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>        lr: <span class="bu">float</span> <span class="op">=</span> <span class="fl">1e-3</span>,</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>        weight_decay: <span class="bu">float</span> <span class="op">=</span> <span class="fl">1e-5</span>,</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>        epochs: <span class="bu">int</span> <span class="op">=</span> <span class="dv">100</span>,</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>        batch_size: <span class="bu">int</span> <span class="op">=</span> <span class="dv">32</span>,</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>        optimizer: <span class="bu">str</span> <span class="op">=</span> <span class="st">'adamw'</span>,</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>        loss: <span class="bu">str</span> <span class="op">=</span> <span class="st">'mse'</span>,</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>        patience: <span class="bu">int</span> <span class="op">=</span> <span class="dv">10</span>,</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>        validation_split: <span class="bu">float</span> <span class="op">=</span> <span class="fl">0.1</span>,</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>        random_state: Optional[<span class="bu">int</span>] <span class="op">=</span> <span class="dv">42</span>,</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>        device: Optional[<span class="bu">str</span>] <span class="op">=</span> <span class="va">None</span>,</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>        verbose: <span class="bu">bool</span> <span class="op">=</span> <span class="va">False</span></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>    ):</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.model <span class="op">=</span> model</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.model_params <span class="op">=</span> model_params <span class="kw">or</span> {}</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.lr <span class="op">=</span> lr</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.weight_decay <span class="op">=</span> weight_decay</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.epochs <span class="op">=</span> epochs</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.batch_size <span class="op">=</span> batch_size</span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.optimizer <span class="op">=</span> optimizer</span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.loss <span class="op">=</span> loss</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.patience <span class="op">=</span> patience</span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.validation_split <span class="op">=</span> validation_split</span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.random_state <span class="op">=</span> random_state</span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.device <span class="op">=</span> device</span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.verbose <span class="op">=</span> verbose</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>What happens here</strong>: - Stores optimization settings: learning rate <code>lr</code>, <span class="math inline">\(L_2\)</span> weight decay regularization <code>weight_decay</code>, total training <code>epochs</code>, and mini-batch size <code>batch_size</code>. - Stores loss metric (<code>'mse'</code>, <code>'mae'</code>, or <code>'huber'</code>) and early stopping parameters (<code>patience=10</code>, <code>validation_split=0.1</code>). - Sets <code>random_state=42</code> to ensure reproducible weight initialization.</p>
+<hr>
+</section>
+<section id="get_device-hardware-auto-detection" class="level3" data-number="4.2.2">
+<h3 data-number="4.2.2" class="anchored" data-anchor-id="get_device-hardware-auto-detection"><span class="header-section-number">4.2.2</span> <code>_get_device</code>: Hardware Auto-Detection</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> _get_device(<span class="va">self</span>) <span class="op">-&gt;</span> torch.device:</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Automatically resolve the best available execution device (CUDA &gt; MPS &gt; CPU)."""</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.device <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> torch.device(<span class="va">self</span>.device)</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> torch.cuda.is_available():</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> torch.device(<span class="st">"cuda"</span>)</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">hasattr</span>(torch.backends, <span class="st">"mps"</span>) <span class="kw">and</span> torch.backends.mps.is_available():</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> torch.device(<span class="st">"mps"</span>)</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> torch.device(<span class="st">"cpu"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>What happens here</strong>: - Prioritizes user choice if specified. - If NVIDIA CUDA GPU is present, selects <code>"cuda"</code>. - If on an Apple Silicon Mac (M1/M2/M3/M4), selects <code>"mps"</code> (Metal Performance Shaders) for hardware GPU acceleration. - Otherwise defaults safely to <code>"cpu"</code>.</p>
+<hr>
+</section>
+<section id="build_model-constructing-the-architecture" class="level3" data-number="4.2.3">
+<h3 data-number="4.2.3" class="anchored" data-anchor-id="build_model-constructing-the-architecture"><span class="header-section-number">4.2.3</span> <code>_build_model</code>: Constructing the Architecture</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> _build_model(<span class="va">self</span>, input_size: <span class="bu">int</span>) <span class="op">-&gt;</span> nn.Module:</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>        params <span class="op">=</span> <span class="bu">dict</span>(<span class="va">self</span>.model_params)</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>        params[<span class="st">"input_size"</span>] <span class="op">=</span> input_size</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">isinstance</span>(<span class="va">self</span>.model, <span class="bu">str</span>):</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>            model_key <span class="op">=</span> <span class="va">self</span>.model.lower()</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> model_key <span class="kw">not</span> <span class="kw">in</span> MODEL_REGISTRY:</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>                <span class="cf">raise</span> <span class="pp">ValueError</span>(<span class="ss">f"Unknown model '</span><span class="sc">{</span><span class="va">self</span><span class="sc">.</span>model<span class="sc">}</span><span class="ss">'. Supported: </span><span class="sc">{</span><span class="bu">list</span>(MODEL_REGISTRY.keys())<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> MODEL_REGISTRY[model_key](<span class="op">**</span>params)</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">elif</span> <span class="bu">isinstance</span>(<span class="va">self</span>.model, <span class="bu">type</span>) <span class="kw">and</span> <span class="bu">issubclass</span>(<span class="va">self</span>.model, nn.Module):</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> <span class="va">self</span>.model(<span class="op">**</span>params)</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">elif</span> <span class="bu">isinstance</span>(<span class="va">self</span>.model, nn.Module):</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> copy.deepcopy(<span class="va">self</span>.model)</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>            <span class="cf">raise</span> <span class="pp">TypeError</span>(<span class="st">"model must be a model string name, an nn.Module class, or an nn.Module instance."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>What happens here</strong>: - Discovers how many features are in the training matrix (<code>input_size</code>). - Injects <code>input_size</code> into the architecture parameters. - Pulls the correct class from <code>MODEL_REGISTRY</code> and instantiates the neural network.</p>
+<hr>
+</section>
+<section id="fit-the-complete-training-loop" class="level3" data-number="4.2.4">
+<h3 data-number="4.2.4" class="anchored" data-anchor-id="fit-the-complete-training-loop"><span class="header-section-number">4.2.4</span> <code>fit</code>: The Complete Training Loop</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> fit(<span class="va">self</span>, X: Union[pd.DataFrame, np.ndarray], y: Union[pd.Series, np.ndarray]) <span class="op">-&gt;</span> <span class="st">"TorchRegressor"</span>:</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.random_state <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>            torch.manual_seed(<span class="va">self</span>.random_state)</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>            np.random.seed(<span class="va">self</span>.random_state)</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>        X_arr <span class="op">=</span> X.values <span class="cf">if</span> <span class="bu">isinstance</span>(X, pd.DataFrame) <span class="cf">else</span> np.asarray(X, dtype<span class="op">=</span>np.float32)</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>        y_arr <span class="op">=</span> y.values <span class="cf">if</span> <span class="bu">isinstance</span>(y, (pd.Series, pd.DataFrame)) <span class="cf">else</span> np.asarray(y, dtype<span class="op">=</span>np.float32)</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.n_features_in_ <span class="op">=</span> X_arr.shape[<span class="dv">1</span>]</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.device_ <span class="op">=</span> <span class="va">self</span>._get_device()</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.network_ <span class="op">=</span> <span class="va">self</span>._build_model(<span class="va">self</span>.n_features_in_).to(<span class="va">self</span>.device_)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<ol type="1">
+<li>Converts Pandas inputs into float32 NumPy arrays.</li>
+<li>Identifies the number of columns (<code>n_features_in_</code>) and builds the network.</li>
+<li>Moves network weights to the target accelerator device (<code>.to(self.device_)</code>).</li>
+</ol>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Validation split for early stopping</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>        n_samples <span class="op">=</span> <span class="bu">len</span>(X_arr)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.validation_split <span class="op">&gt;</span> <span class="dv">0</span> <span class="kw">and</span> n_samples <span class="op">&gt;</span> <span class="dv">10</span>:</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>            val_size <span class="op">=</span> <span class="bu">max</span>(<span class="dv">1</span>, <span class="bu">int</span>(n_samples <span class="op">*</span> <span class="va">self</span>.validation_split))</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>            train_idx <span class="op">=</span> np.arange(n_samples <span class="op">-</span> val_size)</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>            val_idx <span class="op">=</span> np.arange(n_samples <span class="op">-</span> val_size, n_samples)</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>            X_tr, y_tr <span class="op">=</span> X_arr[train_idx], y_arr[train_idx]</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>            X_val, y_val <span class="op">=</span> X_arr[val_idx], y_arr[val_idx]</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>            X_tr, y_tr <span class="op">=</span> X_arr, y_arr</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>            X_val, y_val <span class="op">=</span> <span class="va">None</span>, <span class="va">None</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>        tr_ds <span class="op">=</span> TensorDataset(torch.tensor(X_tr, dtype<span class="op">=</span>torch.float32), torch.tensor(y_tr, dtype<span class="op">=</span>torch.float32))</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>        tr_loader <span class="op">=</span> DataLoader(tr_ds, batch_size<span class="op">=</span><span class="bu">min</span>(<span class="va">self</span>.batch_size, <span class="bu">len</span>(tr_ds)), shuffle<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<ol start="4" type="1">
+<li>Splits off the most recent 10% of training rows as a validation hold-out to monitor early stopping.</li>
+<li>Packages training data into <code>TensorDataset</code> and wraps in <code>DataLoader</code> with shuffling enabled.</li>
+</ol>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Criterion &amp; Optimizer setup</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.loss.lower() <span class="op">==</span> <span class="st">'huber'</span>:</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>            criterion <span class="op">=</span> nn.HuberLoss()</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">elif</span> <span class="va">self</span>.loss.lower() <span class="kw">in</span> (<span class="st">'l1'</span>, <span class="st">'mae'</span>):</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>            criterion <span class="op">=</span> nn.L1Loss()</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>            criterion <span class="op">=</span> nn.MSELoss()</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.optimizer.lower() <span class="op">==</span> <span class="st">'adam'</span>:</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>            opt <span class="op">=</span> torch.optim.Adam(<span class="va">self</span>.network_.parameters(), lr<span class="op">=</span><span class="va">self</span>.lr, weight_decay<span class="op">=</span><span class="va">self</span>.weight_decay)</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">elif</span> <span class="va">self</span>.optimizer.lower() <span class="op">==</span> <span class="st">'sgd'</span>:</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>            opt <span class="op">=</span> torch.optim.SGD(<span class="va">self</span>.network_.parameters(), lr<span class="op">=</span><span class="va">self</span>.lr, weight_decay<span class="op">=</span><span class="va">self</span>.weight_decay, momentum<span class="op">=</span><span class="fl">0.9</span>)</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>            opt <span class="op">=</span> torch.optim.AdamW(<span class="va">self</span>.network_.parameters(), lr<span class="op">=</span><span class="va">self</span>.lr, weight_decay<span class="op">=</span><span class="va">self</span>.weight_decay)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<ol start="6" type="1">
+<li>Initializes the loss function (Mean Squared Error, Mean Absolute Error, or Huber loss for outlier robustness).</li>
+<li>Sets up the optimizer (<code>AdamW</code> decouples weight decay from gradient updates for superior generalization).</li>
+</ol>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>        best_loss <span class="op">=</span> <span class="bu">float</span>(<span class="st">'inf'</span>)</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>        best_weights <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>        no_improve_count <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.network_.train()</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> epoch <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.epochs):</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> batch_x, batch_y <span class="kw">in</span> tr_loader:</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>                batch_x, batch_y <span class="op">=</span> batch_x.to(<span class="va">self</span>.device_), batch_y.to(<span class="va">self</span>.device_)</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>                opt.zero_grad()</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>                pred <span class="op">=</span> <span class="va">self</span>.network_(batch_x)</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>                loss_val <span class="op">=</span> criterion(pred, batch_y)</span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>                loss_val.backward()</span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>                opt.step()</span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Early stopping check on validation set</span></span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> X_val <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>                <span class="va">self</span>.network_.<span class="bu">eval</span>()</span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>                <span class="cf">with</span> torch.no_grad():</span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>                    val_pred <span class="op">=</span> <span class="va">self</span>.network_(val_x_t)</span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a>                    cur_val_loss <span class="op">=</span> criterion(val_pred, val_y_t).item()</span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>                <span class="va">self</span>.network_.train()</span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> cur_val_loss <span class="op">&lt;</span> best_loss:</span>
+<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a>                    best_loss <span class="op">=</span> cur_val_loss</span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>                    best_weights <span class="op">=</span> copy.deepcopy(<span class="va">self</span>.network_.state_dict())</span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>                    no_improve_count <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a>                <span class="cf">else</span>:</span>
+<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a>                    no_improve_count <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">if</span> no_improve_count <span class="op">&gt;=</span> <span class="va">self</span>.patience:</span>
+<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a>                        <span class="cf">break</span></span>
+<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> best_weights <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.network_.load_state_dict(best_weights)</span>
+<span id="cb15-34"><a href="#cb15-34" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.network_.<span class="bu">eval</span>()</span>
+<span id="cb15-35"><a href="#cb15-35" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">self</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<ol start="8" type="1">
+<li><strong>The Epoch Loop</strong>:
+<ul>
+<li>For each mini-batch: clears old gradients (<code>opt.zero_grad()</code>), computes predictions (<code>pred = self.network_(batch_x)</code>), computes loss (<code>loss_val</code>), calculates derivatives via backpropagation (<code>loss_val.backward()</code>), and updates weights (<code>opt.step()</code>).</li>
+<li>At the end of each epoch, evaluates loss on <code>X_val</code>. If validation loss improves, saves a snapshot (<code>copy.deepcopy(state_dict())</code>).</li>
+<li>If validation loss fails to improve for <code>patience</code> consecutive epochs, terminates training early to prevent overfitting.</li>
+<li>Restores the optimal checkpoint.</li>
+</ul></li>
+</ol>
+<hr>
+</section>
+<section id="predict-inference-method" class="level3" data-number="4.2.5">
+<h3 data-number="4.2.5" class="anchored" data-anchor-id="predict-inference-method"><span class="header-section-number">4.2.5</span> <code>predict</code>: Inference Method</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> predict(<span class="va">self</span>, X: Union[pd.DataFrame, np.ndarray]) <span class="op">-&gt;</span> np.ndarray:</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="kw">not</span> <span class="bu">hasattr</span>(<span class="va">self</span>, <span class="st">"network_"</span>):</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>            <span class="cf">raise</span> <span class="pp">ValueError</span>(<span class="st">"TorchRegressor is not fitted yet. Call .fit() before .predict()."</span>)</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>        X_arr <span class="op">=</span> X.values <span class="cf">if</span> <span class="bu">isinstance</span>(X, pd.DataFrame) <span class="cf">else</span> np.asarray(X, dtype<span class="op">=</span>np.float32)</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>        x_t <span class="op">=</span> torch.tensor(X_arr, dtype<span class="op">=</span>torch.float32).to(<span class="va">self</span>.device_)</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.network_.<span class="bu">eval</span>()</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">with</span> torch.no_grad():</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>            preds <span class="op">=</span> <span class="va">self</span>.network_(x_t).cpu().numpy()</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> np.atleast_1d(preds).flatten()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>What happens here</strong>: - Converts input feature matrix into a tensor and dispatches to device. - Sets network to <code>.eval()</code> mode and wraps with <code>torch.no_grad()</code>. - Pulls predictions back to host memory (<code>.cpu().numpy()</code>) and flattens into a clean 1D NumPy array.</p>
+<hr>
+</section>
+<section id="get_params-and-set_params-the-bridge-to-optuna_tune" class="level3" data-number="4.2.6">
+<h3 data-number="4.2.6" class="anchored" data-anchor-id="get_params-and-set_params-the-bridge-to-optuna_tune"><span class="header-section-number">4.2.6</span> <code>get_params</code> and <code>set_params</code>: The Bridge to <code>optuna_tune</code></h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> get_params(<span class="va">self</span>, deep: <span class="bu">bool</span> <span class="op">=</span> <span class="va">True</span>) <span class="op">-&gt;</span> Dict[<span class="bu">str</span>, Any]:</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>        params <span class="op">=</span> {</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>            <span class="st">"model"</span>: <span class="va">self</span>.model,</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>            <span class="st">"model_params"</span>: <span class="va">self</span>.model_params,</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>            <span class="st">"lr"</span>: <span class="va">self</span>.lr,</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>            <span class="st">"weight_decay"</span>: <span class="va">self</span>.weight_decay,</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>            <span class="st">"epochs"</span>: <span class="va">self</span>.epochs,</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>            <span class="st">"batch_size"</span>: <span class="va">self</span>.batch_size,</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>            <span class="st">"optimizer"</span>: <span class="va">self</span>.optimizer,</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>            <span class="st">"loss"</span>: <span class="va">self</span>.loss,</span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>            <span class="st">"patience"</span>: <span class="va">self</span>.patience,</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>            <span class="st">"validation_split"</span>: <span class="va">self</span>.validation_split,</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>            <span class="st">"random_state"</span>: <span class="va">self</span>.random_state,</span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>            <span class="st">"device"</span>: <span class="va">self</span>.device,</span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>            <span class="st">"verbose"</span>: <span class="va">self</span>.verbose</span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.model_params:</span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> k, v <span class="kw">in</span> <span class="va">self</span>.model_params.items():</span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a>                params[k] <span class="op">=</span> v</span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> params</span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> set_params(<span class="va">self</span>, <span class="op">**</span>params) <span class="op">-&gt;</span> <span class="st">"TorchRegressor"</span>:</span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> k, v <span class="kw">in</span> params.items():</span>
+<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="bu">hasattr</span>(<span class="va">self</span>, k):</span>
+<span id="cb17-25"><a href="#cb17-25" aria-hidden="true" tabindex="-1"></a>                <span class="bu">setattr</span>(<span class="va">self</span>, k, v)</span>
+<span id="cb17-26"><a href="#cb17-26" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span>:</span>
+<span id="cb17-27"><a href="#cb17-27" aria-hidden="true" tabindex="-1"></a>                <span class="va">self</span>.model_params[k] <span class="op">=</span> v</span>
+<span id="cb17-28"><a href="#cb17-28" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">self</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Why this is critical</strong>: When <code>optuna_tune</code> explores hyperparameters (e.g.&nbsp;testing <code>hidden_size = 32</code> vs <code>64</code>, <code>lr = 0.001</code> vs <code>0.005</code>), it calls <code>model.set_params(**params)</code>. - <code>set_params</code> dynamically updates both top-level attributes (like <code>lr</code> and <code>epochs</code>) and architecture-specific sub-parameters (like <code>hidden_size</code>, <code>num_layers</code>, and <code>dropout</code>). - This means your existing <code>optuna_tune</code> function in <code>03_model_selection.ipynb</code> works with zero modifications.</p>
+<hr>
+</section>
+</section>
+<section id="step-3-convenient-subclasses-lstmregressor-gruregressor-etc." class="level2" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="step-3-convenient-subclasses-lstmregressor-gruregressor-etc."><span class="header-section-number">4.3</span> Step 3: Convenient Subclasses (<code>LSTMRegressor</code>, <code>GRURegressor</code>, etc.)</h2>
+<p>Rather than requiring users to manually configure dictionary parameters like:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># The verbose way:</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> TorchRegressor(model<span class="op">=</span><span class="st">'lstm'</span>, model_params<span class="op">=</span>{<span class="st">'hidden_size'</span>: <span class="dv">64</span>, <span class="st">'num_layers'</span>: <span class="dv">2</span>})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>We define direct subclasses with explicit arguments:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> LSTMRegressor(TorchRegressor):</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>,</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>        hidden_size: <span class="bu">int</span> <span class="op">=</span> <span class="dv">64</span>,</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>        num_layers: <span class="bu">int</span> <span class="op">=</span> <span class="dv">2</span>,</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>        dropout: <span class="bu">float</span> <span class="op">=</span> <span class="fl">0.0</span>,</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>        bidirectional: <span class="bu">bool</span> <span class="op">=</span> <span class="va">False</span>,</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>        lr: <span class="bu">float</span> <span class="op">=</span> <span class="fl">1e-3</span>,</span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>        weight_decay: <span class="bu">float</span> <span class="op">=</span> <span class="fl">1e-5</span>,</span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>        epochs: <span class="bu">int</span> <span class="op">=</span> <span class="dv">100</span>,</span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>        batch_size: <span class="bu">int</span> <span class="op">=</span> <span class="dv">32</span>,</span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>        optimizer: <span class="bu">str</span> <span class="op">=</span> <span class="st">'adamw'</span>,</span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>        loss: <span class="bu">str</span> <span class="op">=</span> <span class="st">'mse'</span>,</span>
+<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a>        patience: <span class="bu">int</span> <span class="op">=</span> <span class="dv">10</span>,</span>
+<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a>        validation_split: <span class="bu">float</span> <span class="op">=</span> <span class="fl">0.1</span>,</span>
+<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a>        random_state: Optional[<span class="bu">int</span>] <span class="op">=</span> <span class="dv">42</span>,</span>
+<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a>        device: Optional[<span class="bu">str</span>] <span class="op">=</span> <span class="va">None</span>,</span>
+<span id="cb19-18"><a href="#cb19-18" aria-hidden="true" tabindex="-1"></a>        verbose: <span class="bu">bool</span> <span class="op">=</span> <span class="va">False</span></span>
+<span id="cb19-19"><a href="#cb19-19" aria-hidden="true" tabindex="-1"></a>    ):</span>
+<span id="cb19-20"><a href="#cb19-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">super</span>().<span class="fu">__init__</span>(</span>
+<span id="cb19-21"><a href="#cb19-21" aria-hidden="true" tabindex="-1"></a>            model<span class="op">=</span><span class="st">'lstm'</span>,</span>
+<span id="cb19-22"><a href="#cb19-22" aria-hidden="true" tabindex="-1"></a>            model_params<span class="op">=</span>{<span class="st">'hidden_size'</span>: hidden_size, <span class="st">'num_layers'</span>: num_layers,</span>
+<span id="cb19-23"><a href="#cb19-23" aria-hidden="true" tabindex="-1"></a>                          <span class="st">'dropout'</span>: dropout, <span class="st">'bidirectional'</span>: bidirectional},</span>
+<span id="cb19-24"><a href="#cb19-24" aria-hidden="true" tabindex="-1"></a>            lr<span class="op">=</span>lr, weight_decay<span class="op">=</span>weight_decay, epochs<span class="op">=</span>epochs, batch_size<span class="op">=</span>batch_size,</span>
+<span id="cb19-25"><a href="#cb19-25" aria-hidden="true" tabindex="-1"></a>            optimizer<span class="op">=</span>optimizer, loss<span class="op">=</span>loss, patience<span class="op">=</span>patience, validation_split<span class="op">=</span>validation_split,</span>
+<span id="cb19-26"><a href="#cb19-26" aria-hidden="true" tabindex="-1"></a>            random_state<span class="op">=</span>random_state, device<span class="op">=</span>device, verbose<span class="op">=</span>verbose</span>
+<span id="cb19-27"><a href="#cb19-27" aria-hidden="true" tabindex="-1"></a>        )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Advantage</strong>: Users get full IDE autocompletion, docstring tooltips, and default parameters simply by typing:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> LSTMRegressor(hidden_size<span class="op">=</span><span class="dv">32</span>, epochs<span class="op">=</span><span class="dv">50</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The exact same pattern is replicated for <code>GRURegressor</code>, <code>RNNRegressor</code>, <code>TransformerRegressor</code>, and <code>MLPRegressor</code>.</p>
+<hr>
+</section>
+</section>
+<section id="practical-tutorial-end-to-end-forecasting" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Practical Tutorial: End-to-End Forecasting</h1>
+<p>Below is a complete, executable workflow demonstrating how <code>dl_forecaster</code> operates on NHS Wales hospital admissions.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.models <span class="im">import</span> dl_forecaster, LSTMRegressor</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.datasets <span class="im">import</span> load_wales_admissions</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.metrics <span class="im">import</span> WMAPE, MAE, RMSE</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Load data</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> load_wales_admissions()</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>train <span class="op">=</span> data[:<span class="op">-</span><span class="dv">30</span>]</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>test <span class="op">=</span> data[<span class="op">-</span><span class="dv">30</span>:]</span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Instantiate dl_forecaster with LSTMRegressor</span></span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Note: feature_scaler and target_scaler default to StandardScaler()</span></span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>forecaster <span class="op">=</span> dl_forecaster(</span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>    model<span class="op">=</span>LSTMRegressor(</span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>        hidden_size<span class="op">=</span><span class="dv">32</span>,</span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>        num_layers<span class="op">=</span><span class="dv">1</span>,</span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>        epochs<span class="op">=</span><span class="dv">30</span>,</span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a>        batch_size<span class="op">=</span><span class="dv">16</span>,</span>
+<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a>        random_state<span class="op">=</span><span class="dv">42</span></span>
+<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a>    ),</span>
+<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a>    target_col<span class="op">=</span><span class="st">'admissions'</span>,</span>
+<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a>    lags<span class="op">=</span>[<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">7</span>]</span>
+<span id="cb21-23"><a href="#cb21-23" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb21-24"><a href="#cb21-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-25"><a href="#cb21-25" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Fit model</span></span>
+<span id="cb21-26"><a href="#cb21-26" aria-hidden="true" tabindex="-1"></a>forecaster.fit(train)</span>
+<span id="cb21-27"><a href="#cb21-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-28"><a href="#cb21-28" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Generate 30-day recursive forecast</span></span>
+<span id="cb21-29"><a href="#cb21-29" aria-hidden="true" tabindex="-1"></a>forecasts <span class="op">=</span> forecaster.forecast(H<span class="op">=</span><span class="dv">30</span>)</span>
+<span id="cb21-30"><a href="#cb21-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-31"><a href="#cb21-31" aria-hidden="true" tabindex="-1"></a><span class="co"># 5. Evaluate point accuracy</span></span>
+<span id="cb21-32"><a href="#cb21-32" aria-hidden="true" tabindex="-1"></a>y_true <span class="op">=</span> test[<span class="st">'admissions'</span>].values</span>
+<span id="cb21-33"><a href="#cb21-33" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"30-day Test WMAPE: </span><span class="sc">{</span>WMAPE(y_true, forecasts)<span class="sc">:.4f}</span><span class="ss">"</span>)</span>
+<span id="cb21-34"><a href="#cb21-34" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"30-day Test MAE:   </span><span class="sc">{</span>MAE(y_true, forecasts)<span class="sc">:.2f}</span><span class="ss">"</span>)</span>
+<span id="cb21-35"><a href="#cb21-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-36"><a href="#cb21-36" aria-hidden="true" tabindex="-1"></a><span class="co"># 6. In-sample diagnostics</span></span>
+<span id="cb21-37"><a href="#cb21-37" aria-hidden="true" tabindex="-1"></a>fitted <span class="op">=</span> forecaster.predict_in_sample()</span>
+<span id="cb21-38"><a href="#cb21-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-39"><a href="#cb21-39" aria-hidden="true" tabindex="-1"></a><span class="co"># 7. Rolling-window cross-validation</span></span>
+<span id="cb21-40"><a href="#cb21-40" aria-hidden="true" tabindex="-1"></a>cv_df <span class="op">=</span> forecaster.cross_validate(</span>
+<span id="cb21-41"><a href="#cb21-41" aria-hidden="true" tabindex="-1"></a>    df<span class="op">=</span>train,</span>
+<span id="cb21-42"><a href="#cb21-42" aria-hidden="true" tabindex="-1"></a>    cv_split<span class="op">=</span><span class="dv">3</span>,</span>
+<span id="cb21-43"><a href="#cb21-43" aria-hidden="true" tabindex="-1"></a>    test_size<span class="op">=</span><span class="dv">15</span>,</span>
+<span id="cb21-44"><a href="#cb21-44" aria-hidden="true" tabindex="-1"></a>    metrics<span class="op">=</span>[WMAPE, MAE, RMSE],</span>
+<span id="cb21-45"><a href="#cb21-45" aria-hidden="true" tabindex="-1"></a>    step_size<span class="op">=</span><span class="dv">15</span></span>
+<span id="cb21-46"><a href="#cb21-46" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb21-47"><a href="#cb21-47" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Cross-Validation Summary:"</span>)</span>
+<span id="cb21-48"><a href="#cb21-48" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(forecaster.cv_summary)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="hyperparameter-tuning-with-optuna_tune" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="hyperparameter-tuning-with-optuna_tune"><span class="header-section-number">5.1</span> Hyperparameter Tuning with <code>optuna_tune</code></h2>
+<p>Because <code>LSTMRegressor</code> exposes all parameters through <code>.get_params()</code>, tuning with Optuna is effortless:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.model_selection <span class="im">import</span> optuna_tune</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>param_space <span class="op">=</span> {</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">"hidden_size"</span>: <span class="kw">lambda</span> trial: trial.suggest_categorical(<span class="st">"hidden_size"</span>, [<span class="dv">16</span>, <span class="dv">32</span>, <span class="dv">64</span>]),</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">"lr"</span>: <span class="kw">lambda</span> trial: trial.suggest_float(<span class="st">"lr"</span>, <span class="fl">1e-3</span>, <span class="fl">5e-3</span>, log<span class="op">=</span><span class="va">True</span>),</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">"lags"</span>: <span class="kw">lambda</span> trial: trial.suggest_categorical(<span class="st">"lags"</span>, [<span class="dv">2</span>, <span class="dv">7</span>, <span class="dv">14</span>])</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>best_params, best_lags, other_args, active_exog <span class="op">=</span> optuna_tune(</span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>    model<span class="op">=</span>forecaster,</span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>    df<span class="op">=</span>train[<span class="op">-</span><span class="dv">90</span>:],</span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>    cv_split<span class="op">=</span><span class="dv">2</span>,</span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>    test_size<span class="op">=</span><span class="dv">10</span>,</span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>    eval_metric<span class="op">=</span>MAE,</span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>    param_space<span class="op">=</span>param_space,</span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>    eval_num<span class="op">=</span><span class="dv">10</span>,</span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>    step_size<span class="op">=</span><span class="dv">10</span></span>
+<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-20"><a href="#cb22-20" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Optimal Hyperparameters:"</span>, best_params)</span>
+<span id="cb22-21"><a href="#cb22-21" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Optimal Lags:"</span>, best_lags)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<hr>
+</section>
+</section>
+<section id="summary-comparison-tree-models-vs.-deep-learning-in-peshbeen" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> Summary Comparison: Tree Models vs.&nbsp;Deep Learning in <code>peshbeen</code></h1>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Gradient Boosted Trees (<code>ml_forecaster</code>)</th>
+<th style="text-align: left;">Deep Learning Models (<code>dl_forecaster</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong>Supported Models</strong></td>
+<td style="text-align: left;">LightGBM, CatBoost, XGBoost, Scikit-Learn</td>
+<td style="text-align: left;">LSTM, GRU, RNN, Transformer, MLP</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Underlying Engine</strong></td>
+<td style="text-align: left;">Decision trees with gradient boosting</td>
+<td style="text-align: left;">PyTorch neural computational graph</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>Scale Sensitivity</strong></td>
+<td style="text-align: left;">Invariant to monotonic scaling</td>
+<td style="text-align: left;">Highly sensitive; requires <code>feature_scaler</code> &amp; <code>target_scaler</code></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Compute Hardware</strong></td>
+<td style="text-align: left;">Multi-threaded CPU (or CUDA GPU)</td>
+<td style="text-align: left;">Apple Silicon MPS, NVIDIA CUDA, or CPU</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>Optimization</strong></td>
+<td style="text-align: left;">Split finding (histogram / exact)</td>
+<td style="text-align: left;">Mini-batch Stochastic Gradient Descent (AdamW)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Cross-Series Temporal Sharing</strong></td>
+<td style="text-align: left;">Handled via tabular indicator/lag columns</td>
+<td style="text-align: left;">Inherent continuous latent vector representation</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>Unified Peshbeen API</strong></td>
+<td style="text-align: left;"><code>.fit(df)</code>, <code>.forecast(H)</code>, <code>.cross_validate()</code></td>
+<td style="text-align: left;">Identical <code>.fit(df)</code>, <code>.forecast(H)</code>, <code>.cross_validate()</code></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Hyperparameter Tuning</strong></td>
+<td style="text-align: left;"><code>optuna_tune</code></td>
+<td style="text-align: left;">Native <code>optuna_tune</code> via <code>TorchRegressor</code></td>
+</tr>
+</tbody>
+</table>
+
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

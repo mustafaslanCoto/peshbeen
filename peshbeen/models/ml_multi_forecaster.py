@@ -6,6 +6,7 @@ from typing import List, Dict, Optional, Callable, Tuple, Any, Union
 import numpy as np
 import pandas as pd
 import copy
+from sklearn.base import clone
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from ..model_selection import SplitTimeSeries
@@ -16,6 +17,7 @@ from peshbeen.transformations import (
 )
 from ..helpers import seasonal_diff, undiff_ts, invert_seasonal_diff
 from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, TargetEncoder
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -33,8 +35,8 @@ class ml_multi_forecaster:
         id_col: str,
         target_col: str,
         lags: Optional[Union[int, List[int], Dict[str, Union[int, List[int]]]]] = None,
-        lag_transform: Optional[Union[list, Dict[str, list]]] = None,
-        series_encoding: Optional[str] = 'dummy',
+        lag_transform: Optional[Union[List[Any], Dict[str, List[Any]]]] = None,
+        id_col_encoder: Optional[Any] = 'dummy',
         difference: Optional[Union[int, Dict[str, int]]] = None,
         seasonal_diff: Optional[Union[int, Dict[str, int]]] = None,
         trend: Optional[Union[str, Dict[str, str]]] = None,
@@ -46,6 +48,7 @@ class ml_multi_forecaster:
         target_scaler: Optional[Any] = None,
         cat_variables: Optional[List[str]] = None,
         categorical_encoder: Optional[Any] = None,
+        **kwargs: Any
     ) -> None:
         """
         Initialize the ml_multi_forecaster with the specified model and preprocessing options.
@@ -62,11 +65,12 @@ class ml_multi_forecaster:
             Lags to include as features. Can be specified globally as an integer (lags 1 to N) or list of integers, or as a dictionary mapping each series ID to its specific lag configuration. Default is None (no lag features).
         lag_transform : list of callable or dict of {str: list of callable}, optional
             List of lag-transformation functions (e.g. [expanding_mean(shift=1), rolling_quantile(window_size=7, quantile=0.5, shift=1)]). Can be specified globally or per series as a dictionary. Default is None (no lag transforms).
-        series_encoding : str or None, default 'dummy'
-            Categorical encoding strategy for series identifiers. Options are:
-            - 'dummy': One-hot indicator dummy variables for each series.
-            - 'ordinal': Integer index encoding (0, 1, ..., N-1).
-            - None: Pass categorical column directly to tree models with native categorical support (LGBMRegressor, CatBoostRegressor, XGBRegressor, and HistGradientBoostingRegressor).
+        id_col_encoder : object or str or None, default 'dummy'
+            Strategy or scikit-learn transformer to encode unique series identifiers in panel data. Options are:
+            - None: Pass series ID directly as a native categorical feature to models with native categorical support (LGBMRegressor, CatBoostRegressor, XGBRegressor, and HistGradientBoostingRegressor).
+            - scikit-learn transformer: Any transformer instance such as OneHotEncoder(sparse_output=False), OrdinalEncoder(), TargetEncoder(), etc.
+            - 'dummy': Convenience shortcut for OneHotEncoder(sparse_output=False, handle_unknown='ignore').
+            - 'ordinal': Convenience shortcut for OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1).
         difference : int or dict of {str: int}, optional
             Order of ordinary differencing to apply to each series before modeling. Default is None (no differencing).
         seasonal_diff : int or dict of {str: int}, optional
@@ -91,7 +95,7 @@ class ml_multi_forecaster:
         cat_variables : list of str, optional
             List of categorical feature column names in exogenous data. When categorical_encoder is None, native categorical support is used (e.g. LGBMRegressor, CatBoostRegressor, XGBRegressor with enable_categorical=True, or HistGradientBoostingRegressor with categorical_features='from_dtype'). Default is None.
         categorical_encoder : object, optional
-            Scikit-learn compatible transformer (e.g. OneHotEncoder(drop='first', sparse_output=False)) to encode `cat_variables`. If None, categorical features must be natively supported by the model (e.g. LGBMRegressor, CatBoostRegressor, XGBRegressor, or HistGradientBoostingRegressor). Default is None.
+            Scikit-learn compatible transformer (e.g. OneHotEncoder(drop='first', sparse_output=False), OrdinalEncoder(), TargetEncoder()) to encode `cat_variables`. If None, categorical features must be natively supported by the model. Default is None.
 
         Returns
         -------
@@ -101,13 +105,19 @@ class ml_multi_forecaster:
         self.model_name = self.model.__class__.__name__
         self.id_col = id_col
         self.target_col = target_col
-        self.series_encoding = series_encoding
 
-        if self.series_encoding is None:
+        # Backwards compatibility: absorb legacy series_encoding keyword argument if passed via kwargs
+        # if 'series_encoding' in kwargs:
+        #     id_col_encoder = kwargs.pop('series_encoding')
+
+        self.id_col_encoder = id_col_encoder
+
+        # If id_col_encoder is None, model must have native categorical feature support
+        if self.id_col_encoder is None:
             if self.model_name not in ["LGBMRegressor", "CatBoostRegressor", "XGBRegressor", "HistGradientBoostingRegressor"]:
                 raise ValueError(
-                    "series_encoding=None is only supported for LGBMRegressor, CatBoostRegressor, XGBRegressor, and HistGradientBoostingRegressor. "
-                    "Please set series_encoding='dummy' or 'ordinal'."
+                    "id_col_encoder=None (native categorical) is only supported for LGBMRegressor, CatBoostRegressor, XGBRegressor, and HistGradientBoostingRegressor. "
+                    "For other models (e.g. Ridge, Lasso, LinearRegression), please pass an encoder object such as OneHotEncoder(), OrdinalEncoder(), or TargetEncoder()."
                 )
 
         self.lags = lags
@@ -124,14 +134,20 @@ class ml_multi_forecaster:
         self.cat_variables = cat_variables
         self.cat_encoder = categorical_encoder
         self.cat_dtypes = {}
+        self.cat_type = None
+        self.id_preprocess = None
+        self.preprocess = None
+        self.encoded_id_cols = []
 
+        # Validate that model can handle exogenous categoricals natively if no encoder is provided
         if self.cat_variables is not None and self.cat_encoder is None:
             if self.model_name not in ["LGBMRegressor", "CatBoostRegressor", "XGBRegressor", "HistGradientBoostingRegressor"]:
                 raise ValueError(
                     "Model must be LGBMRegressor, CatBoostRegressor, XGBRegressor, or HistGradientBoostingRegressor to handle categorical variables without an encoder."
                 )
 
-        has_native_cat = (self.series_encoding is None) or (self.cat_variables is not None and self.cat_encoder is None)
+        # Configure models with native categorical flags if needed
+        has_native_cat = (self.id_col_encoder is None) or (self.cat_variables is not None and self.cat_encoder is None)
         if has_native_cat:
             if self.model_name == "XGBRegressor" and hasattr(self.model, "set_params"):
                 if not getattr(self.model, "enable_categorical", False):
@@ -145,6 +161,12 @@ class ml_multi_forecaster:
                         self.model.set_params(categorical_features="from_dtype")
                     except Exception:
                         pass
+
+    def copy(self) -> "ml_multi_forecaster":
+        """
+        Create a deep copy of the forecaster instance.
+        """
+        return copy.deepcopy(self)
 
     def _get_per_series_param(self, param: Any, series_id: str, default: Any = None) -> Any:
         if isinstance(param, dict):
@@ -165,55 +187,152 @@ class ml_multi_forecaster:
                 raise TypeError(f"Lags for series '{s}' must be int, list of ints, or None.")
         return result
 
-    def create_encoded_features(self, df: pd.DataFrame) -> pd.DataFrame:
+    def create_encoded_features(self, df: pd.DataFrame, is_id_col: bool = False) -> pd.DataFrame:
         """
-        Encode categorical exogenous features using the configured categorical encoder.
+        Encode categorical features (either id_col or exogenous cat_variables)
+        using the configured encoder (OneHotEncoder, OrdinalEncoder, TargetEncoder, or native categoricals).
         """
         dfc = df.copy()
-        if self.cat_variables is not None:
-            for col in self.cat_variables:
-                if col in dfc.columns:
-                    if col not in self.cat_dtypes:
-                        cats = sorted(dfc[col].dropna().unique().tolist())
-                        self.cat_dtypes[col] = pd.CategoricalDtype(categories=cats)
-                    dfc[col] = pd.Categorical(dfc[col], dtype=self.cat_dtypes[col])
-            
-            if self.cat_encoder is not None:
-                if self.target_col in dfc.columns:
-                    num_cols = [c for c in dfc.columns if c not in self.cat_variables + [self.target_col, self.id_col]]
-                    self.preprocess = ColumnTransformer(
-                        transformers=[("cat", self.cat_encoder, self.cat_variables), ("num", "passthrough", num_cols)],
-                        remainder="drop",
-                        verbose_feature_names_out=False
-                    ).set_output(transform="pandas")
-                    target_series = dfc[self.target_col]
-                    X_encoded = self.preprocess.fit_transform(dfc.drop(columns=[self.target_col, self.id_col]), y=target_series)
-                    return pd.concat([dfc[[self.id_col, self.target_col]], X_encoded], axis=1)
+
+        if is_id_col:
+            # -------------------------------------------------------------
+            # ID Column Encoding / Native Categorical Registration
+            # -------------------------------------------------------------
+            if self.id_col in dfc.columns:
+                if self.id_col_encoder is None:
+                    # Native categorical support: register CategoricalDtype and cast
+                    if self.cat_type is None:
+                        cats = sorted(dfc[self.id_col].dropna().unique().tolist())
+                        self.cat_type = pd.CategoricalDtype(categories=cats)
+                    dfc[self.id_col] = pd.Categorical(dfc[self.id_col], dtype=self.cat_type)
+                    self.encoded_id_cols = [self.id_col]
+                    return dfc
                 else:
-                    id_series = dfc[self.id_col] if self.id_col in dfc.columns else None
-                    X_drop = dfc.drop(columns=[self.id_col]) if self.id_col in dfc.columns else dfc
-                    X_encoded = self.preprocess.transform(X_drop)
-                    if id_series is not None:
-                        return pd.concat([dfc[[self.id_col]], X_encoded], axis=1)
-                    return X_encoded
-        return dfc
+                    enc_inst = clone(self.id_col_encoder)
+
+                    # Ensure dense output for encoders that default to sparse matrices
+                    if hasattr(enc_inst, 'sparse_output') and getattr(enc_inst, 'sparse_output', False):
+                        enc_inst.set_params(sparse_output=False)
+                    if hasattr(enc_inst, 'sparse') and getattr(enc_inst, 'sparse', False):
+                        enc_inst.set_params(sparse=False)
+                    # For TargetEncoder, regression target is continuous
+                    if isinstance(enc_inst, TargetEncoder) and getattr(enc_inst, 'target_type', 'auto') == 'auto':
+                        enc_inst.set_params(target_type='continuous')
+
+                    if self.target_col in dfc.columns:
+                        self.id_preprocess = ColumnTransformer(
+                            transformers=[("id", enc_inst, [self.id_col])],
+                            remainder="drop",
+                            verbose_feature_names_out=False
+                        ).set_output(transform="pandas")
+
+                        target_series = dfc[self.target_col]
+                        X_encoded = self.id_preprocess.fit_transform(dfc[[self.id_col]], y=target_series)
+
+                        # Avoid column name collision with original self.id_col series
+                        if self.id_col in X_encoded.columns:
+                            X_encoded = X_encoded.rename(columns={self.id_col: f"{self.id_col}_encoded"})
+                        self.encoded_id_cols = list(X_encoded.columns)
+                        return pd.concat([dfc, X_encoded], axis=1)
+                    else:
+                        if hasattr(self, 'id_preprocess') and self.id_preprocess is not None:
+                            X_encoded = self.id_preprocess.transform(dfc[[self.id_col]])
+                            if self.id_col in X_encoded.columns:
+                                X_encoded = X_encoded.rename(columns={self.id_col: f"{self.id_col}_encoded"})
+                            return pd.concat([dfc, X_encoded], axis=1)
+                        return dfc
+
+            return dfc
+
+        else:
+            # -------------------------------------------------------------
+            # Exogenous Categorical Features Encoding
+            # -------------------------------------------------------------
+            if self.cat_variables is not None:
+                # First register category definitions for native categorical support
+                for col in self.cat_variables:
+                    if col in dfc.columns:
+                        if col not in self.cat_dtypes:
+                            cats = sorted(dfc[col].dropna().unique().tolist())
+                            self.cat_dtypes[col] = pd.CategoricalDtype(categories=cats)
+                        dfc[col] = pd.Categorical(dfc[col], dtype=self.cat_dtypes[col])
+                
+                # If an explicit encoder was configured, apply ColumnTransformer
+                if self.cat_encoder is not None:
+                    if self.target_col in dfc.columns:
+                        num_cols = [
+                            c for c in dfc.columns
+                            if c not in self.cat_variables + [self.target_col, self.id_col] + getattr(self, 'encoded_id_cols', [])
+                        ]
+                        enc_inst = clone(self.cat_encoder)
+
+                        # Ensure dense output for encoders that default to sparse matrices
+                        if hasattr(enc_inst, 'sparse_output') and getattr(enc_inst, 'sparse_output', False):
+                            enc_inst.set_params(sparse_output=False)
+                        if hasattr(enc_inst, 'sparse') and getattr(enc_inst, 'sparse', False):
+                            enc_inst.set_params(sparse=False)
+                        # For TargetEncoder, regression target is continuous
+                        if isinstance(enc_inst, TargetEncoder) and getattr(enc_inst, 'target_type', 'auto') == 'auto':
+                            enc_inst.set_params(target_type='continuous')
+
+                        self.preprocess = ColumnTransformer(
+                            transformers=[("cat", enc_inst, self.cat_variables), ("num", "passthrough", num_cols)],
+                            remainder="drop",
+                            verbose_feature_names_out=False
+                        ).set_output(transform="pandas")
+                        target_series = dfc[self.target_col]
+                        X_encoded = self.preprocess.fit_transform(dfc.drop(columns=[self.target_col, self.id_col]), y=target_series)
+                        return pd.concat([dfc[[self.id_col, self.target_col]], X_encoded], axis=1)
+                    else:
+                        id_series = dfc[self.id_col] if self.id_col in dfc.columns else None
+                        X_drop = dfc.drop(columns=[self.id_col]) if self.id_col in dfc.columns else dfc
+                        X_encoded = self.preprocess.transform(X_drop)
+                        if id_series is not None:
+                            return pd.concat([dfc[[self.id_col]], X_encoded], axis=1)
+                        return X_encoded
+            return dfc
 
     def data_prep(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
         """
         High-performance transformation of long-format panel data into model feature matrix X and target y.
+        Encodes exogenous variables, builds cross-series lag matrices, handles series ID encoding, and filters NaNs.
         """
         dfc = df.copy()
+
+        # Step 1: Preprocess Series ID if present (encode via id_col_encoder or register native Categorical)
+        if self.id_col in dfc.columns:
+            dfc = self.create_encoded_features(dfc, is_id_col=True)
+
+        # Step 2: Preprocess Exogenous Categoricals if specified
         if self.cat_variables is not None:
-            dfc = self.create_encoded_features(dfc)
+            dfc = self.create_encoded_features(dfc, is_id_col=False)
+
+        # If target_col not in dfc, we are preparing exogenous data for forecasting (matches 01_ml_forecast pattern)
+        if self.target_col not in dfc.columns:
+            return dfc
 
         series_ids = sorted(dfc[self.id_col].unique().tolist())
         self.series_ids = series_ids
-        self.cat_type = pd.CategoricalDtype(categories=series_ids)
+        if self.cat_type is None:
+            self.cat_type = pd.CategoricalDtype(categories=series_ids)
 
-        exog_cols = [c for c in dfc.columns if c not in [self.id_col, self.target_col]]
+        # Precompute compact (N_series, K) matrix of encoded ID features once for fast panel creation & forecasting
+        if self.id_col_encoder is not None:
+            df_unique_ids = pd.DataFrame({self.id_col: series_ids})
+            step_id_df = self.id_preprocess.transform(df_unique_ids)
+            if self.id_col in step_id_df.columns:
+                step_id_df = step_id_df.rename(columns={self.id_col: f"{self.id_col}_encoded"})
+            self.step_id_mat = step_id_df.to_numpy()
+        else:
+            self.step_id_mat = None
+
+        exog_cols = [
+            c for c in dfc.columns
+            if c not in [self.id_col, self.target_col] + getattr(self, 'encoded_id_cols', [])
+        ]
         self.exog_cols = exog_cols
 
-        # 1. Pivot long to wide target matrix
+        # 1. Pivot long-format DataFrame to wide target matrix (timestamps x series)
         wide_orig = dfc.pivot(columns=self.id_col, values=self.target_col)
         self.wide_orig = wide_orig.copy()
         wide_trans = wide_orig.copy()
@@ -222,13 +341,13 @@ class ml_multi_forecaster:
         normalized_lags = self._normalize_lags(series_ids)
         self.normalized_lags = normalized_lags
 
-        # 2. Forward Transformations
+        # 2. Forward Transformations applied per-series (Box-Cox, Trend, Differencing, Target Scaler)
         for s in series_ids:
             meta = self.transform_meta[s]
             meta['orig_series'] = wide_orig[s].copy()
             s_data = wide_trans[s].copy()
 
-            # Step A: Box-Cox
+            # Step A: Box-Cox Transformation
             bc_param = self._get_per_series_param(self.box_cox, s, False)
             if bc_param:
                 meta['orig_before_boxcox'] = s_data.copy()
@@ -243,7 +362,7 @@ class ml_multi_forecaster:
             else:
                 meta['box_cox'] = False
 
-            # Step B: Trend
+            # Step B: Trend Estimation & Removal (Linear or ETS)
             tr_param = self._get_per_series_param(self.trend, s, None)
             if tr_param is not None:
                 meta['trend_type'] = tr_param
@@ -260,18 +379,17 @@ class ml_multi_forecaster:
                     meta['trend_vals'] = trend_vals
                     s_data = s_data - trend_vals
                 elif tr_param == 'ets':
-                    ets_p = self.ets_params or {}
-                    ets_m = ExponentialSmoothing(
-                        s_data, 
-                        **{k: v for k, v in ets_p.items() if k in ["trend", "damped_trend", "seasonal", "seasonal_periods"]}
-                    ).fit()
-                    meta['ets_model_fit'] = ets_m
-                    meta['trend_vals'] = ets_m.fittedvalues.values
-                    s_data = s_data - meta['trend_vals']
+                    from statsmodels.tsa.holtwinters import ExponentialSmoothing
+                    ets_mod = ExponentialSmoothing(s_data, **self.ets_params)
+                    ets_fit = ets_mod.fit()
+                    trend_vals = ets_fit.fittedvalues
+                    meta['ets_model_fit'] = ets_fit
+                    meta['trend_vals'] = trend_vals
+                    s_data = s_data - trend_vals
             else:
                 meta['trend_type'] = None
 
-            # Step C: Ordinary Diff
+            # Step C: Ordinary Differencing
             diff_param = self._get_per_series_param(self.difference, s, None)
             if diff_param is not None:
                 meta['difference'] = diff_param
@@ -283,7 +401,7 @@ class ml_multi_forecaster:
             else:
                 meta['difference'] = None
 
-            # Step D: Seasonal Diff
+            # Step D: Seasonal Differencing
             sdiff_param = self._get_per_series_param(self.seasonal_diff, s, None)
             if sdiff_param is not None:
                 meta['seasonal_diff'] = sdiff_param
@@ -292,23 +410,18 @@ class ml_multi_forecaster:
             else:
                 meta['seasonal_diff'] = None
 
-            # Step E: Target Scaling
+            # Step E: Target Scaling (e.g. StandardScaler, RobustScaler)
             if isinstance(self.target_scaler, dict):
                 scaler_inst = self.target_scaler.get(s, None)
             else:
                 scaler_inst = copy.deepcopy(self.target_scaler) if self.target_scaler is not None else None
 
             if scaler_inst is not None:
-                s_vals = s_data.values.reshape(-1, 1)
-                valid_mask_s = ~np.isnan(s_vals.ravel())
+                meta['scaler'] = scaler_inst
+                valid_mask_s = ~s_data.isna()
                 if np.any(valid_mask_s):
-                    scaler_inst.fit(s_vals[valid_mask_s].reshape(-1, 1))
-                    s_scaled = s_data.copy()
-                    s_scaled.iloc[valid_mask_s] = scaler_inst.transform(s_vals[valid_mask_s].reshape(-1, 1)).ravel()
-                    s_data = s_scaled
-                    meta['scaler'] = scaler_inst
-                else:
-                    meta['scaler'] = None
+                    scaled_vals = meta['scaler'].fit_transform(s_data[valid_mask_s].to_numpy().reshape(-1, 1)).ravel()
+                    s_data.loc[valid_mask_s] = scaled_vals
             else:
                 meta['scaler'] = None
 
@@ -316,12 +429,12 @@ class ml_multi_forecaster:
 
         self.wide_trans = wide_trans.copy()
 
-        # 3. Vectorized Wide Feature Generation via Dict Accumulation
+        # 3. Vectorized Lag and Rolling Feature Creation across all series
         feature_dict = {}
         for s in series_ids:
-            s_series = wide_trans[s]
+            col_series = wide_trans[s]
             for lag in normalized_lags[s]:
-                feature_dict[f"{s}_lag_{lag}"] = s_series.shift(lag)
+                feature_dict[f"{s}_lag_{lag}"] = col_series.shift(lag).to_numpy()
 
             s_lag_tf = self._get_per_series_param(self.lag_transform, s, None)
             if s_lag_tf is not None:
@@ -334,12 +447,12 @@ class ml_multi_forecaster:
                         col_name += f"_{func.window_size}"
                     if hasattr(func, 'quantile'):
                         col_name += f"_q{func.quantile}"
-                    feature_dict[col_name] = func(s_series)
+                    feature_dict[col_name] = func(col_series).to_numpy()
 
         wide_features = pd.DataFrame(feature_dict, index=wide_trans.index)
         self.feature_cols = list(wide_features.columns)
 
-        # 4. Zero-Copy Panel Stacking
+        # 4. Zero-Copy Panel Stacking (tile lag features N_series times)
         N_time = len(wide_features)
         N_series = len(series_ids)
         total_rows = N_time * N_series
@@ -350,13 +463,14 @@ class ml_multi_forecaster:
             for col in wide_features.columns
         }
 
-        # Extract exogenous columns preserving native column dtypes
+        # 5. Extract exogenous columns preserving native dtypes and pre-encoded numeric features
         if len(exog_cols) > 0:
             grouped_exog = {
                 s: s_group for s, s_group in dfc.groupby(self.id_col, observed=False)
             }
             for col in exog_cols:
-                if col in (self.cat_variables or []):
+                # If column is an unencoded categorical variable, preserve CategoricalDtype
+                if col in (self.cat_variables or []) and self.cat_encoder is None:
                     col_vals = np.concatenate(
                         [grouped_exog[s][col].to_numpy() for s in series_ids], axis=0
                     )
@@ -364,14 +478,18 @@ class ml_multi_forecaster:
                         col_vals, dtype=self.cat_dtypes.get(col, None)
                     )
                 else:
+                    # Column is numeric, pre-encoded (OneHot/Ordinal/TargetEncoder), or external feature
                     col_vals = np.concatenate(
                         [grouped_exog[s][col].to_numpy() for s in series_ids], axis=0
                     )
-                    if np.issubdtype(dfc[col].dtype, np.integer):
-                        X_panel_dict[col] = col_vals.astype(dfc[col].dtype)
-                    elif np.issubdtype(dfc[col].dtype, np.floating):
+                    col_dtype = dfc[col].dtype
+                    if isinstance(col_dtype, pd.CategoricalDtype):
+                        X_panel_dict[col] = pd.Categorical(col_vals, dtype=col_dtype)
+                    elif pd.api.types.is_integer_dtype(col_dtype):
+                        X_panel_dict[col] = col_vals.astype(col_dtype)
+                    elif pd.api.types.is_float_dtype(col_dtype):
                         X_panel_dict[col] = col_vals.astype(np.float64)
-                    elif np.issubdtype(dfc[col].dtype, np.bool_):
+                    elif pd.api.types.is_bool_dtype(col_dtype):
                         X_panel_dict[col] = col_vals.astype(bool)
                     else:
                         try:
@@ -379,30 +497,24 @@ class ml_multi_forecaster:
                         except Exception:
                             X_panel_dict[col] = col_vals
 
-        # Construct series identifier columns vectorially
-        if self.series_encoding == 'dummy':
-            for target_s in series_ids:
-                col_name = f"{self.id_col}_{target_s}"
-                indicator = np.zeros(total_rows, dtype=np.float64)
-                s_idx = series_ids.index(target_s)
-                indicator[s_idx * N_time : (s_idx + 1) * N_time] = 1.0
-                X_panel_dict[col_name] = indicator
+        # Array of series IDs repeated across panel rows (used for encoding and exact mask mapping)
+        raw_ids = np.repeat(series_ids, N_time)
+        y_vals = np.concatenate([wide_trans[s].to_numpy() for s in series_ids], axis=0)
 
-        elif self.series_encoding == 'ordinal':
-            X_panel_dict[self.id_col] = np.repeat(np.arange(N_series), N_time)
-
-        elif self.series_encoding is None:
-            raw_ids = np.repeat(series_ids, N_time)
+        # 6. Series ID Feature Insertion into Panel (Vectorized, zero redundant transforms)
+        if self.id_col_encoder is None:
             X_panel_dict[self.id_col] = pd.Categorical(raw_ids, dtype=self.cat_type)
+        else:
+            for i, col_name in enumerate(self.encoded_id_cols):
+                X_panel_dict[col_name] = np.repeat(self.step_id_mat[:, i], N_time)
 
         X_all = pd.DataFrame(X_panel_dict, index=tiled_index)
-
-        # Target alignment
-        y_vals = np.concatenate([wide_trans[s].to_numpy() for s in series_ids], axis=0)
         y_all = pd.Series(y_vals, index=tiled_index, name=self.target_col)
 
-        # 5. Fast Mask Filtering
+        # 7. Fast Mask Filtering (drop rows with NaNs from lags/differencing)
         valid_mask = ~(X_all.isna().any(axis=1).to_numpy() | np.isnan(y_vals))
+        # Track exact series ID for every remaining valid row in X (used by predict_in_sample)
+        self.series_id_panel = raw_ids[valid_mask]
         
         return X_all.iloc[valid_mask].copy(), y_all.iloc[valid_mask].copy(), wide_features
 
@@ -425,9 +537,10 @@ class ml_multi_forecaster:
         self.y = y
         self.X_cols = X.columns.tolist()
 
+        # Build categorical feature parameters for native tree model training
         fit_kwargs = {}
         cat_cols = []
-        if self.series_encoding is None:
+        if self.id_col_encoder is None:
             cat_cols.append(self.id_col)
         if self.cat_variables is not None and self.cat_encoder is None:
             cat_cols.extend([c for c in self.cat_variables if c in self.X_cols])
@@ -475,17 +588,15 @@ class ml_multi_forecaster:
         N = len(series_ids)
         T_hist = len(self.wide_trans)
         
-        # Pre-allocate contiguous NumPy buffer for recursive forecasting
+        # Pre-allocate contiguous NumPy buffer for high-speed recursive forecasting
         history_buffer = np.empty((T_hist + H, N), dtype=np.float64)
         history_buffer[:T_hist, :] = self.wide_trans.values
         series_id_to_idx = {s: i for i, s in enumerate(series_ids)}
 
-        # Preprocess future exogenous variables if provided
+        # Prepare future exogenous variables if provided (matches 01_ml_forecast pattern)
         exog_by_series = {}
         if exog is not None and len(self.exog_cols) > 0:
-            exog_c = exog.copy()
-            if self.cat_variables is not None:
-                exog_c = self.create_encoded_features(exog_c)
+            exog_c = self.data_prep(exog)
             if self.id_col in exog_c.columns:
                 for s in series_ids:
                     exog_by_series[s] = exog_c[exog_c[self.id_col] == s]
@@ -493,28 +604,34 @@ class ml_multi_forecaster:
                 for s in series_ids:
                     exog_by_series[s] = exog_c
 
+        # Determine if DataFrame path is required for native categorical features
         has_native_categoricals = (
-            self.series_encoding is None or 
+            self.id_col_encoder is None or 
             (self.cat_variables is not None and self.cat_encoder is None)
         )
 
+        # Mapping of feature column name to exact index in self.X_cols (guarantees strict column alignment)
         col_to_idx = {col: i for i, col in enumerate(self.X_cols)}
 
+        # Encoded series ID features (precomputed during fit/data_prep, invariant across horizons)
+        step_id_mat = self.step_id_mat
+
         if not has_native_categoricals:
+            # -------------------------------------------------------------
+            # High-Speed NumPy Matrix Path (Pure numeric features)
+            # -------------------------------------------------------------
             X_step_mat = np.zeros((N, len(self.X_cols)), dtype=np.float64)
 
-            if self.series_encoding == 'dummy':
-                for s_idx, s in enumerate(series_ids):
-                    dummy_col = f"{self.id_col}_{s}"
-                    if dummy_col in col_to_idx:
-                        X_step_mat[s_idx, col_to_idx[dummy_col]] = 1.0
-            elif self.series_encoding == 'ordinal':
-                ord_col_idx = col_to_idx[self.id_col]
-                X_step_mat[:, ord_col_idx] = np.arange(N)
+            # Pre-populate encoded series IDs into their exact column positions once
+            if step_id_mat is not None:
+                for i, col_name in enumerate(self.encoded_id_cols):
+                    if col_name in col_to_idx:
+                        X_step_mat[:, col_to_idx[col_name]] = step_id_mat[:, i]
 
             for h in range(H):
                 curr_pos = T_hist + h
 
+                # Populate recursive lag and lag-transform features for each series
                 for s in series_ids:
                     s_idx = series_id_to_idx[s]
                     for lag in self.normalized_lags[s]:
@@ -537,6 +654,7 @@ class ml_multi_forecaster:
                             if col_name in col_to_idx:
                                 X_step_mat[:, col_to_idx[col_name]] = func(hist_slice).iloc[-1]
 
+                # Populate exogenous variables for current horizon step h
                 if exog_by_series:
                     for s_idx, s in enumerate(series_ids):
                         s_exog = exog_by_series[s]
@@ -545,15 +663,20 @@ class ml_multi_forecaster:
                             for c in self.exog_cols:
                                 X_step_mat[s_idx, col_to_idx[c]] = ex_row[c]
 
+                # Predict all series simultaneously at horizon h
                 preds_h = self.model_fit.predict(X_step_mat)
                 history_buffer[curr_pos, :] = preds_h
+                self.x_h = X_step_mat.copy()  # Store last step features for potential inspection
 
         else:
-            # Native categorical support (DataFrame path)
+            # -------------------------------------------------------------
+            # DataFrame Path (For models utilizing native categorical dtypes)
+            # -------------------------------------------------------------
             for h in range(H):
                 curr_pos = T_hist + h
-                step_dict = {}
+                step_dict = {} # Temporary dictionary to hold features for current horizon step
 
+                # Populate recursive lag and lag-transform features
                 for s in series_ids:
                     s_idx = series_id_to_idx[s]
                     for lag in self.normalized_lags[s]:
@@ -576,14 +699,15 @@ class ml_multi_forecaster:
                             if col_name in col_to_idx:
                                 step_dict[col_name] = np.full(N, func(hist_slice).iloc[-1], dtype=np.float64)
 
-                if self.series_encoding == 'dummy':
-                    for s_other in series_ids:
-                        step_dict[f"{self.id_col}_{s_other}"] = [1.0 if s_other == s else 0.0 for s in series_ids]
-                elif self.series_encoding == 'ordinal':
-                    step_dict[self.id_col] = list(range(N))
-                elif self.series_encoding is None:
+                # Series ID assignment
+                # If no specific ID column encoder is provided, use the default categorical encoding
+                if self.id_col_encoder is None:
                     step_dict[self.id_col] = pd.Categorical(series_ids, dtype=self.cat_type)
+                else:
+                    for i, col_name in enumerate(self.encoded_id_cols):
+                        step_dict[col_name] = step_id_mat[:, i]
 
+                # Exogenous feature assignment preserving dtypes
                 if len(self.exog_cols) > 0:
                     for c in self.exog_cols:
                         c_vals = []
@@ -594,16 +718,21 @@ class ml_multi_forecaster:
                             else:
                                 c_vals.append(np.nan)
                         
-                        if c in (self.cat_variables or []):
+                        if c in (self.cat_variables or []) and self.cat_encoder is None:
                             step_dict[c] = pd.Categorical(c_vals, dtype=self.cat_dtypes.get(c, None))
                         else:
-                            step_dict[c] = np.array(c_vals, dtype=np.float64)
+                            try:
+                                step_dict[c] = np.array(c_vals, dtype=np.float64)
+                            except Exception:
+                                step_dict[c] = np.array(c_vals)
 
+                # Enforce strict column order alignment with self.X_cols
                 X_step_df = pd.DataFrame(step_dict)[self.X_cols]
                 preds_h = self.model_fit.predict(X_step_df)
                 history_buffer[curr_pos, :] = preds_h
+                self.x_h = X_step_df.copy()  # Store last step features for potential inspection
 
-        # Back-transform all forecasts to original measurement scale
+        # Back-transform all forecasts to original measurement scale in reverse order
         forecasts = {}
         future_raw = history_buffer[T_hist:, :]
 
@@ -673,12 +802,8 @@ class ml_multi_forecaster:
 
         for s_idx, s in enumerate(series_ids):
             meta = self.transform_meta[s]
-            if self.series_encoding == 'dummy':
-                s_mask = (self.X[f"{self.id_col}_{s}"] == 1.0)
-            elif self.series_encoding == 'ordinal':
-                s_mask = (self.X[self.id_col] == s_idx)
-            elif self.series_encoding is None:
-                s_mask = (self.X[self.id_col] == s)
+            # Exact row-to-series mapping via self.series_id_panel (encoder-agnostic)
+            s_mask = (self.series_id_panel == s)
             
             s_df = df_preds[s_mask]
             if len(s_df) > 0:
@@ -729,8 +854,7 @@ class ml_multi_forecaster:
 
         self.fitted_values = fitted_dict
         self.residuals = resid_dict
-        self.in_samp_resids = resid_dict
-        return self.fitted_values, self.residuals
+        return fitted_dict, resid_dict
 
     def cross_validate(
         self,
@@ -738,88 +862,75 @@ class ml_multi_forecaster:
         cv_split: int,
         test_size: int,
         metrics: List[Callable],
-        step_size: int = 1,
+        step_size: Optional[int] = None,
+        exog: Optional[pd.DataFrame] = None,
         ref_series_id: Optional[str] = None
     ) -> pd.DataFrame:
         """
-        Run time-series cross-validation across all interdependent series in long-format panel data.
+        Expanding-window cross-validation evaluated across all series.
         """
         dfc = df.copy()
         series_ids = sorted(dfc[self.id_col].unique().tolist())
-
+        
         if ref_series_id is None:
             ref_series_id = min(series_ids, key=lambda s: len(dfc[dfc[self.id_col] == s]))
         ref_df = dfc[dfc[self.id_col] == ref_series_id]
+        
+        splitter = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
+        splits = list(splitter.split(ref_df))
 
-        from peshbeen.model_selection import SplitTimeSeries
-        tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
-
-        fold_evaluations = []
-        metric_names = [m.__name__ if hasattr(m, '__name__') else str(m) for m in metrics]
+        metric_names = [getattr(m, '__name__', m.__class__.__name__) for m in metrics]
+        rows = []
         fold_scores = {mname: {s: [] for s in series_ids} for mname in metric_names}
 
-        exog_cols = [c for c in dfc.columns if c not in [self.id_col, self.target_col]]
-
-        for fold_idx, (ref_train_idx, ref_test_idx) in enumerate(tscv.split(ref_df)):
-            cutoff_date = ref_df.index[ref_train_idx[-1]]
-            test_dates = ref_df.index[ref_test_idx]
-
-            train_fold = dfc[dfc.index <= cutoff_date]
-            test_fold = dfc[(dfc.index > cutoff_date) & (dfc.index <= test_dates[-1])]
-
-            exog_fold = test_fold.drop(columns=[self.target_col]) if len(exog_cols) > 0 else None
-
-            self.fit(train_fold)
+        for fold, (train_idx, test_idx) in enumerate(splits):
+            cutoff = ref_df.index[train_idx[-1]]
+            test_dates = ref_df.index[test_idx]
             H_fold = len(test_dates)
-            fc_dict = self.forecast(H=H_fold, exog=exog_fold)
+
+            train_df = dfc[dfc.index <= cutoff]
+            test_df = dfc[dfc.index.isin(test_dates)]
+
+            forecaster = copy.deepcopy(self)
+            forecaster.fit(train_df)
+
+            fold_exog = exog[exog.index.isin(test_dates)] if exog is not None else None
+            preds = forecaster.forecast(H=H_fold, exog=fold_exog)
 
             for s in series_ids:
-                s_test_df = test_fold[test_fold[self.id_col] == s]
-                y_true = s_test_df[self.target_col].values
-                y_pred = fc_dict[s][:len(y_true)]
+                s_test = test_df[test_df[self.id_col] == s]
+                y_true = s_test[self.target_col].values
+                y_pred = preds[s][:len(y_true)]
 
-                s_train_df = train_fold[train_fold[self.id_col] == s]
-                y_train_s = s_train_df[self.target_col].values
-
-                for m_fn, m_name in zip(metrics, metric_names):
-                    if m_name in ['MASE', 'SMAE', 'SRMSE', 'RMSSE']:
-                        val = m_fn(y_true, y_pred, y_train_s)
-                    else:
-                        val = m_fn(y_true, y_pred)
-                    fold_scores[m_name][s].append(val)
-
-                for step_h in range(len(y_true)):
-                    row = {
-                        'fold': fold_idx + 1,
-                        'cutoff': cutoff_date,
-                        'fold_index': s_test_df.index[step_h],
-                        'horizon': step_h + 1,
+                for h_idx, (d, yt, yp) in enumerate(zip(s_test.index, y_true, y_pred)):
+                    rows.append({
+                        'fold': fold + 1,
                         self.id_col: s,
-                        'y_true': y_true[step_h],
-                        'y_pred': y_pred[step_h]
-                    }
-                    fold_evaluations.append(row)
+                        'cutoff_date': cutoff,
+                        'horizon': h_idx + 1,
+                        'y_true': yt,
+                        'y_pred': yp
+                    })
 
-        cv_results = pd.DataFrame(fold_evaluations)
-        self.cv_results = cv_results
+                for mfunc, mname in zip(metrics, metric_names):
+                    s_train = train_df[train_df[self.id_col] == s]
+                    y_train_s = s_train[self.target_col].values
+                    try:
+                        score = mfunc(y_true, y_pred, y_train=y_train_s)
+                    except TypeError:
+                        score = mfunc(y_true, y_pred)
+                    fold_scores[mname][s].append(score)
+
+        df_detailed = pd.DataFrame(rows)
 
         summary_dict = {}
         for s in series_ids:
             summary_dict[s] = {mname: np.mean(fold_scores[mname][s]) for mname in metric_names}
-
+        
         summary_dict["overall"] = {mname: np.mean([np.mean(fold_scores[mname][s]) for s in series_ids]) for mname in metric_names}
+        self.cv_summary = pd.DataFrame(summary_dict)
 
-        summary_df = pd.DataFrame(summary_dict)
-        summary_df.index.name = "eval_metric"
-        self.cv_summary = summary_df
-
-        return cv_results
-
-    def copy(self):
-        return copy.deepcopy(self)
-
-    def get_name(self):
-        return "ml_multi_forecaster"
+        return df_detailed
 
 
 # %% auto #0

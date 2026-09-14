@@ -1,0 +1,658 @@
+---
+title: "Deep Learning Forecasting in `peshbeen` (`dl_forecaster`)"
+subtitle: "Mathematical Foundations, PyTorch Architecture, Scikit-Learn Estimator Design, and Step-by-Step Code Walkthrough"
+author: "Peshbeen Package Documentation"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    theme: cosmo
+    code-fold: show
+    math: true
+---
+
+# Introduction: Bridging Deep Learning and Time Series Workflows
+
+In `peshbeen`, classical statistical models (such as ARIMA and ETS) and gradient-boosted tree models (such as LightGBM, CatBoost, and XGBoost) operate under a clean, unified API:
+
+```python
+forecaster = ml_forecaster(model=LGBMRegressor(), target_col="admissions", lags=[1, 2, 7])
+forecaster.fit(df)
+forecasts = forecaster.forecast(H=30)
+```
+
+This works seamlessly because Scikit-Learn regressors adhere to a standard contract: they take tabular 2D inputs `(n_samples, n_features)` and expose `.fit(X, y)` and `.predict(X)`.
+
+However, **PyTorch deep learning models** (such as LSTM, GRU, RNN, Transformer, and MLP) do not have `.fit()` or `.predict()` methods out of the box. Instead, PyTorch provides low-level tensor operations and computational graphs:
+- You must manually convert NumPy arrays and Pandas DataFrames into PyTorch tensors.
+- You must slice data into mini-batches using `DataLoader` and shuffle them.
+- You must manually write the forward pass, calculate loss functions, zero gradients, compute backpropagation (`loss.backward()`), and step the optimizer.
+- You must manage computing hardware (dispatching tensors to Apple Silicon `mps`, NVIDIA `cuda`, or `cpu`).
+- You must handle evaluation modes (`model.eval()`, `torch.no_grad()`) and early stopping.
+
+To bring Deep Learning into `peshbeen` without breaking the unified workflow, we designed a **Two-Tier Architecture**:
+1. **Tier 1 — Modular PyTorch Neural Networks (`nn.Module`)**: `LSTMModel`, `GRUModel`, `RNNModel`, `TransformerModel`, and `MLPModel`.
+2. **Tier 2 — Scikit-Learn Compatible PyTorch Estimators**: `TorchRegressor` and its drop-in subclasses (`LSTMRegressor`, `GRURegressor`, `TransformerRegressor`, etc.).
+3. **Tier 3 — High-Level Forecaster (`dl_forecaster`)**: Handles lag generation, stationarity transformations, feature & target scaling, recursive multi-step forecasting, and Optuna tuning.
+
+---
+
+# Mathematical Foundations: How Each Neural Network Works
+
+Before examining the code, let us review the mathematical theory behind each deep learning architecture in plain English.
+
+## Long Short-Term Memory (LSTM)
+
+### Plain English Intuition
+When time series data has long-term dependencies (e.g. weekly, monthly, or seasonal cycles), standard recurrent networks suffer from the **vanishing gradient problem**: as gradients are backpropagated through time, multiplying many numbers smaller than 1 causes the gradient to decay toward zero, making the network forget distant historical lags.
+
+The **LSTM** solves this by introducing a dedicated memory track called the **Cell State** ($c_t$). Think of the cell state as a continuous conveyor belt running through time. Information is added or removed from this conveyor belt through three mathematical gates:
+1. **Forget Gate**: Decides what past information is no longer relevant and should be erased.
+2. **Input Gate**: Decides what fresh information from the current time step should be stored in memory.
+3. **Output Gate**: Decides what part of the internal memory should be emitted as the observable hidden state $h_t$ and passed to the forecast.
+
+### Mathematical Formulation
+At each sequential time step $t$, with current input $x_t$ and previous hidden state $h_{t-1}$:
+
+1. **Forget Gate Activation**:
+   $$f_t = \sigma\left(W_f x_t + U_f h_{t-1} + b_f\right)$$
+   $\sigma(z) = \frac{1}{1 + e^{-z}}$ outputs values between $0$ (completely forget) and $1$ (completely retain).
+
+2. **Input Gate Activation & Candidate Memory**:
+   $$i_t = \sigma\left(W_i x_t + U_i h_{t-1} + b_i\right)$$
+   $$\tilde{c}_t = \tanh\left(W_c x_t + U_c h_{t-1} + b_c\right)$$
+   $i_t$ scales how much of the new candidate memory $\tilde{c}_t$ is written to the cell state.
+
+3. **Cell State Update (The Conveyor Belt)**:
+   $$c_t = f_t \odot c_{t-1} + i_t \odot \tilde{c}_t$$
+   where $\odot$ denotes element-wise (Hadamard) multiplication. The old memory is attenuated by $f_t$ and augmented by $i_t \odot \tilde{c}_t$.
+
+4. **Output Gate & Hidden State**:
+   $$o_t = \sigma\left(W_o x_t + U_o h_{t-1} + b_o\right)$$
+   $$h_t = o_t \odot \tanh\left(c_t\right)$$
+   $h_t$ is the final representation passed to the next step and to the dense regression head.
+
+---
+
+## Gated Recurrent Unit (GRU)
+
+### Plain English Intuition
+The **GRU** is a streamlined, more computationally efficient evolution of the LSTM. While the LSTM maintains two separate tracks (the cell state $c_t$ and hidden state $h_t$), the GRU merges them into a **single hidden state $h_t$**. 
+
+Instead of three gates, the GRU uses only **two gates**:
+- **Reset Gate ($r_t$)**: Controls how much of the previous memory to ignore when computing new candidate information.
+- **Update Gate ($z_t$)**: Acts simultaneously as both forget gate and input gate, deciding how much of the old state to keep versus how much of the new candidate state to blend in.
+
+Because it has fewer parameters than an LSTM (approximately 25% fewer weights), the GRU trains faster and is less prone to overfitting on smaller time series datasets.
+
+### Mathematical Formulation
+1. **Reset Gate**:
+   $$r_t = \sigma\left(W_r x_t + U_r h_{t-1} + b_r\right)$$
+
+2. **Update Gate**:
+   $$z_t = \sigma\left(W_z x_t + U_z h_{t-1} + b_z\right)$$
+
+3. **Candidate Hidden State**:
+   $$\tilde{h}_t = \tanh\left(W_h x_t + U_h (r_t \odot h_{t-1}) + b_h\right)$$
+   Notice that if $r_t = 0$, the network completely ignores past memory and acts like a fresh input feedforward layer.
+
+4. **Hidden State Interpolation**:
+   $$h_t = (1 - z_t) \odot h_{t-1} + z_t \odot \tilde{h}_t$$
+   The update gate $z_t$ acts as a linear blender: as $z_t \to 1$, it adopts new candidate memory; as $z_t \to 0$, it preserves the historical memory intact.
+
+---
+
+## Vanilla Recurrent Neural Network (RNN)
+
+### Plain English Intuition
+The standard **Elman RNN** is the simplest recurrent architecture. It maintains a hidden state vector that loops back on itself at each time step. While fast and conceptually straightforward, it lacks gating mechanisms, making it prone to vanishing gradients when modeling lags beyond 10–15 steps. It serves as an essential, lightweight baseline.
+
+### Mathematical Formulation
+$$h_t = \tanh\left(W x_t + U h_{t-1} + b\right)$$
+where $W$ weights the incoming feature and $U$ weights the recurrent connection from the previous step.
+
+---
+
+## Transformer Encoder (Self-Attention & Positional Encoding)
+
+### Plain English Intuition
+Recurrent architectures (LSTM, GRU, RNN) process time sequentially: step 1 must finish before step 2 can start, and step 2 must finish before step 3. If a shock happened at `lag_14` that directly influences today's value, that signal must travel through 14 consecutive matrix multiplications to reach the output.
+
+The **Transformer** replaces recurrence entirely with **Multi-Head Self-Attention**. Every time step in the input sequence can look directly at every other time step in $O(1)$ operations, computing dynamic weights that reflect how relevant each past lag is to the forecast.
+
+### Mathematical Formulation
+
+1. **Positional Encoding**:
+   Because self-attention is permutation-invariant (it does not know which order tokens arrive in), we must inject temporal order information via sinusoidal waves of differing frequencies:
+   $$PE_{(pos, 2i)} = \sin\left(\frac{pos}{10000^{2i/d_{\text{model}}}}\right)$$
+   $$PE_{(pos, 2i+1)} = \cos\left(\frac{pos}{10000^{2i/d_{\text{model}}}}\right)$$
+   where $pos$ is the lag position ($0, 1, \dots, \text{seq\_len}-1$) and $i$ is the feature channel.
+
+2. **Scaled Dot-Product Attention**:
+   The input matrix is projected into three matrices: **Queries ($Q$)**, **Keys ($K$)**, and **Values ($V$)**:
+   $$\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V$$
+   - $QK^T$ measures the pairwise similarity between every lag.
+   - $\sqrt{d_k}$ prevents dot products from growing excessively large for deep dimensions.
+   - $\text{softmax}$ normalizes scores into attention weights summing to 1.
+   - Multiplying by $V$ computes a weighted sum of historical values based on attention relevance.
+
+---
+
+## Multi-Layer Perceptron (MLP)
+
+### Plain English Intuition
+An **MLP** is a classical deep feedforward neural network. Rather than stepping through time sequentially, it flattens all engineered lag features (`lag_1, lag_2, ..., lag_k`, rolling means, quantiles, and exogenous features) into a single wide feature vector $\mathbf{x} \in \mathbb{R}^D$ and passes it through stacked dense layers with non-linear activation functions (ReLU or GELU) and Dropout regularization.
+
+### Mathematical Formulation
+$$h^{(1)} = \text{ReLU}\left(W^{(1)} x + b^{(1)}\right)$$
+$$h^{(2)} = \text{ReLU}\left(W^{(2)} h^{(1)} + b^{(2)}\right)$$
+$$\hat{y} = W^{(\text{out})} h^{(2)} + b^{(\text{out})}$$
+
+---
+
+# New Coding & Object-Oriented Concepts Explained
+
+In building `dl_forecaster.py`, several Python and software architecture concepts were used that were not present in `ml_forecaster.ipynb`. Let us unpack each one clearly.
+
+## What is `super().__init__()`?
+In Object-Oriented Programming (OOP), when a class inherits from a parent class, it must initialize the parent class's internal machinery before setting its own attributes.
+
+```python
+class LSTMModel(nn.Module):
+    def __init__(self, input_size: int, hidden_size: int = 64, ...):
+        super().__init__()  # Calls nn.Module.__init__()
+```
+- **Why it matters in PyTorch**: PyTorch's `nn.Module` maintains internal dictionaries such as `_parameters`, `_buffers`, and `_modules`. Calling `super().__init__()` initializes these registries. If you omit this line, PyTorch cannot register your layers (`self.lstm`, `self.fc`), and calling `.to("mps")` or `optimizer.step()` will crash because PyTorch will think your model has zero trainable parameters.
+- **Why it matters in `LSTMRegressor(TorchRegressor)`**: When `LSTMRegressor` subclasses `TorchRegressor`, `super().__init__(model='lstm', ...)` calls the constructor of `TorchRegressor`, passing all training loop parameters (epochs, learning rate, batch size) directly up to the parent engine.
+
+## What is `Type[nn.Module]` in Type Hinting?
+Notice the type annotation:
+```python
+from typing import Dict, Type, Union
+
+MODEL_REGISTRY: Dict[str, Type[nn.Module]] = {
+    'lstm': LSTMModel,
+    'gru': GRUModel,
+    ...
+}
+```
+- `nn.Module` refers to an **instance** (an already constructed object, like `LSTMModel(input_size=1)`).
+- `Type[nn.Module]` refers to the **class itself as a factory** (the blueprint, before parentheses `()` are added).
+- This allows our code to accept either a string name (`'lstm'`), an uninstantiated class (`LSTMModel`), or an already instantiated object (`LSTMModel(...)`).
+
+## What are `BaseEstimator` and `RegressorMixin` from Scikit-Learn?
+In Scikit-Learn, models like `LinearRegression` or `RandomForestRegressor` inherit from two base classes:
+```python
+from sklearn.base import BaseEstimator, RegressorMixin
+
+class TorchRegressor(BaseEstimator, RegressorMixin):
+```
+1. **`BaseEstimator`**:
+   - Automatically equips our PyTorch class with standard `.get_params(deep=True)` and `.set_params(**params)` methods.
+   - This is **the key reason why `optuna_tune` works effortlessly**! When Optuna wants to test `hidden_size=32` or `lr=0.005`, it calls `model.set_params(**params)`. Because `TorchRegressor` subclasses `BaseEstimator`, it conforms to the Scikit-Learn standard without any custom adapter code.
+2. **`RegressorMixin`**:
+   - Identifies our class as a regression model (rather than a classifier or transformer) and automatically provides a standard `.score(X, y)` method (computing the coefficient of determination $R^2$).
+
+## What is the Registry Pattern (`MODEL_REGISTRY`)?
+Instead of writing long, repetitive `if-elif-else` chains:
+```python
+# The clumsy way:
+if model == 'lstm':
+    net = LSTMModel(...)
+elif model == 'gru':
+    net = GRUModel(...)
+elif model == 'transformer':
+    net = TransformerModel(...)
+```
+We use a **Dictionary Registry**:
+```python
+MODEL_REGISTRY: Dict[str, Type[nn.Module]] = {
+    'lstm': LSTMModel,
+    'gru': GRUModel,
+    'rnn': RNNModel,
+    'transformer': TransformerModel,
+    'mlp': MLPModel
+}
+```
+To instantiate a model dynamically, we simply do:
+```python
+model_cls = MODEL_REGISTRY[model_name]
+net = model_cls(**params)
+```
+This makes the architecture open to extension: you can add a new neural network architecture simply by adding one entry to the dictionary.
+
+## What are `TensorDataset` and `DataLoader`?
+PyTorch does not train on raw Pandas DataFrames. It requires:
+1. **`TensorDataset`**: Bundles feature tensors $\mathbf{X}$ and target tensors $\mathbf{y}$ together so each row $i$ maps to target $i$.
+2. **`DataLoader`**:
+   - Slices the dataset into manageable chunks called **mini-batches** (e.g. 16 or 32 samples per step).
+   - Shuffles the rows randomly at the start of each epoch so the network does not memorize the arbitrary order of training rows.
+   - Feeds batches directly into the GPU or Apple Silicon MPS memory.
+
+## What are `state_dict()` and `deepcopy()` for Early Stopping?
+During neural network training, if you train for 100 epochs, the model might reach its best validation accuracy at epoch 35 and then begin overfitting.
+- `self.network_.state_dict()` returns a Python dictionary containing all the weights and biases of the neural network.
+- `copy.deepcopy(self.network_.state_dict())` takes a complete, independent snapshot of those optimal weights at the moment validation loss reaches its minimum.
+- When training finishes (or triggers early stopping patience), `self.network_.load_state_dict(best_weights)` restores the optimal snapshot, discarding any overfitted weights from later epochs.
+
+## What are `model.eval()` and `torch.no_grad()`?
+During training, PyTorch constructs a dynamic computational graph to calculate derivatives for backpropagation, and layers like `nn.Dropout` randomly deactivate neurons.
+During inference (when calling `.predict()` or `.forecast()`):
+- **`model.eval()`**: Deactivates dropout layers so the model generates consistent, deterministic outputs.
+- **`with torch.no_grad():`**: Disables gradient tracking entirely, cutting memory consumption in half and accelerating prediction speed.
+
+---
+
+# Step-by-Step Code Walkthrough
+
+Now let us examine the code cell by cell, explaining exactly what occurs at each step.
+
+## Step 1: The Model Registry
+
+```python
+MODEL_REGISTRY: Dict[str, Type[nn.Module]] = {
+    'lstm': LSTMModel,
+    'gru': GRUModel,
+    'rnn': RNNModel,
+    'transformer': TransformerModel,
+    'mlp': MLPModel
+}
+```
+**Purpose**: Maps user-friendly lowercase strings (`'lstm'`, `'gru'`, `'transformer'`) to their corresponding PyTorch `nn.Module` class objects.
+
+---
+
+## Step 2: The `TorchRegressor` Class
+
+### `__init__`: Storing Hyperparameters
+
+```python
+class TorchRegressor(BaseEstimator, RegressorMixin):
+    def __init__(
+        self,
+        model: Union[str, nn.Module, Type[nn.Module]] = 'lstm',
+        model_params: Optional[Dict[str, Any]] = None,
+        lr: float = 1e-3,
+        weight_decay: float = 1e-5,
+        epochs: int = 100,
+        batch_size: int = 32,
+        optimizer: str = 'adamw',
+        loss: str = 'mse',
+        patience: int = 10,
+        validation_split: float = 0.1,
+        random_state: Optional[int] = 42,
+        device: Optional[str] = None,
+        verbose: bool = False
+    ):
+        self.model = model
+        self.model_params = model_params or {}
+        self.lr = lr
+        self.weight_decay = weight_decay
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.optimizer = optimizer
+        self.loss = loss
+        self.patience = patience
+        self.validation_split = validation_split
+        self.random_state = random_state
+        self.device = device
+        self.verbose = verbose
+```
+**What happens here**:
+- Stores optimization settings: learning rate `lr`, $L_2$ weight decay regularization `weight_decay`, total training `epochs`, and mini-batch size `batch_size`.
+- Stores loss metric (`'mse'`, `'mae'`, or `'huber'`) and early stopping parameters (`patience=10`, `validation_split=0.1`).
+- Sets `random_state=42` to ensure reproducible weight initialization.
+
+---
+
+### `_get_device`: Hardware Auto-Detection
+
+```python
+    def _get_device(self) -> torch.device:
+        """Automatically resolve the best available execution device (CUDA > MPS > CPU)."""
+        if self.device is not None:
+            return torch.device(self.device)
+        if torch.cuda.is_available():
+            return torch.device("cuda")
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            return torch.device("mps")
+        return torch.device("cpu")
+```
+**What happens here**:
+- Prioritizes user choice if specified.
+- If NVIDIA CUDA GPU is present, selects `"cuda"`.
+- If on an Apple Silicon Mac (M1/M2/M3/M4), selects `"mps"` (Metal Performance Shaders) for hardware GPU acceleration.
+- Otherwise defaults safely to `"cpu"`.
+
+---
+
+### `_build_model`: Constructing the Architecture
+
+```python
+    def _build_model(self, input_size: int) -> nn.Module:
+        params = dict(self.model_params)
+        params["input_size"] = input_size
+        if isinstance(self.model, str):
+            model_key = self.model.lower()
+            if model_key not in MODEL_REGISTRY:
+                raise ValueError(f"Unknown model '{self.model}'. Supported: {list(MODEL_REGISTRY.keys())}")
+            return MODEL_REGISTRY[model_key](**params)
+        elif isinstance(self.model, type) and issubclass(self.model, nn.Module):
+            return self.model(**params)
+        elif isinstance(self.model, nn.Module):
+            return copy.deepcopy(self.model)
+        else:
+            raise TypeError("model must be a model string name, an nn.Module class, or an nn.Module instance.")
+```
+**What happens here**:
+- Discovers how many features are in the training matrix (`input_size`).
+- Injects `input_size` into the architecture parameters.
+- Pulls the correct class from `MODEL_REGISTRY` and instantiates the neural network.
+
+---
+
+### `fit`: The Complete Training Loop
+
+```python
+    def fit(self, X: Union[pd.DataFrame, np.ndarray], y: Union[pd.Series, np.ndarray]) -> "TorchRegressor":
+        if self.random_state is not None:
+            torch.manual_seed(self.random_state)
+            np.random.seed(self.random_state)
+
+        X_arr = X.values if isinstance(X, pd.DataFrame) else np.asarray(X, dtype=np.float32)
+        y_arr = y.values if isinstance(y, (pd.Series, pd.DataFrame)) else np.asarray(y, dtype=np.float32)
+
+        self.n_features_in_ = X_arr.shape[1]
+        self.device_ = self._get_device()
+        self.network_ = self._build_model(self.n_features_in_).to(self.device_)
+```
+1. Converts Pandas inputs into float32 NumPy arrays.
+2. Identifies the number of columns (`n_features_in_`) and builds the network.
+3. Moves network weights to the target accelerator device (`.to(self.device_)`).
+
+```python
+        # Validation split for early stopping
+        n_samples = len(X_arr)
+        if self.validation_split > 0 and n_samples > 10:
+            val_size = max(1, int(n_samples * self.validation_split))
+            train_idx = np.arange(n_samples - val_size)
+            val_idx = np.arange(n_samples - val_size, n_samples)
+            X_tr, y_tr = X_arr[train_idx], y_arr[train_idx]
+            X_val, y_val = X_arr[val_idx], y_arr[val_idx]
+        else:
+            X_tr, y_tr = X_arr, y_arr
+            X_val, y_val = None, None
+
+        tr_ds = TensorDataset(torch.tensor(X_tr, dtype=torch.float32), torch.tensor(y_tr, dtype=torch.float32))
+        tr_loader = DataLoader(tr_ds, batch_size=min(self.batch_size, len(tr_ds)), shuffle=True)
+```
+4. Splits off the most recent 10% of training rows as a validation hold-out to monitor early stopping.
+5. Packages training data into `TensorDataset` and wraps in `DataLoader` with shuffling enabled.
+
+```python
+        # Criterion & Optimizer setup
+        if self.loss.lower() == 'huber':
+            criterion = nn.HuberLoss()
+        elif self.loss.lower() in ('l1', 'mae'):
+            criterion = nn.L1Loss()
+        else:
+            criterion = nn.MSELoss()
+
+        if self.optimizer.lower() == 'adam':
+            opt = torch.optim.Adam(self.network_.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        elif self.optimizer.lower() == 'sgd':
+            opt = torch.optim.SGD(self.network_.parameters(), lr=self.lr, weight_decay=self.weight_decay, momentum=0.9)
+        else:
+            opt = torch.optim.AdamW(self.network_.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+```
+6. Initializes the loss function (Mean Squared Error, Mean Absolute Error, or Huber loss for outlier robustness).
+7. Sets up the optimizer (`AdamW` decouples weight decay from gradient updates for superior generalization).
+
+```python
+        best_loss = float('inf')
+        best_weights = None
+        no_improve_count = 0
+
+        self.network_.train()
+        for epoch in range(self.epochs):
+            for batch_x, batch_y in tr_loader:
+                batch_x, batch_y = batch_x.to(self.device_), batch_y.to(self.device_)
+                opt.zero_grad()
+                pred = self.network_(batch_x)
+                loss_val = criterion(pred, batch_y)
+                loss_val.backward()
+                opt.step()
+
+            # Early stopping check on validation set
+            if X_val is not None:
+                self.network_.eval()
+                with torch.no_grad():
+                    val_pred = self.network_(val_x_t)
+                    cur_val_loss = criterion(val_pred, val_y_t).item()
+                self.network_.train()
+
+                if cur_val_loss < best_loss:
+                    best_loss = cur_val_loss
+                    best_weights = copy.deepcopy(self.network_.state_dict())
+                    no_improve_count = 0
+                else:
+                    no_improve_count += 1
+                    if no_improve_count >= self.patience:
+                        break
+
+        if best_weights is not None:
+            self.network_.load_state_dict(best_weights)
+        self.network_.eval()
+        return self
+```
+8. **The Epoch Loop**:
+   - For each mini-batch: clears old gradients (`opt.zero_grad()`), computes predictions (`pred = self.network_(batch_x)`), computes loss (`loss_val`), calculates derivatives via backpropagation (`loss_val.backward()`), and updates weights (`opt.step()`).
+   - At the end of each epoch, evaluates loss on `X_val`. If validation loss improves, saves a snapshot (`copy.deepcopy(state_dict())`).
+   - If validation loss fails to improve for `patience` consecutive epochs, terminates training early to prevent overfitting.
+   - Restores the optimal checkpoint.
+
+---
+
+### `predict`: Inference Method
+
+```python
+    def predict(self, X: Union[pd.DataFrame, np.ndarray]) -> np.ndarray:
+        if not hasattr(self, "network_"):
+            raise ValueError("TorchRegressor is not fitted yet. Call .fit() before .predict().")
+        X_arr = X.values if isinstance(X, pd.DataFrame) else np.asarray(X, dtype=np.float32)
+        x_t = torch.tensor(X_arr, dtype=torch.float32).to(self.device_)
+        self.network_.eval()
+        with torch.no_grad():
+            preds = self.network_(x_t).cpu().numpy()
+        return np.atleast_1d(preds).flatten()
+```
+**What happens here**:
+- Converts input feature matrix into a tensor and dispatches to device.
+- Sets network to `.eval()` mode and wraps with `torch.no_grad()`.
+- Pulls predictions back to host memory (`.cpu().numpy()`) and flattens into a clean 1D NumPy array.
+
+---
+
+### `get_params` and `set_params`: The Bridge to `optuna_tune`
+
+```python
+    def get_params(self, deep: bool = True) -> Dict[str, Any]:
+        params = {
+            "model": self.model,
+            "model_params": self.model_params,
+            "lr": self.lr,
+            "weight_decay": self.weight_decay,
+            "epochs": self.epochs,
+            "batch_size": self.batch_size,
+            "optimizer": self.optimizer,
+            "loss": self.loss,
+            "patience": self.patience,
+            "validation_split": self.validation_split,
+            "random_state": self.random_state,
+            "device": self.device,
+            "verbose": self.verbose
+        }
+        if self.model_params:
+            for k, v in self.model_params.items():
+                params[k] = v
+        return params
+
+    def set_params(self, **params) -> "TorchRegressor":
+        for k, v in params.items():
+            if hasattr(self, k):
+                setattr(self, k, v)
+            else:
+                self.model_params[k] = v
+        return self
+```
+**Why this is critical**:
+When `optuna_tune` explores hyperparameters (e.g. testing `hidden_size = 32` vs `64`, `lr = 0.001` vs `0.005`), it calls `model.set_params(**params)`.
+- `set_params` dynamically updates both top-level attributes (like `lr` and `epochs`) and architecture-specific sub-parameters (like `hidden_size`, `num_layers`, and `dropout`).
+- This means your existing `optuna_tune` function in `03_model_selection.ipynb` works with zero modifications.
+
+---
+
+## Step 3: Convenient Subclasses (`LSTMRegressor`, `GRURegressor`, etc.)
+
+Rather than requiring users to manually configure dictionary parameters like:
+```python
+# The verbose way:
+model = TorchRegressor(model='lstm', model_params={'hidden_size': 64, 'num_layers': 2})
+```
+We define direct subclasses with explicit arguments:
+```python
+class LSTMRegressor(TorchRegressor):
+    def __init__(
+        self,
+        hidden_size: int = 64,
+        num_layers: int = 2,
+        dropout: float = 0.0,
+        bidirectional: bool = False,
+        lr: float = 1e-3,
+        weight_decay: float = 1e-5,
+        epochs: int = 100,
+        batch_size: int = 32,
+        optimizer: str = 'adamw',
+        loss: str = 'mse',
+        patience: int = 10,
+        validation_split: float = 0.1,
+        random_state: Optional[int] = 42,
+        device: Optional[str] = None,
+        verbose: bool = False
+    ):
+        super().__init__(
+            model='lstm',
+            model_params={'hidden_size': hidden_size, 'num_layers': num_layers,
+                          'dropout': dropout, 'bidirectional': bidirectional},
+            lr=lr, weight_decay=weight_decay, epochs=epochs, batch_size=batch_size,
+            optimizer=optimizer, loss=loss, patience=patience, validation_split=validation_split,
+            random_state=random_state, device=device, verbose=verbose
+        )
+```
+**Advantage**:
+Users get full IDE autocompletion, docstring tooltips, and default parameters simply by typing:
+```python
+model = LSTMRegressor(hidden_size=32, epochs=50)
+```
+The exact same pattern is replicated for `GRURegressor`, `RNNRegressor`, `TransformerRegressor`, and `MLPRegressor`.
+
+---
+
+# Practical Tutorial: End-to-End Forecasting
+
+Below is a complete, executable workflow demonstrating how `dl_forecaster` operates on NHS Wales hospital admissions.
+
+```python
+from peshbeen.models import dl_forecaster, LSTMRegressor
+from peshbeen.datasets import load_wales_admissions
+from peshbeen.metrics import WMAPE, MAE, RMSE
+import matplotlib.pyplot as plt
+
+# 1. Load data
+data = load_wales_admissions()
+train = data[:-30]
+test = data[-30:]
+
+# 2. Instantiate dl_forecaster with LSTMRegressor
+# Note: feature_scaler and target_scaler default to StandardScaler()
+forecaster = dl_forecaster(
+    model=LSTMRegressor(
+        hidden_size=32,
+        num_layers=1,
+        epochs=30,
+        batch_size=16,
+        random_state=42
+    ),
+    target_col='admissions',
+    lags=[1, 2, 7]
+)
+
+# 3. Fit model
+forecaster.fit(train)
+
+# 4. Generate 30-day recursive forecast
+forecasts = forecaster.forecast(H=30)
+
+# 5. Evaluate point accuracy
+y_true = test['admissions'].values
+print(f"30-day Test WMAPE: {WMAPE(y_true, forecasts):.4f}")
+print(f"30-day Test MAE:   {MAE(y_true, forecasts):.2f}")
+
+# 6. In-sample diagnostics
+fitted = forecaster.predict_in_sample()
+
+# 7. Rolling-window cross-validation
+cv_df = forecaster.cross_validate(
+    df=train,
+    cv_split=3,
+    test_size=15,
+    metrics=[WMAPE, MAE, RMSE],
+    step_size=15
+)
+print("Cross-Validation Summary:")
+print(forecaster.cv_summary)
+```
+
+## Hyperparameter Tuning with `optuna_tune`
+
+Because `LSTMRegressor` exposes all parameters through `.get_params()`, tuning with Optuna is effortless:
+
+```python
+from peshbeen.model_selection import optuna_tune
+
+param_space = {
+    "hidden_size": lambda trial: trial.suggest_categorical("hidden_size", [16, 32, 64]),
+    "lr": lambda trial: trial.suggest_float("lr", 1e-3, 5e-3, log=True),
+    "lags": lambda trial: trial.suggest_categorical("lags", [2, 7, 14])
+}
+
+best_params, best_lags, other_args, active_exog = optuna_tune(
+    model=forecaster,
+    df=train[-90:],
+    cv_split=2,
+    test_size=10,
+    eval_metric=MAE,
+    param_space=param_space,
+    eval_num=10,
+    step_size=10
+)
+
+print("Optimal Hyperparameters:", best_params)
+print("Optimal Lags:", best_lags)
+```
+
+---
+
+# Summary Comparison: Tree Models vs. Deep Learning in `peshbeen`
+
+| Feature | Gradient Boosted Trees (`ml_forecaster`) | Deep Learning Models (`dl_forecaster`) |
+| :--- | :--- | :--- |
+| **Supported Models** | LightGBM, CatBoost, XGBoost, Scikit-Learn | LSTM, GRU, RNN, Transformer, MLP |
+| **Underlying Engine** | Decision trees with gradient boosting | PyTorch neural computational graph |
+| **Scale Sensitivity** | Invariant to monotonic scaling | Highly sensitive; requires `feature_scaler` & `target_scaler` |
+| **Compute Hardware** | Multi-threaded CPU (or CUDA GPU) | Apple Silicon MPS, NVIDIA CUDA, or CPU |
+| **Optimization** | Split finding (histogram / exact) | Mini-batch Stochastic Gradient Descent (AdamW) |
+| **Cross-Series Temporal Sharing** | Handled via tabular indicator/lag columns | Inherent continuous latent vector representation |
+| **Unified Peshbeen API** | `.fit(df)`, `.forecast(H)`, `.cross_validate()` | Identical `.fit(df)`, `.forecast(H)`, `.cross_validate()` |
+| **Hyperparameter Tuning** | `optuna_tune` | Native `optuna_tune` via `TorchRegressor` |
