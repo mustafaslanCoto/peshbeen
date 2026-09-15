@@ -1,0 +1,615 @@
+---
+title: Transformations
+---
+
+
+
+
+
+::: {#ae4862ca .cell 0='e' 1='x' 2='p' 3='o' 4='r' 5='t'}
+``` {.python .cell-code}
+from __future__ import annotations
+from typing import Union
+import pandas as pd
+import numpy as np
+# from numba import jit
+from scipy.stats import boxcox
+from scipy.special import inv_boxcox
+import warnings
+warnings.filterwarnings("ignore")
+
+#------------------------------------------------------------------------------
+# Box-Cox Transformation Utility Functions
+#------------------------------------------------------------------------------
+
+def box_cox_transform(x,
+                      shift: bool = False,
+                      box_cox_lmda: float = None
+                      ):
+    """
+    Applies a Box-Cox transformation to a series x.
+
+    Parameters
+    ----------
+    x :array-like:
+        The input data to be transformed.
+    shift :bool
+        Whether to shift the data by 1 before transformation to handle zeros.
+    box_cox_lmda :float or None:
+        The lambda parameter for the Box-Cox transformation. If None, it will be estimated from the data.
+
+    Returns
+    -------
+    transformed_data and lmbda:
+        The Box-Cox transformed data and the lambda used for transformation.
+    """
+    if (box_cox_lmda == None):
+        if shift ==True:
+            transformed_data, lmbda = boxcox((np.array(x)+1))
+        else:
+            transformed_data, lmbda = boxcox(np.array(x))
+            
+    if (box_cox_lmda != None):
+        if shift ==True:
+            lmbda = box_cox_lmda
+            transformed_data = boxcox((np.array(x)+1), lmbda)
+        else:
+            lmbda = box_cox_lmda
+            transformed_data = boxcox(np.array(x), lmbda)
+    return transformed_data, lmbda
+```
+:::
+
+
+::: {#18d295f7 .cell 0='e' 1='x' 2='p' 3='o' 4='r' 5='t'}
+``` {.python .cell-code}
+def back_box_cox_transform(y_pred: np.ndarray,
+                           lmda: float,
+                           shift: bool = False,
+                           box_cox_biasadj: bool = False
+                           ) -> np.ndarray:
+    """
+    Inverse Box-Cox transform.
+
+    Parameters
+    ----------
+    y_pred : array-like
+        The Box-Cox transformed forecast to be back-transformed.
+    lmda : float
+        The lambda parameter used in the Box-Cox transformation.
+    shift : bool
+        Whether the original data was shifted by 1 before transformation.
+    box_cox_biasadj : bool
+        Whether to apply bias adjustment to the back-transformed forecast.
+    
+    Returns
+    -------
+    forecast : array-like
+        The back-transformed forecast.
+    """
+    if (box_cox_biasadj==False):
+        if shift == True:
+            forecast = inv_boxcox(y_pred, lmda)-1
+        else:
+            forecast = inv_boxcox(y_pred, lmda)
+            
+    if (box_cox_biasadj== True):
+        pred_var = np.var(y_pred)
+        if shift == True:
+            if lmda ==0:
+                forecast = np.exp(y_pred)*(1+pred_var/2)-1
+            else:
+                forecast = ((lmda*y_pred+1)**(1/lmda))*(1+((1-lmda)*pred_var)/(2*((lmda*y_pred+1)**2)))-1
+        else:
+            if lmda ==0:
+                forecast = np.exp(y_pred)*(1+pred_var/2)
+            else:
+                forecast = ((lmda*y_pred+1)**(1/lmda))*(1+((1-lmda)*pred_var)/(2*((lmda*y_pred+1)**2)))
+    return forecast
+```
+:::
+
+
+::: {#f0b192bc .cell 0='e' 1='x' 2='p' 3='o' 4='r' 5='t'}
+``` {.python .cell-code}
+#------------------------------------------------------------------------------
+# Transformation Utility Functions
+#------------------------------------------------------------------------------
+
+from typing import Optional, Union
+
+def fourier_terms(
+    index: Union[pd.Index, tuple],
+    period: Union[int, float],
+    num_terms: int,
+    frequency: Optional[str] = None,
+    t_start: Optional[int] = None
+) -> pd.DataFrame:
+
+    """
+    Generate Fourier terms for a given index or (start, end) tuple.
+
+    Parameters
+    ----------
+    index : pd.Index or tuple
+        Either a pandas Index directly (recommended), or a (start, end) tuple of integers or datetime strings.
+    period : int or float
+        The period of the seasonality (e.g., 365.25/7 for weekly yearly seasonality).
+    num_terms : int
+        The number of Fourier term pairs (sin + cos) to generate.
+    frequency : str, optional
+        Frequency string (e.g., "W-SAT", "D", "M", "W"). Only relevant when index is a (start, end) tuple.
+    t_start : int, optional
+        Starting position of t. Only used when index is a (start, end) tuple. Use len(train_index) to ensure continuity between train and test.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame of Fourier terms aligned to the provided index.
+    """
+
+    # ── Accept full index directly ────────────────────────────────────────────
+    if isinstance(index, (pd.DatetimeIndex, pd.RangeIndex)):
+        # Infer frequency from actual index if not provided
+        if isinstance(index, pd.DatetimeIndex) and frequency is None:
+            frequency = pd.infer_freq(index)
+        t = np.arange(len(index)) if t_start is None else np.arange(t_start, t_start + len(index))
+
+    elif isinstance(index, tuple):
+        start, end = index
+
+        if isinstance(start, (int, np.integer)) and isinstance(end, (int, np.integer)):
+            index = pd.RangeIndex(start, end + 1)
+            t = np.arange(start, end + 1)
+        else:
+            if frequency is None:
+                raise ValueError(
+                    "frequency is required when passing a (start, end) tuple. "
+                    "Either provide frequency explicitly (e.g., frequency='W-SAT'), "
+                    "or pass the full index directly: fourier_terms(df.index, ...)"
+                )
+            start, end = pd.to_datetime(start), pd.to_datetime(end)
+            index = pd.date_range(start, end, freq=frequency)
+            t = np.arange(len(index)) if t_start is None else np.arange(t_start, t_start + len(index))
+
+    else:
+        raise TypeError(
+            "index must be a pandas DatetimeIndex, RangeIndex, or a (start, end) tuple."
+        )
+
+    terms = {
+        f'sin_{k}_{period}': np.sin(2 * np.pi * k * t / period)
+        for k in range(1, num_terms + 1)
+    }
+    terms.update({
+        f'cos_{k}_{period}': np.cos(2 * np.pi * k * t / period)
+        for k in range(1, num_terms + 1)
+    })
+
+    return pd.DataFrame(terms, index=index)
+
+```
+:::
+
+
+::: {#aaca54e0 .cell 0='e' 1='x' 2='p' 3='o' 4='r' 5='t'}
+``` {.python .cell-code}
+class rolling_mean:
+    def __init__(self,
+                 window_size: int,
+                 shift: int = 1,
+                 min_samples: int = 1
+                 ):
+
+        """
+        
+        A class to compute the rolling mean of a time series with specified window size and shift.
+
+        Parameters
+        ----------
+        window_size : int
+            The size of the rolling window.
+        shift : int, optional
+            The number of periods to shift the data before applying the rolling mean (default is 1).
+        min_samples : int, optional
+            The minimum number of observations in the window required to have a value (default is 1).
+
+        Returns
+        -------
+        None
+
+        """
+        self.shift = shift
+        self.window_size = window_size
+        self.min_samples = min_samples
+
+    def __call__(self,
+                 data: Union[pd.Series, np.ndarray],
+                 is_forecast: bool = False
+                 ) -> pd.Series:
+        """
+        Compute the rolling mean of the input data.
+        
+        Parameters
+        ----------
+        data : array-like
+            The input time series data for which to compute the rolling mean.
+        is_forecast : bool, optional
+            Whether the data is a forecast (default is False). If True, the shift will be adjusted to align with the forecasted period. For example, if it's a forecast, for the forecasting next value, we might want to shift by one less than usual to align with the forecasted period
+
+        Returns
+        -------
+        pd.Series
+            A Series containing the rolling mean of the input data, shifted and computed according to the specified parameters.
+        """
+
+        if is_forecast:
+            # For example, if it's a forecast, for the forecasting next value, we might want to shift by one less than usual to align with the forecasted period
+            return pd.Series(data).shift(self.shift-1).rolling(self.window_size, min_periods=self.min_samples).mean()
+        # If not a forecast, apply the usual shift
+        else:
+            # If not a forecast, apply the usual shift
+            return pd.Series(data).shift(self.shift).rolling(self.window_size, min_periods=self.min_samples).mean()
+        
+    def get_name(self):
+        return f"rolling_mean_{self.window_size}_{self.shift}"
+```
+:::
+
+
+::: {#206604d3 .cell 0='e' 1='x' 2='p' 3='o' 4='r' 5='t'}
+``` {.python .cell-code}
+class rolling_quantile:
+    def __init__(self,
+                 window_size: int,
+                 quantile: float,
+                 shift: int = 1,
+                 min_samples: int = 1
+                 ):
+
+        """
+        A class to compute the rolling quantile of a time series with specified window size, quantile, and shift.
+
+        Parameters
+        ----------
+        window_size : int
+            The size of the rolling window.
+        quantile : float
+            The quantile to compute (between 0 and 1).
+        shift : int, optional
+            The number of periods to shift the data before applying the rolling quantile (default is 1).
+        min_samples : int, optional
+            The minimum number of observations in the window required to have a value (default is 1).
+        
+        Returns
+        -------
+        None
+        """
+        self.shift = shift
+        self.window_size = window_size
+        self.quantile = quantile
+        self.min_samples = min_samples
+
+    def __call__(self,
+                 data: Union[pd.Series, np.ndarray],
+                 is_forecast: bool = False
+                 ) -> pd.Series:
+        """
+        
+        Compute the rolling quantile of the input data.
+        
+        Parameters:
+        ----------
+        data : array-like
+            The input time series data for which to compute the rolling quantile.
+        is_forecast : bool, optional
+            Whether the data is a forecast (default is False). If True, the shift will be adjusted to align with the forecasted period. For example, if it's a forecast, for the forecasting next value, we might want to shift by one less than usual to align with the forecasted period
+        
+        Returns
+        -------
+        pd.Series
+            A Series containing the rolling quantile of the input data, shifted and computed according to the specified parameters.
+        """
+        if is_forecast:
+            return pd.Series(data).shift(self.shift-1).rolling(self.window_size, min_periods=self.min_samples).quantile(self.quantile)
+        # If not a forecast, apply the usual shift
+        else:
+            # If not a forecast, apply the usual shift
+            return pd.Series(data).shift(self.shift).rolling(self.window_size, min_periods=self.min_samples).quantile(self.quantile)
+    def get_name(self):
+        return f"rolling_quantile_{self.window_size}_{self.quantile}_{self.shift}"
+```
+:::
+
+
+::: {#92824459 .cell 0='e' 1='x' 2='p' 3='o' 4='r' 5='t'}
+``` {.python .cell-code}
+class rolling_std:
+
+    def __init__(self,
+                 window_size: int,
+                 shift: int = 1,
+                 min_samples: int = 1):
+
+        """
+        A class to compute the rolling standard deviation of a time series with specified window size and shift.
+
+        Parameters
+        ----------
+        window_size : int
+            The size of the rolling window.
+        shift : int, optional
+            The number of periods to shift the data before applying the rolling standard deviation (default is 1).
+        min_samples : int, optional
+            The minimum number of observations in the window required to have a value (default is 1).
+        
+        Returns
+        -------
+        None
+
+        """
+
+        self.shift = shift
+        self.window_size = window_size
+        self.min_samples = min_samples
+
+    def __call__(self,
+                 data: Union[pd.Series, np.ndarray],
+                 is_forecast: bool = False
+                 ) -> pd.Series:
+        """
+        Compute the rolling standard deviation of the input data.
+        
+        Parameters
+        ----------
+        data : array-like
+            The input time series data for which to compute the rolling standard deviation.
+        is_forecast : bool, optional
+            Whether the data is a forecast (default is False). If True, the shift will be adjusted to align with the forecasted period. For example, if it's a forecast, for the forecasting next value, we might want to shift by one less than usual to align with the forecasted period
+        
+        Returns
+        -------
+        pd.Series
+            A Series containing the rolling standard deviation of the input data, shifted and computed according to the specified parameters.
+        """
+        # Return the rolling std with the specified window size and minimum samples
+        if is_forecast:
+            return pd.Series(data).shift(self.shift-1).rolling(self.window_size, min_periods=self.min_samples).std()
+        else:
+            return pd.Series(data).shift(self.shift).rolling(self.window_size, min_periods=self.min_samples).std()
+    def get_name(self):
+        return f"rolling_std_{self.window_size}_{self.shift}"   
+```
+:::
+
+
+::: {#fca964a7 .cell 0='e' 1='x' 2='p' 3='o' 4='r' 5='t'}
+``` {.python .cell-code}
+class rolling_min:
+    def __init__(self,
+                 window_size: int,
+                 shift: int = 1,
+                 min_samples: int = 1
+                 ):
+
+        """
+        
+        A class to compute the rolling minimum of a time series with specified window size and shift.
+
+        Parameters
+        ----------
+        window_size : int
+            The size of the rolling window.
+        shift : int, optional
+            The number of periods to shift the data before applying the rolling minimum (default is 1).
+        min_samples : int, optional
+            The minimum number of observations in the window required to have a value (default is 1).
+
+        Returns
+        -------
+        None
+
+        """
+        self.shift = shift
+        self.window_size = window_size
+        self.min_samples = min_samples
+
+    def __call__(self,
+                 data: Union[pd.Series, np.ndarray],
+                 is_forecast: bool = False
+                 ) -> pd.Series:
+        """
+        Compute the rolling minimum of the input data.
+        
+        Parameters
+        ----------
+        data : array-like
+            The input time series data for which to compute the rolling minimum.
+        is_forecast : bool, optional
+            Whether the data is a forecast (default is False). If True, the shift will be adjusted to align with the forecasted period. For example, if it's a forecast, for the forecasting next value, we might want to shift by one less than usual to align with the forecasted period
+
+        Returns
+        -------
+        pd.Series
+            A Series containing the rolling minimum of the input data, shifted and computed according to the specified parameters.
+        """
+
+        if is_forecast:
+            # For example, if it's a forecast, for the forecasting next value, we might want to shift by one less than usual to align with the forecasted period
+            return pd.Series(data).shift(self.shift-1).rolling(self.window_size, min_periods=self.min_samples).min()
+        # If not a forecast, apply the usual shift
+        else:
+            # If not a forecast, apply the usual shift
+            return pd.Series(data).shift(self.shift).rolling(self.window_size, min_periods=self.min_samples).min()
+        
+    def get_name(self):
+        return f"rolling_min_{self.window_size}_{self.shift}"
+```
+:::
+
+
+::: {#26285015 .cell 0='e' 1='x' 2='p' 3='o' 4='r' 5='t'}
+``` {.python .cell-code}
+class rolling_max:
+    def __init__(self,
+                 window_size: int,
+                 shift: int = 1,
+                 min_samples: int = 1
+                 ):
+
+        """
+        
+        A class to compute the rolling maximum of a time series with specified window size and shift.
+
+        Parameters
+        ----------
+        window_size : int
+            The size of the rolling window.
+        shift : int, optional
+            The number of periods to shift the data before applying the rolling maximum (default is 1).
+        min_samples : int, optional
+            The minimum number of observations in the window required to have a value (default is 1).
+
+        Returns
+        -------
+        None
+
+        """
+        self.shift = shift
+        self.window_size = window_size
+        self.min_samples = min_samples
+
+    def __call__(self,
+                 data: Union[pd.Series, np.ndarray],
+                 is_forecast: bool = False
+                 ) -> pd.Series:
+        """
+        Compute the rolling maximum of the input data.
+        
+        Parameters
+        ----------
+        data : array-like
+            The input time series data for which to compute the rolling maximum.
+        is_forecast : bool, optional
+            Whether the data is a forecast (default is False). If True, the shift will be adjusted to align with the forecasted period. For example, if it's a forecast, for the forecasting next value, we might want to shift by one less than usual to align with the forecasted period
+
+        Returns
+        -------
+        pd.Series
+            A Series containing the rolling maximum of the input data, shifted and computed according to the specified parameters.
+        """
+
+        if is_forecast:
+            # For example, if it's a forecast, for the forecasting next value, we might want to shift by one less than usual to align with the forecasted period
+            return pd.Series(data).shift(self.shift-1).rolling(self.window_size, min_periods=self.min_samples).max()
+        # If not a forecast, apply the usual shift
+        else:
+            # If not a forecast, apply the usual shift
+            return pd.Series(data).shift(self.shift).rolling(self.window_size, min_periods=self.min_samples).max()
+        
+    def get_name(self):
+        return f"rolling_max_{self.window_size}_{self.shift}"
+```
+:::
+
+
+::: {#ced41853 .cell 0='e' 1='x' 2='p' 3='o' 4='r' 5='t'}
+``` {.python .cell-code}
+class expanding_mean:
+    def __init__(self,
+                 shift: int = 1
+                 ):
+        """
+        A class to compute the expanding mean of a time series with specified shift.
+
+        Parameters
+        ----------
+        shift: int
+            The number of periods to shift time series data.
+        
+        Returns
+        -------
+        None
+        """
+        
+        self.shift = shift
+    def __call__(self, data, is_forecast=False):
+        if is_forecast:
+            return pd.Series(data).shift(self.shift-1).expanding().mean()
+        else:
+            return pd.Series(data).shift(self.shift).expanding().mean()
+    def get_name(self):
+        return f"expanding_mean_{self.shift}"
+```
+:::
+
+
+::: {#ec1137bb .cell 0='e' 1='x' 2='p' 3='o' 4='r' 5='t'}
+``` {.python .cell-code}
+class expanding_std:
+    def __init__(self,
+                 shift: int = 1):
+        """
+        A class to compute the expanding standard deviation of a time series with specified shift.
+        
+        Parameters
+        ----------
+        shift : int, optional
+            The number of periods to shift the data before applying the expanding standard deviation (default is 1).
+        
+        Returns
+        -------
+        None
+        """
+        self.shift = shift
+    def __call__(self, data, is_forecast=False):
+        if is_forecast:
+            return pd.Series(data).shift(self.shift-1).expanding().std()
+        else:
+            return pd.Series(data).shift(self.shift).expanding().std()
+    def get_name(self):
+        return f"expanding_std_{self.shift}"
+```
+:::
+
+
+::: {#8a1068f3 .cell 0='e' 1='x' 2='p' 3='o' 4='r' 5='t'}
+``` {.python .cell-code}
+class expanding_quantile:
+    def __init__(self,
+                 shift: int = 1,
+                 quantile: float = 0.5):
+        
+        """
+        A class to compute the expanding quantile of a time series with specified shift and quantile.
+        
+        Parameters
+        ----------
+        shift : int, optional
+            The number of periods to shift the data before applying the expanding quantile (default is 1).
+        quantile : float, optional
+            The quantile to compute (between 0 and 1) (default is 0.5).
+        
+        Returns
+        -------
+        None
+        """
+        self.shift = shift
+        self.quantile = quantile
+
+    def __call__(self, data,
+                 is_forecast=False):
+        """
+        Compute the expanding quantile.
+        """
+        if is_forecast:
+            return pd.Series(data).shift(self.shift-1).expanding().quantile(self.quantile)
+        else:
+            return pd.Series(data).shift(self.shift).expanding().quantile(self.quantile)
+    def get_name(self):
+        return f"expanding_quantile_{self.quantile}_{self.shift}"   
+        
+```
+:::
+
+

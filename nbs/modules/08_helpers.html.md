@@ -1,0 +1,222 @@
+---
+title: Helper Functions for Probabilistic Forecasting with Conformal Prediction
+---
+
+
+
+
+
+::: {#f6e51590 .cell 0='e' 1='x' 2='p' 3='o' 4='r' 5='t'}
+``` {.python .cell-code}
+# --------------------------------------------------------------------- 
+# Helper functions and classes for probabilistic forecasting with conformal prediction
+# ---------------------------------------------------------------------
+
+# Generate conformal quantiles for future time steps
+from __future__ import annotations
+from typing import Union
+import numpy as np
+import pandas as pd
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Module-level helpers (stand-alone, reusable)
+# ─────────────────────────────────────────────────────────────────────────────
+ 
+def get_conformal_quantiles(non_conform, n_calib, quantiles, y_forecast):
+    """
+    Build a conformal-prediction quantile table from pre-computed non-conformity scores.
+ 
+    Parameters
+    ----------
+    non_conform : np.ndarray, shape (H, n_calib)
+        Absolute residuals from the calibration windows.
+    n_calib : int
+        Number of calibration windows.
+    quantiles : float or list of float
+        Desired quantile levels, e.g. ``[0.1, 0.5, 0.9]``.
+    y_forecast : np.ndarray, shape (H,)
+        Point forecasts.
+ 
+    Returns
+    -------
+    pd.DataFrame
+        Columns: ``point_forecast``, ``q_<level>`` for every requested level.
+    """
+    # Helper to compute one quantile column
+    def _one_quantile(q):
+        # if n_calib is not array
+        if non_conform.ndim == 2:
+            if q < 0.5:
+                q_which = np.ceil((1 - 2 * q) * (n_calib + 1)) / n_calib
+                return y_forecast - np.quantile(non_conform, q_which,
+                                                method="higher", axis=1)
+            elif q == 0.5:
+                return y_forecast
+            else:
+                q_which = np.ceil((2 * q - 1) * (n_calib + 1)) / n_calib
+                return y_forecast + np.quantile(non_conform, q_which,
+                                                method="higher", axis=1)
+        else:
+            if q < 0.5:
+                q_which = np.ceil((1 - 2 * q) * (n_calib + 1)) / n_calib
+                return y_forecast - np.quantile(non_conform, q_which,
+                                                method="higher")
+            elif q == 0.5:
+                return y_forecast
+            else:
+                q_which = np.ceil((2 * q - 1) * (n_calib + 1)) / n_calib
+                return y_forecast + np.quantile(non_conform, q_which,
+                                                method="higher")
+            
+    if isinstance(quantiles, float):
+        quantiles_list = [quantiles]
+    elif isinstance(quantiles, list):
+        quantiles_list = quantiles
+    else:
+        raise ValueError("quantiles must be a float or list of floats.")
+ 
+    rows = [y_forecast] + [_one_quantile(q) for q in quantiles_list]
+    cols = ["point_forecast"] + [f"q_{int(q * 100)}" for q in quantiles_list]
+    return pd.DataFrame(np.column_stack(rows), columns=cols)
+ 
+ 
+def get_bootstrap_quantiles(samples, n_calib, quantiles, y_forecast):
+    """
+    Build a quantile table from bootstrap (or simulation) sample paths.
+ 
+    Parameters
+    ----------
+    samples : np.ndarray, shape (n_samples, H)
+        Sampled forecast trajectories.
+    n_calib : int
+        Number of calibration windows (used for finite-sample correction).
+    quantiles : float or list of float
+        Desired quantile levels.
+    y_forecast : np.ndarray, shape (H,)
+        Point forecasts (used as the ``point_forecast`` column).
+ 
+    Returns
+    -------
+    pd.DataFrame
+        Columns: ``point_forecast``, ``q_<level>`` for every requested level.
+    """
+    def _one_quantile(q):
+        q_which = np.ceil(q * (n_calib + 1)) / n_calib
+        return np.quantile(samples, q_which, method="higher", axis=0)
+ 
+    if isinstance(quantiles, float):
+        quantiles_list = [quantiles]
+    elif isinstance(quantiles, list):
+        quantiles_list = quantiles
+    else:
+        raise ValueError("quantiles must be a float or list of floats.")
+ 
+    rows = [y_forecast] + [_one_quantile(q) for q in quantiles_list]
+    cols = ["point_forecast"] + [f"q_{int(q * 100)}" for q in quantiles_list]
+    return pd.DataFrame(np.column_stack(rows), columns=cols)
+```
+:::
+
+
+## Difference functions for forecast inverse transform
+
+::: {#ef504dae .cell 0='e' 1='x' 2='p' 3='o' 4='r' 5='t'}
+``` {.python .cell-code}
+def seasonal_diff(data: Union[np.ndarray, pd.Series],
+                  seasonal_period: int) -> np.ndarray:
+    
+    """
+    Applies seasonal differencing to a time series.
+
+    Parameters
+    ----------
+    data : array-like
+        The input time series data to be differenced.
+    seasonal_period : int
+        The seasonal period (e.g., 12 for monthly data with yearly seasonality).
+
+    Returns
+    -------
+    array-like
+        The seasonally differenced time series.
+    """
+    arr = np.asarray(data)
+    res = np.empty_like(arr, dtype=np.float64)
+    res[:seasonal_period] = np.nan
+    res[seasonal_period:] = arr[seasonal_period:] - arr[:-seasonal_period]
+    return res
+
+```
+:::
+
+
+::: {#7ac782ee .cell 0='e' 1='x' 2='p' 3='o' 4='r' 5='t'}
+``` {.python .cell-code}
+def undiff_ts(original_data: Union[np.ndarray, pd.Series],
+              differenced_data: Union[np.ndarray, pd.Series],
+              n: int = 1) -> np.ndarray:
+    """
+    Inverts (ordinary) differencing.
+
+    Parameters
+    ----------
+    original_data : array-like
+        The original time series data before differencing.
+    differenced_data : array-like
+        The differenced time series data to be inverted.
+    n : int, optional
+        The order of differencing applied (default is 1).
+
+    Returns
+    -------
+    array-like
+        The reconstructed time series after inverting differencing.
+    """
+    orig_arr = np.asarray(original_data)
+    undiff_data = np.asarray(differenced_data)
+    if n > 1:
+        for i in range(n-1, 0, -1):
+            undiff_data = np.diff(orig_arr, i)[-1] + np.cumsum(undiff_data)
+    
+    return orig_arr[-1] + np.cumsum(undiff_data)
+
+```
+:::
+
+
+::: {#afb13e6f .cell 0='e' 1='x' 2='p' 3='o' 4='r' 5='t'}
+``` {.python .cell-code}
+def invert_seasonal_diff(orig_data, diff_data, seasonal_period):
+
+    """
+    Inverts seasonal differencing.
+
+    Parameters
+    ----------
+    orig_data : array-like
+        The original time series data before seasonal differencing.
+    diff_data : array-like
+        The seasonally differenced time series data to be inverted.
+    seasonal_period : int
+        The seasonal period used for differencing (e.g., 12 for monthly data with yearly seasonality).
+        
+    Returns
+    -------
+    array-like
+        The reconstructed time series after inverting seasonal differencing.
+    """
+    orig_arr = np.asarray(orig_data)
+    diff_arr = np.asarray(diff_data)
+    # Start with the last seasonal_period original values
+    result = list(orig_arr[-seasonal_period:])
+    for i in range(len(diff_arr)):
+        # Each new value is previous season value + diff
+        val = diff_arr[i] + result[i]
+        result.append(val)
+    # Only return the reconstructed values matching diff_data length
+    return np.array(result[seasonal_period:])
+
+```
+:::
+
+

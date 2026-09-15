@@ -69,6 +69,7 @@ all = [
     "lightgbm",
     "catboost",
     "ruptures",
+    "torch",
 ]
 
 [project.urls]
