@@ -142,22 +142,6 @@ class ml_multi_forecaster:
                     "Model must be LGBMRegressor, CatBoostRegressor, XGBRegressor, or HistGradientBoostingRegressor to handle categorical variables without an encoder."
                 )
 
-        # Configure models with native categorical flags if needed
-        has_native_cat = (self.id_col_encoder is None) or (self.cat_variables is not None and self.cat_encoder is None)
-        if has_native_cat:
-            if self.model_name == "XGBRegressor" and hasattr(self.model, "set_params"):
-                if not getattr(self.model, "enable_categorical", False):
-                    try:
-                        self.model.set_params(enable_categorical=True)
-                    except Exception:
-                        pass
-            elif self.model_name == "HistGradientBoostingRegressor" and hasattr(self.model, "set_params"):
-                if getattr(self.model, "categorical_features", None) is None:
-                    try:
-                        self.model.set_params(categorical_features="from_dtype")
-                    except Exception:
-                        pass
-
     def copy(self) -> "ml_multi_forecaster":
         """
         Create a deep copy of the forecaster instance.
@@ -194,13 +178,14 @@ class ml_multi_forecaster:
             # -------------------------------------------------------------
             # ID Column Encoding / Native Categorical Registration
             # -------------------------------------------------------------
+            # Native categorical support: register CategoricalDtype and cast and for ordering of series_ids even when id_col_encoder is not None
+            if self.cat_type is None:
+                cats = sorted(dfc[self.id_col].dropna().unique().tolist())
+                self.cat_type = pd.CategoricalDtype(categories=cats)
+            dfc[self.id_col] = pd.Categorical(dfc[self.id_col], dtype=self.cat_type)
+
             if self.id_col in dfc.columns:
                 if self.id_col_encoder is None:
-                    # Native categorical support: register CategoricalDtype and cast
-                    if self.cat_type is None:
-                        cats = sorted(dfc[self.id_col].dropna().unique().tolist())
-                        self.cat_type = pd.CategoricalDtype(categories=cats)
-                    dfc[self.id_col] = pd.Categorical(dfc[self.id_col], dtype=self.cat_type)
                     self.encoded_id_cols = []
                     return dfc
                 else:
@@ -548,6 +533,8 @@ class ml_multi_forecaster:
             raise ValueError("Model has not been fitted yet. Call .fit() before .forecast().")
 
         if exog is not None:
+            if not isinstance(exog, pd.DataFrame):
+                raise ValueError("Exogenous features must be provided as a pandas DataFrame.")  
             prep_exog = self.data_prep(exog)
         y_lists: Dict[str, list] = {col: self.wide_trans[col].tolist() for col in self.series_ids}
         raw_forecasts = {s: np.zeros(H, dtype=np.float64) for s in self.series_ids}
@@ -563,12 +550,9 @@ class ml_multi_forecaster:
             # Exogenous features for step t
             if exog is not None:
                 x_var = prep_exog.loc[idx_list[t]]
-            if isinstance(x_var, pd.Series):
-                x_var = x_var.to_frame().T  # Convert to DataFrame if it's a Series
-            if self.id_col in x_var.columns:
-                x_var = x_var.set_index(self.id_col).reindex(self.series_ids).reset_index() # Ensure x_var is ordered by series_ids           
-                ## make sure id_col is cat_type if id_col_encoder is None (native categorical)
-                if self.id_col_encoder is None:
+                if self.id_col in x_var.columns:
+                    x_var = x_var.set_index(self.id_col).reindex(self.series_ids).reset_index() # Ensure x_var is ordered by series_ids           
+                    ## make sure the id_col is a categorical with the same categories as during fit
                     x_var[self.id_col] = pd.Categorical(x_var[self.id_col], dtype=self.cat_type)
 
             else:
@@ -598,8 +582,7 @@ class ml_multi_forecaster:
                         s_arr = np.asarray(y_lists[s])
                         for func in s_lag_tf:
                             lag_res = func(s_arr)
-                            lag_val = lag_res[-1] if hasattr(lag_res, '__len__') else lag_res
-                            lag_transform_features.append(lag_val)
+                            lag_transform_features.append(np.array(lag_res)[-1])
                 self.lagged_forecasts = np.concatenate([self.lagged_forecasts, lag_transform_features])
 
             
