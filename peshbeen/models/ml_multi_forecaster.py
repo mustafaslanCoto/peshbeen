@@ -189,18 +189,17 @@ class ml_multi_forecaster:
                     self.encoded_id_cols = []
                     return dfc
                 else:
-                    enc_inst = clone(self.id_col_encoder)
-
-                    # Ensure dense output for encoders that default to sparse matrices
-                    if hasattr(enc_inst, "sparse_output") and getattr(enc_inst, "sparse_output", False):
-                        enc_inst.set_params(sparse_output=False)
-                    if hasattr(enc_inst, "sparse") and getattr(enc_inst, "sparse", False):
-                        enc_inst.set_params(sparse=False)
-                    # For TargetEncoder, regression target is continuous
-                    if isinstance(enc_inst, TargetEncoder) and getattr(enc_inst, "target_type", "auto") == "auto":
-                        enc_inst.set_params(target_type="continuous")
-
                     if self.target_col in dfc.columns:
+                        enc_inst = clone(self.id_col_encoder)
+
+                        # Ensure dense output for encoders that default to sparse matrices
+                        if hasattr(enc_inst, "sparse_output") and getattr(enc_inst, "sparse_output", False):
+                            enc_inst.set_params(sparse_output=False)
+                        if hasattr(enc_inst, "sparse") and getattr(enc_inst, "sparse", False):
+                            enc_inst.set_params(sparse=False)
+                        # For TargetEncoder, regression target is continuous
+                        if isinstance(enc_inst, TargetEncoder) and getattr(enc_inst, "target_type", "auto") == "auto":
+                            enc_inst.set_params(target_type="continuous")
                         self.id_preprocess = ColumnTransformer(
                             transformers=[("id", enc_inst, [self.id_col])],
                             remainder="drop",
