@@ -2,10 +2,9 @@
 
 # %% ../nbs/modules/05_transformations.ipynb #ae4862ca
 from __future__ import annotations
-from typing import Union
+from typing import Optional, Union
 import pandas as pd
 import numpy as np
-# from numba import jit
 from scipy.stats import boxcox
 from scipy.special import inv_boxcox
 import warnings
@@ -104,8 +103,6 @@ def back_box_cox_transform(y_pred: np.ndarray,
 #------------------------------------------------------------------------------
 # Transformation Utility Functions
 #------------------------------------------------------------------------------
-
-from typing import Optional, Union
 
 def fourier_terms(
     index: Union[pd.Index, tuple],

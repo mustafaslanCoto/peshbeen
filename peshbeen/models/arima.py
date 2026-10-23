@@ -15,8 +15,6 @@ from ..statstools import lr_trend_model, forecast_trend
 # dot not show warnings
 import warnings
 warnings.filterwarnings("ignore")
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
-from statsforecast.models import ARIMA
 from sklearn.compose import ColumnTransformer
 
 class arima:
@@ -250,6 +248,13 @@ class arima:
         self.X = model_df.drop(columns=[self.target_col]).to_numpy(dtype=np.float64)
         self.y = model_df[self.target_col].to_numpy()
 
+        try:
+            from statsforecast.models import ARIMA
+        except ImportError as e:
+            raise ImportError(
+                "statsforecast is required for the arima model. "
+                "Install it with `pip install peshbeen[arima]` or `pip install statsforecast`."
+            ) from e
         self.model = ARIMA(order=self.order, seasonal_order=self.seasonal_order, season_length= self.seasonal_length)
         if self.cat_variables is not None or self.lag_transform is not None:
             self.model.fit(self.y, self.X)

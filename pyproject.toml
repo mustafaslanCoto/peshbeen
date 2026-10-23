@@ -26,9 +26,6 @@ dependencies = [
     "scipy",
     "scikit-learn",
     "statsmodels",
-    "statsforecast",
-    "numba",
-    "setuptools>=68,<82",
     "openpyxl",
 ]
 
@@ -38,6 +35,10 @@ dev = [
     "execnb>=0.1.7,<0.2.0",
     "fastcore",
     "importlib-metadata",
+]
+
+arima = [
+    "statsforecast",
 ]
 
 tuning = [
@@ -57,7 +58,12 @@ ml = [
     "catboost",
 ]
 
+dl = [
+    "torch",
+]
+
 all = [
+    "statsforecast",
     "hyperopt",
     "optuna",
     "matplotlib",
@@ -86,7 +92,7 @@ version = { attr = "peshbeen.__version__" }
 include = ["peshbeen", "peshbeen.*"]
 
 [tool.setuptools.package-data]
-peshbeen = ["data/*.xlsx"]
+peshbeen = ["data/*.xlsx", "data/*.csv"]
 
 [tool.nbdev]
 repo = "peshbeen"
