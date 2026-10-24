@@ -5,7 +5,7 @@ __all__ = ['prob_forecasts', 'mv_prob_forecasts', 'multi_prob_forecasts']
 
 # %% ../nbs/modules/04_prob_forecast.ipynb #8a50b621
 # Generate conformal quantiles for future time steps
-from typing import List, Dict, Optional, Any, Union
+from typing import List, Dict, Optional, Callable, Tuple, Any, Union
 import numpy as np
 import pandas as pd
 from .model_selection import SplitTimeSeries

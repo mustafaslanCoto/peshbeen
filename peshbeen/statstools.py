@@ -4,7 +4,7 @@
 
 # %% ../nbs/modules/06_stattools.ipynb #6a4dc408
 from __future__ import annotations
-from typing import Union
+from typing import Union, Literal
 import warnings
 from statistics import NormalDist
 import numpy as np

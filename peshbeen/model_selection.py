@@ -60,10 +60,14 @@ class SplitTimeSeries:
 
 # %% ../nbs/modules/03_model_selection.ipynb #da8122f3
 import pandas as pd
+import numpy as np
 from sklearn.linear_model import LinearRegression
+# from numba import jit
 import warnings
 warnings.filterwarnings("ignore")
-from typing import List, Dict, Callable, Tuple, Any, Union
+# from tqdm import tqdm_notebook
+# from itertools import product
+from typing import List, Dict, Optional, Callable, Tuple, Any, Union
 from sklearn.preprocessing import StandardScaler
 
 def hyperopt_tune(
@@ -369,6 +373,7 @@ def hyperopt_tune(
     return best_hparams, best_lags, other_args, best_features
 
 # %% ../nbs/modules/03_model_selection.ipynb #42ad67aa
+from optuna import study
 def optuna_tune(
     model: Any,
     df: pd.DataFrame,

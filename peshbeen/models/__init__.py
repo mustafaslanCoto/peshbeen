@@ -20,13 +20,9 @@ from .glm import glm
 from .pesh import pesh
 from .ml_direct_forecaster import ml_direct_forecaster
 from .ml_multi_forecaster import ml_multi_forecaster
-
-try:
-    from peshbeen.models.dl_forecaster import (
-        dl_forecaster, TorchRegressor, LSTMRegressor, GRURegressor,
-        TransformerRegressor, RNNRegressor, MLPRegressor,
-        LSTMModel, GRUModel, RNNModel, TransformerModel, MLPModel
-    )
-except ImportError:
-    pass
+from peshbeen.models.dl_forecaster import (
+    dl_forecaster, TorchRegressor, LSTMRegressor, GRURegressor,
+    TransformerRegressor, RNNRegressor, MLPRegressor,
+    LSTMModel, GRUModel, RNNModel, TransformerModel, MLPModel
+)
 

@@ -11,29 +11,11 @@ import copy
 import warnings
 warnings.filterwarnings("ignore")
 
-try:
-    import torch
-    import torch.nn as nn
-    from torch.utils.data import TensorDataset, DataLoader
-    _HAS_TORCH = True
-except ImportError:
-    torch = None
-    class _DummyNN:
-        Module = object
-    nn = _DummyNN()
-    TensorDataset = None
-    DataLoader = None
-    _HAS_TORCH = False
-
-def _check_torch():
-    if not _HAS_TORCH:
-        raise ImportError(
-            "PyTorch is required for deep learning models. "
-            "Install it with `pip install peshbeen[dl]` or `pip install torch`."
-        )
-
+import torch
+import torch.nn as nn
+from torch.utils.data import TensorDataset, DataLoader
 from sklearn.base import BaseEstimator, RegressorMixin
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.compose import ColumnTransformer
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
@@ -392,7 +374,6 @@ class TorchRegressor(BaseEstimator, RegressorMixin):
         device: Optional[str] = None,
         verbose: bool = False
     ):
-        _check_torch()
         self.model = model
         self.model_params = model_params or {}
         self.lr = lr
@@ -788,7 +769,6 @@ class dl_forecaster:
         model_params : dict, optional
             Dictionary of hyperparameters passed to the neural network when model is a string.
         """
-        _check_torch()
         if isinstance(model, str):
             self.model = TorchRegressor(model=model, model_params=model_params or {})
         elif isinstance(model, nn.Module) or (isinstance(model, type) and issubclass(model, nn.Module)):

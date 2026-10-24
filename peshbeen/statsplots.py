@@ -9,23 +9,8 @@ import warnings
 from statistics import NormalDist
 import numpy as np
 import pandas as pd
-
-try:
-    import matplotlib.pyplot as plt
-    from matplotlib.ticker import MaxNLocator
-    _HAS_MATPLOTLIB = True
-except ImportError:
-    plt = None
-    MaxNLocator = None
-    _HAS_MATPLOTLIB = False
-
-def _check_matplotlib():
-    if not _HAS_MATPLOTLIB:
-        raise ImportError(
-            "matplotlib is required for plotting functions. "
-            "Install it with `pip install peshbeen[plotting]` or `pip install matplotlib`."
-        )
-
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 from statsmodels.tsa.stattools import ccf, acf, pacf
 
 ArrayLike = Union[np.ndarray, list, pd.Series]
@@ -99,7 +84,6 @@ def plot_ccf(
     matplotlib.axes.Axes
         The axes object containing the CCF plot.
     """
-    _check_matplotlib()
     arr_x, name_x = _clean_series(x, "x")
     arr_y, name_y = _clean_series(y, "y")
     n = min(len(arr_x), len(arr_y))
@@ -192,7 +176,6 @@ def plot_ccf_pairs(
     tuple of (matplotlib.figure.Figure, np.ndarray of Axes)
         The created figure and array of axes.
     """
-    _check_matplotlib()
     if isinstance(data, pd.DataFrame):
         df = data.copy()
     elif isinstance(data, dict):
@@ -304,7 +287,6 @@ def plot_acf_pacf(
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes or np.ndarray)
         Figure and axes object(s).
     """
-    _check_matplotlib()
     kind_clean = kind.strip().lower()
     if kind_clean not in ["both", "acf", "pacf"]:
         raise ValueError("kind must be 'both', 'acf', or 'pacf'.")

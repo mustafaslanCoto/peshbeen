@@ -113,7 +113,8 @@ def load_co2(
     >>> df = load_co2()
     >>> df.head()
     """
-    data = _sm_dataset('co2')
+    import statsmodels.api as sm
+    data = sm.datasets.co2.load_pandas().data
     data.index = pd.to_datetime(data.index)
     data.index.freq = pd.infer_freq(data.index)
     data.columns = ['co2']
@@ -292,7 +293,8 @@ def load_elnino() -> pd.DataFrame:
     >>> df = load_elnino()
     >>> df.head()
     """
-    raw = _sm_dataset('elnino')
+    import statsmodels.api as sm
+    raw = sm.datasets.elnino.load_pandas().data
 
     # The wide format has columns: YEAR, JAN, FEB, ..., DEC
     month_map = {
