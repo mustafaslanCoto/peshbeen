@@ -562,9 +562,16 @@ def optuna_tune(
             df_ = df.copy()
 
         cv_scores = []
-
+        # set forecaster parameters based on the current trial's suggested values like learning rate, depth, iterations, etc. for the specific model being tuned
+        _apply_forecaster_params(model, params)
         model_ = model.copy()
-        _apply_forecaster_params(model_, params)
+        if model_.get_name() in ("arima", "ets"):
+            model_.set_params(params=fit_params) # For ARIMA and ETS models, the parameters are set using the set_params method with the fit_params dictionary containing the relevant hyperparameters.
+        elif (model_.get_name() == "glm") or (model_.get_name() == "ms_arr"):
+            ## do not do any parameter setting for glm since the family is set at initialization and can't be changed, and the other parameters are ml_forecaster specific and will be set in the _apply_forecaster_params function
+            pass
+        else:
+            model_.model.set_params(**fit_params) ## ML models like CatBoost, LightGBM, XGBoost, etc., require setting parameters directly on the underlying model object
         for step_idx, (train_idx, test_idx) in enumerate(tscv.split(df_)):
             train = df_.iloc[train_idx]
             test = df_.iloc[test_idx]
@@ -572,17 +579,7 @@ def optuna_tune(
             y_true = test[target_col].values
             y_true = index_target(y_true) 
             exog_t = test.drop(columns=[target_col]) if test.shape[1] > 1 else None
-
             
-            
-        
-            if model_.get_name() in ("arima", "ets"):
-                model_.set_params(params=fit_params)
-            elif (model_.get_name() == "glm") or (model_.get_name() == "ms_arr"):
-                ## do not do any parameter setting for glm since the family is set at initialization and can't be changed, and the other parameters are ml_forecaster specific and will be set in the _apply_forecaster_params function
-                pass
-            else:
-                model_.model.set_params(**fit_params)
             model_.fit(train)
             
             y_pred = model_.forecast(H=len(test), exog=exog_t)
