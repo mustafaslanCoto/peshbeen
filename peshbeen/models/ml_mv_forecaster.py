@@ -77,6 +77,12 @@ class ml_mv_forecaster:
         None
         """
 
+        if isinstance(model, type) or not (hasattr(model, "fit") and hasattr(model, "predict")):
+            raise ValueError(
+                "model must be an instantiated regression model object with fit() and predict() methods "
+                "(e.g. LinearRegression(), LGBMRegressor(), XGBRegressor(), CatBoostRegressor(), Cubist()). "
+                "If using an external library such as lightgbm, xgboost, catboost, or cubist, make sure it is installed (e.g. `pip install lightgbm`)."
+            )
         self.model = model
         self.model_name = self.model.__class__.__name__
         self.target_cols = target_cols

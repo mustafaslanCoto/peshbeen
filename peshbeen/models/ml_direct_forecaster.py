@@ -81,6 +81,12 @@ class ml_direct_forecaster:
             List of column names for future exogenous variables that needs to be considered for each horizons. Those columns will be considered when exogenous variables, including those future values, are provided during forecasting.
         """
 
+        if isinstance(model, type) or not (hasattr(model, "fit") and hasattr(model, "predict")):
+            raise ValueError(
+                "model must be an instantiated regression model object with fit() and predict() methods "
+                "(e.g. LinearRegression(), LGBMRegressor(), XGBRegressor(), CatBoostRegressor(), Cubist()). "
+                "If using an external library such as lightgbm, xgboost, catboost, or cubist, make sure it is installed (e.g. `pip install lightgbm`)."
+            )
         self.model = model
         self.model_name = self.model.__class__.__name__
         self.target_col = target_col

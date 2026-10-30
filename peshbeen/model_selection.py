@@ -124,7 +124,7 @@ def hyperopt_tune(
     try:
         from hyperopt import fmin, tpe, Trials, STATUS_OK, space_eval, hp
     except ImportError:
-        raise ImportError("hyperopt is required. Install with: pip install hyperopt or pip install peshbeen[tuning]")
+        raise ImportError("hyperopt is required for hyperparameter optimization. Install with `pip install hyperopt`.")
     
     # 1. SETUP DIMENSIONS
     if model.get_name() == "ml_direct_forecaster":
@@ -373,7 +373,6 @@ def hyperopt_tune(
     return best_hparams, best_lags, other_args, best_features
 
 # %% ../nbs/modules/03_model_selection.ipynb #42ad67aa
-from optuna import study
 def optuna_tune(
     model: Any,
     df: pd.DataFrame,
@@ -438,7 +437,7 @@ def optuna_tune(
     try:
         import optuna
     except ImportError:
-        raise ImportError("optuna is required.")
+        raise ImportError("optuna is required for hyperparameter optimization. Install with `pip install optuna`.")
     
     if model.get_name() == "ml_direct_forecaster":
         test_size = max(model.H) 
@@ -732,7 +731,7 @@ def mv_hyperopt_tune(
     try:
         from hyperopt import fmin, tpe, Trials, STATUS_OK, space_eval
     except ImportError:
-        raise ImportError("hyperopt is required. Install with: pip install hyperopt or pip install peshbeen[tuning]")
+        raise ImportError("hyperopt is required for hyperparameter optimization. Install with `pip install hyperopt`.")
     
     tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
 
@@ -853,7 +852,7 @@ def mv_optuna_tune(
     try:
         import optuna
     except ImportError:
-        raise ImportError("optuna is required. Install with: pip install optuna or pip install peshbeen[tuning]")
+        raise ImportError("optuna is required for hyperparameter optimization. Install with `pip install optuna`.")
     
     tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
 

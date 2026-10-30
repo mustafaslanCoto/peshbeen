@@ -17,8 +17,8 @@ def _sm_dataset(name: str) -> pd.DataFrame:
 
 #| export
 
-def _get_data_file_path(filename: str) -> Path:
-    """Resolve data file path across site-packages, local workspace, or current working directory."""
+def _get_data_file_path(filename: str) -> Path | str:
+    """Resolve data file path across site-packages, local workspace, current working directory, or GitHub repository."""
     candidates = []
     if getattr(peshbeen, "__file__", None):
         candidates.append(Path(peshbeen.__file__).parent / "data" / filename)
@@ -36,7 +36,7 @@ def _get_data_file_path(filename: str) -> Path:
     for p in candidates:
         if p.exists():
             return p
-    return candidates[0] if candidates else Path.cwd() / "peshbeen" / "data" / filename
+    return f"https://raw.githubusercontent.com/mustafaslanCoto/peshbeen/main/peshbeen/data/{filename}"
 
 
 # %% auto #0
@@ -386,17 +386,21 @@ def load_livestock(columns: list = None) -> pd.DataFrame:
 
 # %% ../nbs/modules/99_datasets.ipynb #de0d3bca
 def load_wales_admissions():
+    try:
+        import openpyxl
+    except ImportError:
+        raise ImportError("openpyxl is required to load this dataset. Install with `pip install openpyxl`.")
     file_path = _get_data_file_path("wales_admissions.xlsx")
-    if not file_path.exists():
-        raise FileNotFoundError(f"Could not find dataset at: {file_path}")
     return pd.read_excel(file_path).set_index("Date")
 
 
 # %% ../nbs/modules/99_datasets.ipynb #9b5da161
 def load_wales_calls():
+    try:
+        import openpyxl
+    except ImportError:
+        raise ImportError("openpyxl is required to load this dataset. Install with `pip install openpyxl`.")
     file_path = _get_data_file_path("nhs_calls.xlsx")
-    if not file_path.exists():
-        raise FileNotFoundError(f"Could not find dataset at: {file_path}")
     return pd.read_excel(file_path).set_index("Date")
 
 
@@ -420,8 +424,6 @@ def load_sales() -> pd.DataFrame:
         series identifier, 'sales' target column, and optional exogenous features.
     """
     file_path = _get_data_file_path("sales_df.csv")
-    if not file_path.exists():
-        raise FileNotFoundError(f"Could not find dataset at: {file_path}")
     return pd.read_csv(file_path, parse_dates=["date"]).set_index("date")
 
 

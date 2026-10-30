@@ -28,7 +28,6 @@ dependencies = [
     "statsmodels",
     "statsforecast",
     "setuptools>=68,<82",
-    "openpyxl",
 ]
 
 [project.optional-dependencies]
@@ -37,38 +36,6 @@ dev = [
     "execnb>=0.1.7,<0.2.0",
     "fastcore",
     "importlib-metadata",
-]
-
-tuning = [
-    "hyperopt",
-    "optuna",
-]
-
-plotting = [
-    "matplotlib",
-    "seaborn",
-]
-
-ml = [
-    "xgboost",
-    "cubist",
-    "lightgbm",
-    "catboost",
-]
-
-all = [
-    "hyperopt",
-    "optuna",
-    "matplotlib",
-    "seaborn",
-    "great_tables",
-    "xgboost",
-    "cubist",
-    "openpyxl",
-    "lightgbm",
-    "catboost",
-    "ruptures",
-    "torch",
 ]
 
 [project.urls]
@@ -83,9 +50,6 @@ version = { attr = "peshbeen.__version__" }
 
 [tool.setuptools.packages.find]
 include = ["peshbeen", "peshbeen.*"]
-
-[tool.setuptools.package-data]
-peshbeen = ["data/*.xlsx"]
 
 [tool.nbdev]
 repo = "peshbeen"
