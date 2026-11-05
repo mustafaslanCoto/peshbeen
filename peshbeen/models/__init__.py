@@ -20,4 +20,5 @@ from .glm import glm
 from .pesh import pesh
 from .ml_direct_forecaster import ml_direct_forecaster
 from .ml_multi_forecaster import ml_multi_forecaster
+from .panel_forecaster import panel_forecaster
 
