@@ -26,7 +26,6 @@ dependencies = [
     "scipy",
     "scikit-learn",
     "statsmodels",
-    "statsforecast",
     "setuptools>=68,<82",
 ]
 
