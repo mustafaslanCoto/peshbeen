@@ -386,22 +386,22 @@ def load_livestock(columns: list = None) -> pd.DataFrame:
 
 # %% ../nbs/modules/99_datasets.ipynb #de0d3bca
 def load_wales_admissions():
+    file_path = _get_data_file_path("wales_admissions.csv")
     try:
-        import openpyxl
-    except ImportError:
-        raise ImportError("openpyxl is required to load this dataset. Install with `pip install openpyxl`.")
-    file_path = _get_data_file_path("wales_admissions.xlsx")
-    return pd.read_excel(file_path).set_index("Date")
+        return pd.read_csv(file_path, parse_dates=["Date"]).set_index("Date")
+    except Exception:
+        file_path_xlsx = _get_data_file_path("wales_admissions.xlsx")
+        return pd.read_excel(file_path_xlsx).set_index("Date")
 
 
 # %% ../nbs/modules/99_datasets.ipynb #9b5da161
 def load_wales_calls():
+    file_path = _get_data_file_path("nhs_calls.csv")
     try:
-        import openpyxl
-    except ImportError:
-        raise ImportError("openpyxl is required to load this dataset. Install with `pip install openpyxl`.")
-    file_path = _get_data_file_path("nhs_calls.xlsx")
-    return pd.read_excel(file_path).set_index("Date")
+        return pd.read_csv(file_path, parse_dates=["Date"]).set_index("Date")
+    except Exception:
+        file_path_xlsx = _get_data_file_path("nhs_calls.xlsx")
+        return pd.read_excel(file_path_xlsx).set_index("Date")
 
 
 # %% ../nbs/modules/99_datasets.ipynb #8aab60b8

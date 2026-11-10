@@ -3,11 +3,11 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "peshbeen"
+name="peshbeen"
 dynamic = ["version"]
 description = ""
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python=">=3.10"
 license = "Apache-2.0"
 authors = [{ name = "Mustafa Aslan", email = "mustafaslan63@gmail.com" }]
 keywords = ["nbdev"]
