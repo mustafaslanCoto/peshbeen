@@ -27,7 +27,6 @@ website:
             contents:
               - modules/models/01_ml_forecast.ipynb
               - modules/models/02_ms_arr.ipynb
-              - modules/models/03_ml_mv_forecast.ipynb
               - modules/models/04_var.ipynb
               - modules/models/05_ms_var.ipynb
               - modules/models/06_arima.ipynb
@@ -37,5 +36,6 @@ website:
               - modules/models/10_direct_ml.ipynb
               - modules/models/11_ml_multi_forecast.ipynb
               - modules/models/12_panel_forecast.ipynb
+              - modules/models/13_auto_arima.ipynb
               - modules/models/90_herne_pesh.ipynb
             href: modules/models/00_index.ipynb

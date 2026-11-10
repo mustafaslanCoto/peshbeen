@@ -324,7 +324,7 @@ class prob_forecasts:
 # %% ../nbs/modules/04_prob_forecast.ipynb #188c2530
 class mv_prob_forecasts:
     """
-    Probabilistic forecasting wrapper for multivariate point-forecasting models (e.g. VAR, MS-VAR, ml_mv_forecaster).
+    Probabilistic forecasting wrapper for multivariate point-forecasting models (e.g. VAR, MS-VAR).
     """
     def __init__(
         self,

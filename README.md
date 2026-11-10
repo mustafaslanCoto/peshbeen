@@ -77,8 +77,7 @@ feed into a decision. Its advantages:
   No rebuilding a transformer pipeline per model.
 
 - **🔗 Multivariate forecasting with per-series control.**
-  [`var`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/var.html#var),
-  [`ml_mv_forecaster`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ml_mv_forecast.html#ml_mv_forecaster),
+  [`var`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/var.html#var)
   and
   [`ms_var`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ms_var.html#ms_var)
   accept a **dictionary of lags (and transformations) per target
@@ -105,12 +104,13 @@ feed into a decision. Its advantages:
   and ready-to-use datasets (including real healthcare operations
   series).
 
-> **A note on what powers it.** Peshbeen stands on proven foundations
-> rather than reinventing them: its ARIMA is built on **StatsForecast**
-> and its ETS/GLM on **statsmodels**. The value peshbeen adds is the
-> *unified workflow* around them — plus genuinely original pieces like
-> the Markov-switching models, the per-series multivariate
-> specification, the shared change-point-aware detrending, and the
+> **A note on what powers it.** Peshbeen combines native, dependency-free
+> implementations — like its high-performance **native ARIMA** built on
+> vectorized NumPy/SciPy digital filtering — with proven foundations like
+> **statsmodels** for ETS/GLM. The value peshbeen adds is the *unified
+> workflow* around them — plus genuinely original pieces like the
+> Markov-switching models, the per-series multivariate specification, the
+> shared change-point-aware detrending, and the
 > [`pesh`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/herne_pesh.html#pesh)
 > ensemble.
 
@@ -123,7 +123,7 @@ The advantages above, in detail:
   feature/target splitting.
 
 - **Model Agnostic:** Supports a wide range of forecasting models behind
-  one interface — naive baselines, ETS, ARIMA, Vector Autoregressions,
+  one interface — naive baselines, ETS, ARIMA, Auto ARIMA, Vector Autoregressions,
   scikit-learn regressors, gradient-boosted trees (XGBoost, LightGBM,
   CatBoost), TabPFN foundation models, Generalized Linear Models (GLM)
   for count data, and **Markov-switching regime models (MS-ARR,
@@ -213,25 +213,10 @@ an underserved middle*, not out-scaling any single category.
 
 ## Installation
 
-Installation requires Python 3.10 or higher.
-
-### Core install
-
-Installs only the essential dependencies (numpy, pandas, scipy,
-scikit-learn, statsmodels):
+Installation requires Python 3.10 or higher:
 
 ``` bash
 pip install peshbeen
-```
-
-### Optional dependencies
-
-Install only what you need:
-
-``` bash
-pip install peshbeen[ml]        # XGBoost, LightGBM, CatBoost, Cubist
-pip install peshbeen[tuning]    # Hyperopt, Optuna
-pip install peshbeen[all]       # Everything above
 ```
 
 ## Quick Start Example

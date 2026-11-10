@@ -11,7 +11,6 @@ warnings.filterwarnings("ignore")
 from .ml_forecaster import ml_forecaster
 from .var import var
 from .ms_arr import ms_arr
-from .ml_mv_forecaster import ml_mv_forecaster
 from .ms_var import ms_var
 from .arima import arima
 from .naive import naive
@@ -21,4 +20,5 @@ from .pesh import pesh
 from .ml_direct_forecaster import ml_direct_forecaster
 from .ml_multi_forecaster import ml_multi_forecaster
 from .panel_forecaster import panel_forecaster
+from .auto_arima import auto_arima
 
