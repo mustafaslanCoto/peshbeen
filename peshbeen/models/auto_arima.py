@@ -120,14 +120,104 @@ def check_stationarity_d(
 
 
 #| export
+def check_seasonal_D(
+    y: np.ndarray,
+    seasonal_length: int,
+    max_D: int = 1,
+    test: str = "seas",
+    alpha: float = 0.05,
+) -> Tuple[int, List[Dict[str, Any]]]:
+    """
+    Determine the seasonal integration order D using seasonal unit root / strength tests
+    (Wang, Smith & Hyndman 2006 / Osborn-Chui-Smith-Birchenhall 1988).
+
+    Parameters
+    ----------
+    y : np.ndarray
+        1D target time series array.
+    seasonal_length : int
+        Seasonal period length (e.g. 7 for daily, 12 for monthly).
+    max_D : int, default 1
+        Maximum seasonal differencing order (typically 1).
+    test : str, default 'seas'
+        Seasonal test to apply:
+        - 'seas' (default): Wang-Smith-Hyndman seasonal strength test F_s > 0.64.
+        - 'ocsb': Osborn-Chui-Smith-Birchenhall seasonal unit root test.
+    alpha : float, default 0.05
+        Significance level.
+
+    Returns
+    -------
+    D : int
+        The determined seasonal differencing order (0 <= D <= max_D).
+    logs : list of dict
+        Diagnostics and test statistics for seasonal differencing.
+    """
+    if seasonal_length is None or seasonal_length <= 1:
+        return 0, [{"D": 0, "stat": 0.0, "action": "non_seasonal"}]
+
+    y_curr = np.asarray(y, dtype=np.float64)
+    y_curr = y_curr[~np.isnan(y_curr)]
+    if len(y_curr) < 2 * seasonal_length:
+        return 0, [{"D": 0, "stat": np.nan, "action": "too_short"}]
+
+    if max_D <= 0:
+        return 0, [{"D": 0, "stat": 0.0, "action": "max_D_zero"}]
+
+    # If test is 'ocsb', try OCSBTest if pmdarima is available
+    if test.lower() == "ocsb":
+        try:
+            from pmdarima.arima.seasonality import OCSBTest
+            t = OCSBTest(m=seasonal_length)
+            D = min(max_D, int(t.estimate_seasonal_differencing_term(y_curr)))
+            return D, [{"D": D, "test": "ocsb", "action": f"selected_D_{D}"}]
+        except Exception:
+            pass
+
+    # 'seas' test: Wang, Smith & Hyndman (2006) F_s > 0.64 via seasonal_decompose
+    D = 0
+    logs = []
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        while D < max_D:
+            if len(y_curr) < 2 * seasonal_length or np.all(y_curr == y_curr[0]):
+                break
+            try:
+                from statsmodels.tsa.seasonal import seasonal_decompose
+                decomp = seasonal_decompose(y_curr, period=seasonal_length, model="additive", extrapolate_trend="period")
+                var_resid = float(np.var(decomp.resid, ddof=1))
+                var_sr = float(np.var(decomp.seasonal + decomp.resid, ddof=1))
+                fs = max(0.0, 1.0 - (var_resid / var_sr)) if var_sr > 1e-12 else 0.0
+                need_diff = (fs > 0.64)
+                logs.append({
+                    "D": D,
+                    "stat": float(fs),
+                    "threshold": 0.64,
+                    "action": "difference" if need_diff else "stationary_stop"
+                })
+                if need_diff:
+                    D += 1
+                    y_curr = y_curr[seasonal_length:] - y_curr[:-seasonal_length]
+                else:
+                    break
+            except Exception as ex:
+                logs.append({"D": D, "stat": np.nan, "action": f"error_{ex}"})
+                break
+
+    return D, logs
+
+
+#| export
 class auto_arima:
     """
     Automatic ARIMA / SARIMA model selection implementing the Hyndman-Khandakar (2008)
     stepwise search algorithm and exhaustive grid search under the unified peshbeen pipeline.
 
-    The algorithm determines integration order d via repeated KPSS stationarity tests,
-    evaluates initial candidate models, and performs a stepwise traversal of neighboring
-    (p, q, P, Q, D) variations to minimize the sample-size corrected AICc (or AIC, BIC).
+    The algorithm determines integration order d via stationarity tests (KPSS/ADF),
+    and seasonal integration order D upfront via seasonal strength testing (F_s > 0.64)
+    or OCSB tests. With differencing fixed for valid likelihood comparisons, it evaluates
+    initial candidate models and performs a stepwise traversal of neighboring (p, q, P, Q)
+    variations to minimize the sample-size corrected AICc (or AIC, BIC).
     Exogenous regressors, Box-Cox transformations, lag transforms, and trend handling
     are fully supported and evaluated within the native arima engine.
     """
@@ -152,6 +242,7 @@ class auto_arima:
         stepwise: bool = True,
         criterion: str = "aicc",
         stationarity_test: str = "kpss",
+        seasonal_test: str = "seas",
         alpha: float = 0.05,
         with_intercept: Optional[bool] = None,
         lag_transform: Optional[list] = None,
@@ -183,7 +274,8 @@ class auto_arima:
             Integration/differencing order. If None (default), determined automatically via repeated
             stationarity testing (KPSS).
         D : int, optional
-            Seasonal differencing order. If None (default), considered in the model search space (0 to max_D).
+            Seasonal differencing order (typically 0 or 1). If None (default), determined automatically
+            upfront using a seasonal unit root / strength test ('seasonal_test') before model search.
         max_p : int, default 5
             Maximum non-seasonal AR order.
         max_q : int, default 5
@@ -195,7 +287,7 @@ class auto_arima:
         max_d : int, default 2
             Maximum non-seasonal differencing order tested during stationarity check.
         max_D : int, default 1
-            Maximum seasonal differencing order explored in search space when D is None.
+            Maximum seasonal differencing order tested when D is None.
         start_p : int, default 2
             Initial p order for Hyndman-Khandakar stepwise search.
         start_q : int, default 2
@@ -212,9 +304,13 @@ class auto_arima:
         criterion : str, default 'aicc'
             Information criterion to minimize ('aicc', 'aic', or 'bic').
         stationarity_test : str, default 'kpss'
-            Statistical test used to determine d ('kpss' or 'adf').
+            Statistical test used to determine non-seasonal differencing order d ('kpss' or 'adf').
+        seasonal_test : str, default 'seas'
+            Method used to determine seasonal differencing order D when D is None:
+            - 'seas' (default): Wang-Smith-Hyndman seasonal strength test (F_s > 0.64).
+            - 'ocsb': Osborn-Chui-Smith-Birchenhall seasonal unit root test (requires pmdarima).
         alpha : float, default 0.05
-            Significance level for the stationarity test.
+            Significance level for the stationarity / seasonal differencing tests.
         with_intercept : bool, optional
             Whether to include a constant / drift term. If None (default), constant is tested according
             to Hyndman-Khandakar rules (included unless d + D >= 2, and evaluated in variations).
@@ -289,6 +385,7 @@ class auto_arima:
         if self.criterion not in ["aicc", "aic", "bic"]:
             raise ValueError(f"criterion must be 'aicc', 'aic', or 'bic', got '{criterion}'")
         self.stationarity_test = stationarity_test.lower()
+        self.seasonal_test = seasonal_test.lower()
         self.alpha = float(alpha)
         self.with_intercept = with_intercept
 
@@ -315,6 +412,7 @@ class auto_arima:
         self.criterion_value_: float = np.inf
         self.search_results_: Optional[pd.DataFrame] = None
         self.stationarity_logs_: List[Dict[str, Any]] = []
+        self.seasonal_logs_: List[Dict[str, Any]] = []
         self.total_search_time_: float = 0.0
         self.n_models_evaluated_: int = 0
         self.d_: Optional[int] = None
@@ -486,20 +584,28 @@ class auto_arima:
         d = self.d_
         s = self.s
 
-        # ── Determine D Search Space ──────────────────────────────────────────
-        if s > 1:
-            if self.D is None:
-                D_space = list(range(0, self.max_D + 1))
-                start_D = 1 if self.max_D >= 1 else 0
-                search_D = True
-            else:
-                D_space = [int(self.D)]
-                start_D = int(self.D)
-                search_D = False
+        # ── Step 1b: Seasonal Integration Order D ─────────────────────────────
+        # Per Hyndman & Khandakar (2008), models with different differencing orders (D=0 vs D=1)
+        # have different sample sizes and non-comparable AICc. Therefore, if D is not explicitly passed,
+        # it is determined once upfront via a seasonal unit root / strength test.
+        if self.D is not None:
+            D = min(int(self.D), self.max_D) if s > 1 else 0
+            self.seasonal_logs_ = [{"D": D, "action": "user_specified_D"}]
+        elif s > 1 and self.max_D > 0:
+            D, self.seasonal_logs_ = check_seasonal_D(
+                y_raw,
+                seasonal_length=s,
+                max_D=self.max_D,
+                test=self.seasonal_test,
+                alpha=self.alpha,
+            )
         else:
-            D_space = [0]
-            start_D = 0
-            search_D = False
+            D = 0
+            self.seasonal_logs_ = [{"D": 0, "action": "non_seasonal"}]
+
+        self.D_ = D
+        start_D = D
+        D_space = [D]
 
         evaluated: Dict[Tuple[int, int, int, int, int, int, bool], Tuple[float, Optional[arima]]] = {}
         records: List[Dict[str, Any]] = []
@@ -535,13 +641,6 @@ class auto_arima:
             # Additional model without constant if d + start_D <= 1 and with_intercept is None
             if self.with_intercept is None and (d + start_D <= 1) and default_c:
                 init_candidates.append((0, d, 0, 0, start_D, 0, False))
-
-            # If D is in search space (D was None), evaluate initial models for both D=0 and D=1
-            if search_D and len(D_space) > 1:
-                alt_D = 0 if start_D == 1 else 1
-                alt_c = bool((d + alt_D) < 2) if self.with_intercept is None else bool(self.with_intercept)
-                init_candidates.append((0, d, 0, 0, alt_D, 0, alt_c))
-                init_candidates.append((cand_p2, d, cand_q2, cand_P, alt_D, cand_Q, alt_c))
 
             # Fit all initial models
             best_score = np.inf
@@ -588,14 +687,6 @@ class auto_arima:
                         nQ_Q = curr_Q + dQ
                         if 0 <= nP_P <= self.max_P and 0 <= nQ_Q <= self.max_Q:
                             variations.add((curr_p, curr_d, curr_q, nP_P, curr_D, nQ_Q, curr_c))
-
-                    # If D was None, explore D +- 1
-                    if search_D:
-                        for dD in [1, -1]:
-                            nD_D = curr_D + dD
-                            if 0 <= nD_D <= self.max_D:
-                                n_c = curr_c if (curr_d + nD_D < 2 or not curr_c) else False
-                                variations.add((curr_p, curr_d, curr_q, curr_P, nD_D, curr_Q, n_c))
 
                 # Include / exclude constant variation
                 if self.with_intercept is None:
@@ -1054,4 +1145,4 @@ __all__ = ["auto_arima", "check_stationarity_d"]
 
 
 # %% auto #0
-__all__ = ['check_stationarity_d', 'auto_arima']
+__all__ = ['check_stationarity_d', 'check_seasonal_D', 'auto_arima']

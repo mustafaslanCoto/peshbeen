@@ -39,11 +39,12 @@ parts of a real forecasting workflow — feature engineering, trend
 handling, probabilistic scenarios, tuning, and model comparison — so
 switching models is a one-line change, not a rewrite.
 
-It spans naive baselines, **ETS**, **ARIMA**, **Vector Autoregression
-(VAR)**, scikit-learn regressors and gradient-boosted trees (**XGBoost,
-LightGBM, CatBoost**), **TabPFN** tabular foundation models,
-**Generalized Linear Models (GLM)** for count data, **Markov-switching
-regime models (MS-ARR and MS-VAR)**, and a built-in weighted ensemble
+It spans naive baselines, **ETS**, **ARIMA**, **Auto ARIMA**, **Vector
+Autoregression (VAR)**, scikit-learn regressors and gradient-boosted
+trees (**XGBoost, LightGBM, CatBoost**), **TabPFN** tabular foundation
+models, **Generalized Linear Models (GLM)** for count data,
+**Markov-switching regime models (MS-ARR and MS-VAR)**, and a built-in
+weighted ensemble
 (**[`pesh`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/herne_pesh.html#pesh)**)
 — for univariate *and* multivariate series.
 
@@ -104,13 +105,14 @@ feed into a decision. Its advantages:
   and ready-to-use datasets (including real healthcare operations
   series).
 
-> **A note on what powers it.** Peshbeen combines native, dependency-free
-> implementations — like its high-performance **native ARIMA** built on
-> vectorized NumPy/SciPy digital filtering — with proven foundations like
-> **statsmodels** for ETS/GLM. The value peshbeen adds is the *unified
-> workflow* around them — plus genuinely original pieces like the
-> Markov-switching models, the per-series multivariate specification, the
-> shared change-point-aware detrending, and the
+> **A note on what powers it.** Peshbeen combines native,
+> dependency-free implementations — like its high-performance **native
+> ARIMA** built on vectorized NumPy/SciPy digital filtering — with
+> proven foundations like **statsmodels** for ETS/GLM. The value
+> peshbeen adds is the *unified workflow* around them — plus genuinely
+> original pieces like the Markov-switching models, the per-series
+> multivariate specification, the shared change-point-aware detrending,
+> and the
 > [`pesh`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/herne_pesh.html#pesh)
 > ensemble.
 
@@ -123,11 +125,11 @@ The advantages above, in detail:
   feature/target splitting.
 
 - **Model Agnostic:** Supports a wide range of forecasting models behind
-  one interface — naive baselines, ETS, ARIMA, Auto ARIMA, Vector Autoregressions,
-  scikit-learn regressors, gradient-boosted trees (XGBoost, LightGBM,
-  CatBoost), TabPFN foundation models, Generalized Linear Models (GLM)
-  for count data, and **Markov-switching regime models (MS-ARR,
-  MS-VAR)**.
+  one interface — naive baselines, ETS, ARIMA, Auto ARIMA, Vector
+  Autoregressions, scikit-learn regressors, gradient-boosted trees
+  (XGBoost, LightGBM, CatBoost), TabPFN foundation models, Generalized
+  Linear Models (GLM) for count data, and **Markov-switching regime
+  models (MS-ARR, MS-VAR)**.
 
 - **Automatic Feature Engineering:** User can specify the key following
   parameters to automatically generate features:
