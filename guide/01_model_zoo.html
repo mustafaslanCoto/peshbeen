@@ -1,0 +1,1644 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.11.9">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>model_zoo – peshbeen</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script><script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<link href="../images/peshbeen_favicon_64.png" rel="icon" type="image/png">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-1351f04c0960c9fbbd71cd80c1aea282.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script src="https://cdn.jsdelivr.net/npm/requirejs@2.3.6/require.min.js" integrity="sha384-c9c+LnTbwQ3aujuU7ULEPVvgLs+Fn6fJUvIGTsuu1ZcCf11fiEubah0ttpca4ntM sha384-6V1/AdqZRWk1KAlWbKBlGhN7VG4iE/yAZcO6NZPMF8od0vukrvr0tg4qY6NSrItx" crossorigin="anonymous"></script>
+
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../styles.css">
+</head>
+
+<body class="nav-sidebar docked quarto-light"><a id="quarto-skip-link" class="visually-hidden-focusable" href="#quarto-document-content">Skip to main content</a>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav" aria-label="Toolbar">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../guide/01_model_zoo.html">Model Zoo</a></li></ol></nav>
+        <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto" aria-label="Site">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+      <a href="../index.html" class="sidebar-logo-link">
+      <img src="../images/peshbeen_logo_transparent.png" alt="" class="sidebar-logo light-content py-0 d-lg-inline d-none">
+      <img src="../images/peshbeen_logo_transparent.png" alt="" class="sidebar-logo dark-content py-0 d-lg-inline d-none">
+      </a>
+      <div class="sidebar-tools-main">
+    <a href="https://github.com/mustafaslanCoto/peshbeen" title="" class="quarto-navigation-tool px-1" aria-label=""><i class="bi bi-github"></i></a>
+</div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Quick Start</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../user_guide.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">User Guide</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../guide/01_model_zoo.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Model Zoo</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../guide/02_stationarity_detrending.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Stationarity &amp; Detrending Strategies</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../guide/03_auto_transformation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Automatic Transformations</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../guide/04_prob_forecasting.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Probabilistic Forecasting</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../guide/05_hyperparameter_tuning.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Hyperparameter Tuning</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../api/api.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">API Reference</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" aria-labelledby="toc-title" class="toc-active">
+    <h2 id="toc-title">Table of Contents</h2>
+   
+  <ul>
+  <li><a href="#models-zoo" id="toc-models-zoo" class="nav-link active" data-scroll-target="#models-zoo">Models zoo</a>
+  <ul>
+  <li><a href="#univariate-forecasters" id="toc-univariate-forecasters" class="nav-link" data-scroll-target="#univariate-forecasters">Univariate forecasters</a>
+  <ul class="collapse">
+  <li><a href="#automatic-model-selection-with-auto_arima" id="toc-automatic-model-selection-with-auto_arima" class="nav-link" data-scroll-target="#automatic-model-selection-with-auto_arima"><strong>Automatic Model Selection with <code>auto_arima</code></strong></a></li>
+  <li><a href="#direct-multi-step-forecasting-with-ml_direct_forecaster" id="toc-direct-multi-step-forecasting-with-ml_direct_forecaster" class="nav-link" data-scroll-target="#direct-multi-step-forecasting-with-ml_direct_forecaster"><strong>Direct Multi-Step Forecasting with <code>ml_direct_forecaster</code></strong></a></li>
+  <li><a href="#forecasting-with-tabpfn" id="toc-forecasting-with-tabpfn" class="nav-link" data-scroll-target="#forecasting-with-tabpfn"><strong>Forecasting with TabPFN</strong></a></li>
+  <li><a href="#forecasting-with-ms-arr-capturing-regime-changes" id="toc-forecasting-with-ms-arr-capturing-regime-changes" class="nav-link" data-scroll-target="#forecasting-with-ms-arr-capturing-regime-changes"><strong>Forecasting with MS-ARR: Capturing Regime Changes</strong></a></li>
+  <li><a href="#forecasting-count-data-with-a-glm-poisson" id="toc-forecasting-count-data-with-a-glm-poisson" class="nav-link" data-scroll-target="#forecasting-count-data-with-a-glm-poisson"><strong>Forecasting count data with a GLM (Poisson)</strong></a></li>
+  <li><a href="#combining-models-with-the-pesh-ensemble" id="toc-combining-models-with-the-pesh-ensemble" class="nav-link" data-scroll-target="#combining-models-with-the-pesh-ensemble"><strong>Combining models with the <code>pesh</code> ensemble</strong></a></li>
+  </ul></li>
+  <li><a href="#multivariate-forecasters" id="toc-multivariate-forecasters" class="nav-link" data-scroll-target="#multivariate-forecasters">Multivariate forecasters</a>
+  <ul class="collapse">
+  <li><a href="#forecasting-wide-interdependent-series-with-ml_multi_output_forecaster" id="toc-forecasting-wide-interdependent-series-with-ml_multi_output_forecaster" class="nav-link" data-scroll-target="#forecasting-wide-interdependent-series-with-ml_multi_output_forecaster"><strong>Forecasting Wide Interdependent Series with <code>ml_multi_output_forecaster</code></strong></a></li>
+  </ul></li>
+  <li><a href="#multi-series-forecasters" id="toc-multi-series-forecasters" class="nav-link" data-scroll-target="#multi-series-forecasters">Multi-series forecasters</a>
+  <ul class="collapse">
+  <li><a href="#global-panel-forecasting-with-panel_forecaster" id="toc-global-panel-forecasting-with-panel_forecaster" class="nav-link" data-scroll-target="#global-panel-forecasting-with-panel_forecaster"><strong>Global Panel Forecasting with <code>panel_forecaster</code></strong></a></li>
+  <li><a href="#cross-series-dependencies-with-ml_multi_forecaster" id="toc-cross-series-dependencies-with-ml_multi_forecaster" class="nav-link" data-scroll-target="#cross-series-dependencies-with-ml_multi_forecaster"><strong>Cross-Series Dependencies with <code>ml_multi_forecaster</code></strong></a></li>
+  </ul></li>
+  </ul></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="01_model_zoo.md"><i class="bi bi-file-code"></i>CommonMark</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content" tabindex="-1"><header id="title-block-header" class="quarto-title-block"></header>
+
+
+
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<section id="models-zoo" class="level2">
+<h2 class="anchored" data-anchor-id="models-zoo">Models zoo</h2>
+<section id="univariate-forecasters" class="level3">
+<h3 class="anchored" data-anchor-id="univariate-forecasters">Univariate forecasters</h3>
+<p>All models share a consistent interface — each accepts a target_col to specify the target series, along with any model-specific parameters. Fitting is done via .fit(df) and forecasting via .forecast(H). Exogenous variables, where supported, are passed at the forecasting step and aligned automatically. All models also expose .cross_validate() for evaluation, supporting both expanding and sliding window strategies with a configurable step size.</p>
+<p>The table below summarises the available univariate forecasters, from simple baselines to statistical and machine learning models, along with a minimal usage example for each.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th><strong>Models</strong></th>
+<th><strong>Description</strong></th>
+<th><strong>Usage Example</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Naive Forecaster</td>
+<td>A simple forecasting model that uses the last observed value or last seasonal value as the forecast.</td>
+<td><code> from peshbeen.models import naive <br> model = naive(target_col=‘target column name’, season_period=None) <br> model.fit(df) <br> forecasts = model.forecast(H=10)</code></td>
+</tr>
+<tr class="even">
+<td>ETS (Exponential Smoothing state space models)</td>
+<td>ETS forecaster that wraps the <code>statsmodels</code> implementation, allowing for easy integration and forecasting.</td>
+<td><code> from peshbeen.models import ets <br> model = ets(target_col=‘target column name’, trend=‘add’, seasonal=‘add’, seasonal_periods=12, smoothing_level=0.1, smoothing_trend=0.1, smoothing_seasonal=0.1) <br> model.fit(df) <br> forecasts = model.forecast(H=10)</code></td>
+</tr>
+<tr class="odd">
+<td>Auto ARIMA (Automatic Model Selection)</td>
+<td>Automatic ARIMA model selection implementing the Hyndman-Khandakar (2008) stepwise algorithm and grid search, with repeated KPSS stationarity tests.</td>
+<td><code> from peshbeen.models import auto_arima <br> model = auto_arima(target_col=‘target column name’, seasonal_length=12, stepwise=True) <br> model.fit(df) <br> forecasts = model.forecast(H=10)</code></td>
+</tr>
+<tr class="even">
+<td>ARIMA (AutoRegressive Integrated Moving Average)</td>
+<td>A fast, native forecaster built on vectorized NumPy and SciPy digital filtering (lfilter) with conditional sum-of-squares (CSS) and L-BFGS-B estimation.</td>
+<td><code> from peshbeen.models import arima <br> model = arima(target_col=‘target column name’, order=(1, 1, 1)) <br> model.fit(df) <br> forecasts = model.forecast(H=10)</code></td>
+</tr>
+<tr class="odd">
+<td>Machine Learning Regressors — any scikit-learn-compatible regressor, from LinearRegression, RandomForest and AdaBoost to XGBoost, LightGBM, CatBoost and TabPFN.</td>
+<td>A unified forecasting wrapper for any compatible regression model.</td>
+<td><code> from peshbeen.models import ml_forecaster <br> from sklearn.ensemble import RandomForestRegressor <br> model = ml_forecaster(target_col=‘target column name’, model=RandomForestRegressor(n_estimators=100)) <br> model.fit(df) <br> forecasts = model.forecast(H=10)</code></td>
+</tr>
+<tr class="even">
+<td>Direct Machine Learning Forecaster (<a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/direct_ml.html#ml_direct_forecaster"><code>ml_direct_forecaster</code></a>)</td>
+<td>Direct multi-step machine learning forecaster that trains an independent regressor for each step in horizon <span class="math inline">\(H\)</span>, avoiding recursive error accumulation.</td>
+<td><code> from peshbeen.models import ml_direct_forecaster <br> from lightgbm import LGBMRegressor <br> model = ml_direct_forecaster(model=LGBMRegressor(), target_col=‘target column name’, H=10, lags=[1, 2, 7]) <br> model.fit(df) <br> forecasts = model.forecast(H=10)</code></td>
+</tr>
+<tr class="odd">
+<td>MS-ARR (Markov-Switching AutoRegressive Regression)</td>
+<td>Models time series with hidden regime changes (e.g.&nbsp;recession vs.&nbsp;growth, low vs.&nbsp;high volatility) using autoregressive dynamics and optional exogenous variables.</td>
+<td><code> from peshbeen.models import ms_arr <br> model = ms_arr(target_col=‘target column name’, n_components=2, lags = 2, n_iter=100) <br> model.fit(df) <br> forecasts = model.forecast(H=10)</code></td>
+</tr>
+<tr class="even">
+<td>GLM (Generalized Linear Models)</td>
+<td>A statsmodels-backed generalization of linear regression that supports non-Gaussian response distributions — including Poisson for count data and Gamma for strictly positive, skewed data.</td>
+<td><code> from peshbeen.models import glm <br> import statsmodels.api as sm <br> model = glm(target_col=‘target column name’, family=sm.families.Poisson(), lags=2) <br> model.fit(df) <br> forecasts = model.forecast(H=10)</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Usage example</strong></p>
+<p>Regardless of whether you use ETS, ARIMA, a machine learning regressor, or any other supported model, the interface is consistent. The .forecast(H) method returns a consistent numpy array of forecasts, and the .cross_validate() method provides a standardized way to evaluate model performance across different time series and forecasting horizons.</p>
+<ul>
+<li><p><strong>Index of data:</strong> A <code>DatetimeIndex</code> (or <code>RangeIndex</code>) is required for all models to ensure proper time series handling and forecasting. The index is recommended to be at a regular frequency without any missing timestamps.</p></li>
+<li><p><strong>Target column:</strong> The <code>target_col</code> parameter specifies the name of the column in the input DataFrame that contains the time series to be forecasted.</p></li>
+</ul>
+<p>Example usage for different models are provided in cells below, demonstrating how to fit and forecast with each model type using the same dataset and target column for consistency.</p>
+<div id="941e7443" class="cell" data-execution_count="9">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.models <span class="im">import</span> naive, ets, arima, ml_forecaster</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.datasets <span class="im">import</span> load_airline_passengers</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.ensemble <span class="im">import</span> RandomForestRegressor</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> lightgbm <span class="im">import</span> LGBMRegressor</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>airline_passengers <span class="op">=</span> load_airline_passengers()</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>train_data <span class="op">=</span> airline_passengers[:<span class="op">-</span><span class="dv">12</span>]</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>test_data <span class="op">=</span> airline_passengers[<span class="op">-</span><span class="dv">12</span>:]</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">## naive</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>naive_model <span class="op">=</span> naive(target_col<span class="op">=</span><span class="st">"passengers"</span>, season_period<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>naive_model.fit(train_data)</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>naive_forecast <span class="op">=</span> naive_model.forecast(H<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="co">## ets</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>ets_model <span class="op">=</span> ets(target_col<span class="op">=</span><span class="st">"passengers"</span>, seasonal<span class="op">=</span><span class="st">"additive"</span>, trend<span class="op">=</span><span class="st">"additive"</span>, seasonal_periods<span class="op">=</span><span class="dv">12</span>,</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>                smoothing_level<span class="op">=</span><span class="fl">0.5</span>, smoothing_trend<span class="op">=</span><span class="fl">0.5</span>,smoothing_seasonal<span class="op">=</span><span class="fl">0.5</span>)</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>ets_model.fit(train_data)</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>ets_forecast <span class="op">=</span> ets_model.forecast(H<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="co">## arima</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>arima_model <span class="op">=</span> arima(target_col<span class="op">=</span><span class="st">"passengers"</span>, order<span class="op">=</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>), seasonal_order<span class="op">=</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>), seasonal_length<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>arima_model.fit(train_data)</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>arima_forecast <span class="op">=</span> arima_model.forecast(H<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="co">## random forest</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>rf_model <span class="op">=</span> ml_forecaster(target_col<span class="op">=</span><span class="st">"passengers"</span>, model<span class="op">=</span>RandomForestRegressor(n_estimators<span class="op">=</span><span class="dv">100</span>, random_state<span class="op">=</span><span class="dv">42</span>),</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>                         difference<span class="op">=</span><span class="dv">1</span>, lags<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>rf_model.fit(train_data)</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>rf_forecast <span class="op">=</span> rf_model.forecast(H<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a><span class="co">## lightgbm</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>lgbm_model <span class="op">=</span> ml_forecaster(target_col<span class="op">=</span><span class="st">"passengers"</span>, model<span class="op">=</span>LGBMRegressor(n_estimators<span class="op">=</span><span class="dv">100</span>, random_state<span class="op">=</span><span class="dv">42</span>, verbose<span class="op">=-</span><span class="dv">1</span>),</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>                           difference<span class="op">=</span><span class="dv">1</span>, lags<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>lgbm_model.fit(train_data)</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>lgbm_forecast <span class="op">=</span> lgbm_model.forecast(H<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a><span class="co">## plotting</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="dv">6</span>))</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>plt.plot(train_data.index, train_data[<span class="st">"passengers"</span>], label<span class="op">=</span><span class="st">"Train"</span>, marker<span class="op">=</span><span class="st">"o"</span>)</span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>plt.plot(test_data.index, test_data[<span class="st">"passengers"</span>], label<span class="op">=</span><span class="st">"Test"</span>, marker<span class="op">=</span><span class="st">"o"</span>)</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>plt.plot(test_data.index, naive_forecast, label<span class="op">=</span><span class="st">"Naive Forecast"</span>, marker<span class="op">=</span><span class="st">"o"</span>)</span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>plt.plot(test_data.index, ets_forecast, label<span class="op">=</span><span class="st">"ETS Forecast"</span>, marker<span class="op">=</span><span class="st">"o"</span>)</span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>plt.plot(test_data.index, arima_forecast, label<span class="op">=</span><span class="st">"ARIMA Forecast"</span>, marker<span class="op">=</span><span class="st">"o"</span>)</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>plt.plot(test_data.index, rf_forecast, label<span class="op">=</span><span class="st">"Random Forest Forecast"</span>, marker<span class="op">=</span><span class="st">"o"</span>)</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>plt.plot(test_data.index, lgbm_forecast, label<span class="op">=</span><span class="st">"LightGBM Forecast"</span>, marker<span class="op">=</span><span class="st">"o"</span>)</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Airline Passengers Forecasting"</span>)</span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"Date"</span>)</span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"Number of Passengers"</span>)</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>plt.legend()</span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>plt.grid()</span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="01_model_zoo_files/figure-html/cell-2-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<section id="automatic-model-selection-with-auto_arima" class="level4">
+<h4 class="anchored" data-anchor-id="automatic-model-selection-with-auto_arima"><strong>Automatic Model Selection with <code>auto_arima</code></strong></h4>
+<p><code>auto_arima</code> automates ARIMA and SARIMA order selection using the <strong>Hyndman-Khandakar (2008)</strong> stepwise search algorithm and repeated KPSS stationarity tests. You can inspect the top candidate models with <code>.top_models(n)</code> and extract parameter dictionaries for any candidate rank using <code>.get_orders(rank=k)</code> or <code>.best_orders</code>.</p>
+<div id="ac6bd180" class="cell" data-execution_count="10">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.models <span class="im">import</span> auto_arima</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Stepwise automatic model selection</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>auto_model <span class="op">=</span> auto_arima(target_col<span class="op">=</span><span class="st">'passengers'</span>, seasonal_length<span class="op">=</span><span class="dv">12</span>, max_p<span class="op">=</span><span class="dv">3</span>, max_q<span class="op">=</span><span class="dv">3</span>, max_P<span class="op">=</span><span class="dv">2</span>, max_Q<span class="op">=</span><span class="dv">2</span>, stepwise<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>auto_model.fit(train_data)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Summary and top candidates</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(auto_model.summary())</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'</span><span class="ch">\n</span><span class="st">Top 3 candidate models:'</span>)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>display(auto_model.top_models(<span class="dv">3</span>))</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Multi-step out-of-sample forecast</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>auto_forecast <span class="op">=</span> auto_model.forecast(H<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'</span><span class="ch">\n</span><span class="st">Selected Best Parameters:'</span>, auto_model.best_orders)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>======================================================================================
+                  Auto ARIMA Model Selection Summary
+======================================================================================
+Selection Algorithm:    Hyndman-Khandakar Stepwise Search
+Stationarity Test:      KPSS (alpha = 0.05) -&gt; d = 1
+Selected Best Model:    ARIMA(1,1,0) (0,1,0)[12]
+Include Constant:       False
+Optimized Criterion:    AICC = 900.7323
+Information Criteria:   AIC = 900.6289 | AICc = 900.7323 | BIC = 906.1871
+Models Evaluated:       14 models
+--------------------------------------------------------------------------------------
+Best Model Parameter Estimates:
+======================================================================================
+Unified Peshbeen ARIMA Model Results: SARIMAX(1,1,0)x(0,1,0,12)
+======================================================================================
+No. Observations: 132          Log-Likelihood: -448.314     AIC: 900.629   
+Sigma^2:          109.5980     Fit Time (s):   0.0032       BIC: 906.187   
+======================================================================================
+  Parameter           Estimate     Std.Err      t-stat       P&gt;|z|       [0.025   0.975]
+--------------------------------------------------------------------------------------
+  ar.L1                -0.2448      0.0901      -2.718      0.0066 **   [ -0.421  -0.068]
+  sigma2              109.5980
+--------------------------------------------------------------------------------------
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+======================================================================================
+
+Top 3 candidate models:</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">model</th>
+<th data-quarto-table-cell-role="th">constant</th>
+<th data-quarto-table-cell-role="th">criterion</th>
+<th data-quarto-table-cell-role="th">score</th>
+<th data-quarto-table-cell-role="th">aic</th>
+<th data-quarto-table-cell-role="th">aicc</th>
+<th data-quarto-table-cell-role="th">bic</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>ARIMA(1,1,0)(0,1,0)[12]</td>
+<td>False</td>
+<td>aicc</td>
+<td>900.7323</td>
+<td>900.6289</td>
+<td>900.7323</td>
+<td>906.1871</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>ARIMA(0,1,1)(0,1,0)[12]</td>
+<td>False</td>
+<td>aicc</td>
+<td>901.5245</td>
+<td>901.4211</td>
+<td>901.5245</td>
+<td>906.9793</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>ARIMA(1,1,1)(0,1,0)[12]</td>
+<td>False</td>
+<td>aicc</td>
+<td>901.8862</td>
+<td>901.6775</td>
+<td>901.8862</td>
+<td>910.0149</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Selected Best Parameters: {'order': (1, 1, 0), 'seasonal_order': (0, 1, 0), 'seasonal_length': 12, 'include_constant': False}</code></pre>
+</div>
+</div>
+</section>
+<section id="direct-multi-step-forecasting-with-ml_direct_forecaster" class="level4">
+<h4 class="anchored" data-anchor-id="direct-multi-step-forecasting-with-ml_direct_forecaster"><strong>Direct Multi-Step Forecasting with <a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/direct_ml.html#ml_direct_forecaster"><code>ml_direct_forecaster</code></a></strong></h4>
+<p>Standard machine learning forecasters (<a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ml_forecast.html#ml_forecaster"><code>ml_forecaster</code></a>) use a <strong>recursive</strong> strategy: they predict horizon <span class="math inline">\(h=1\)</span>, append that prediction as a new lag, and step forward iteratively to predict <span class="math inline">\(h=2, 3, \dots, H\)</span>. While flexible, recursive forecasting can accumulate prediction errors over long horizons.</p>
+<p><a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/direct_ml.html#ml_direct_forecaster"><code>ml_direct_forecaster</code></a> uses a <strong>direct multi-step</strong> strategy: it trains a dedicated regressor for each individual horizon step <span class="math inline">\(h \in \{1, \dots, H\}\)</span>. Each model is optimized specifically for its forecast lead time directly from observed historical features, preventing error compounding.</p>
+<div id="direct_ml_code" class="cell" data-execution_count="11">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.models <span class="im">import</span> ml_direct_forecaster</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.datasets <span class="im">import</span> load_airline_passengers</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> lightgbm <span class="im">import</span> LGBMRegressor</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>pax <span class="op">=</span> load_airline_passengers()</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>pax_train <span class="op">=</span> pax[:<span class="op">-</span><span class="dv">12</span>]</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>pax_test <span class="op">=</span> pax[<span class="op">-</span><span class="dv">12</span>:]</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Direct forecaster: trains independent models, one per horizon step up to H=12</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>direct_model <span class="op">=</span> ml_direct_forecaster(</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    model<span class="op">=</span>LGBMRegressor(n_estimators<span class="op">=</span><span class="dv">50</span>, random_state<span class="op">=</span><span class="dv">42</span>, verbose<span class="op">=-</span><span class="dv">1</span>),</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    target_col<span class="op">=</span><span class="st">'passengers'</span>,</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    H<span class="op">=</span><span class="dv">12</span>,</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    lags<span class="op">=</span><span class="dv">12</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>direct_model.fit(pax_train)</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>direct_fc <span class="op">=</span> direct_model.forecast(H<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Direct ML forecasts (H=12):"</span>, direct_fc[:<span class="dv">5</span>])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Direct ML forecasts (H=12): [385.82705361 392.99494058 419.0278088  420.87151715 432.4001238 ]</code></pre>
+</div>
+</div>
+</section>
+<section id="forecasting-with-tabpfn" class="level4">
+<h4 class="anchored" data-anchor-id="forecasting-with-tabpfn"><strong>Forecasting with TabPFN</strong></h4>
+<p>TabPFN is a powerful transformer-based model designed for tabular data. <a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ml_forecast.html#ml_forecaster"><code>ml_forecaster</code></a> provides a wrapper to use TabPFN for time series forecasting by treating the problem as a regression task. Below is an example of how to use TabPFN for forecasting with the <a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ml_forecast.html#ml_forecaster"><code>ml_forecaster</code></a> wrapper.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> tabpfn_client</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> tabpfn_client <span class="im">import</span> TabPFNRegressor, set_access_token</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>TABPFN_TOKEN <span class="op">=</span> <span class="st">"ENTER_YOUR_TOKEN_HERE"</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>tabpfn_client.set_access_token(TABPFN_TOKEN)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>tabpfn_model <span class="op">=</span> ml_forecaster(target_col<span class="op">=</span><span class="st">"passengers"</span>, model<span class="op">=</span>TabPFNRegressor(), lags<span class="op">=</span><span class="dv">12</span>, difference<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>tabpfn_model.fit(train_data)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>tabpfn_forecast <span class="op">=</span> tabpfn_model.forecast(H<span class="op">=</span><span class="dv">12</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="forecasting-with-ms-arr-capturing-regime-changes" class="level4">
+<h4 class="anchored" data-anchor-id="forecasting-with-ms-arr-capturing-regime-changes"><strong>Forecasting with MS-ARR: Capturing Regime Changes</strong></h4>
+<p>Models like ARIMA or Random Forest assume the “rules” of a time series are constant. However, real-world data often undergoes structural shifts—moving between a high-volatility “crisis” mode and a stable “growth” mode.</p>
+<p>While the models above assume a stable relationship over time, real-world data sometimes exhibits regime changes. Peshbeen includes native support for MS-ARR to model these “regime changes” (e.g., shifting from a high-volatility to a low-volatility state) explicitly. MS-ARR models capture these dynamics by allowing the time series to switch between different hidden regimes, each with its own autoregressive structure.</p>
+<p><strong>How it Works: The Hidden Dynamics</strong></p>
+<p>The AR-MSR model in peshbeen is defined by four core components:Regime-Dependent Dynamics: In each regime <span class="math inline">\(r\)</span>, the process follows a unique autoregressive structure:</p>
+<p><span class="math display">\[
+y_t \mid (r_t = r) = \beta_{0}^{(r)} + \sum_{i=1}^{p} \beta_{i}^{(r)} y_{t-i} + \sum_{m=1}^{M} \beta_{m}^{(r)} X_{tm} + \epsilon_t, \quad \epsilon_t \sim \mathcal{N}(0, \sigma_r^2)
+\]</span></p>
+<p><span class="math inline">\(y_t\)</span> is the target variable at time <span class="math inline">\(t\)</span>, <span class="math inline">\(X_{tm}\)</span> are optional exogenous variables, and <span class="math inline">\(\epsilon_t\)</span> is the error term. The intercept (<span class="math inline">\(\beta_0\)</span>), coefficients (<span class="math inline">\(\beta_i\)</span>), and volatility (<span class="math inline">\(\sigma_r^2\)</span>) all adapt to the specific regime.</p>
+<p><strong>Transition Probability Matrix (<span class="math inline">\(\mathbf{P}\)</span>):</strong> The model learns the probability of moving from one regime to another. For a 2-regime model, the matrix <span class="math inline">\(\mathbf{P}\)</span> looks like this:</p>
+<p><span class="math display">\[
+\mathbf{P} = \begin{pmatrix} p_{11} &amp; p_{12} \\ p_{21} &amp; p_{22} \end{pmatrix}
+\]</span></p>
+<p>where <span class="math inline">\(p_{ij}\)</span> is the probability of transitioning from regime <span class="math inline">\(i\)</span> to regime <span class="math inline">\(j\)</span>. This captures the “stickiness” of states (e.g., how likely a recession is to continue into the next period).</p>
+<p><strong>Estimation via EM (Expectation-Maximization) Algorithm:</strong> The model parameters are estimated using the EM algorithm, which iteratively refines estimates of the hidden states and the model parameters until convergence. Under the hood, peshbeen calculates the transition matrix and the filtered probabilities (the likelihood of being in a state at any given time) using the Baum-Welch algorithm. This uses a Forward-Backward pass to efficiently find the Maximum Likelihood Estimates (MLE) for the hidden Markov process.</p>
+<p><strong>The Markov Property:</strong> Transitions depend only on the current state, not the entire history. This allows the model to remain computationally efficient even as the complexity of the data increases.</p>
+<p><strong>Why use MS-ARR in Peshbeen?</strong></p>
+<ul>
+<li><p><strong>Capture Non-Linearity:</strong> It models complex shifts that ARIMA or standard ML models might miss.</p></li>
+<li><p><strong>Regime Inference:</strong> Use <code>model.predict_states()</code> to see a historical timeline of when your series was likely in each regime. Use <code>model.predict_proba()</code> to get the probability of being in each regime at any point in time.</p></li>
+<li><p><strong>Adaptive Forecasting:</strong> The forecast accounts for the probability of a regime shift occurring during the forecast horizon <span class="math inline">\(H\)</span>.</p></li>
+</ul>
+<div id="08b7b2f4" class="cell" data-execution_count="12">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co">## Create a sales series with regime switches</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">42</span>)</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>n <span class="op">=</span> <span class="dv">300</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>dates <span class="op">=</span> pd.date_range(start<span class="op">=</span><span class="st">"2000-01-01"</span>, periods<span class="op">=</span>n, freq<span class="op">=</span><span class="st">"ME"</span>)</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Define hidden regimes (Regime 0 is "Stable", Regime 1 is "High")</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>regime_switches <span class="op">=</span> np.zeros(n)</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">1</span>, n):</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Create persistent regimes (90% chance to stay in current state)</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> regime_switches[i<span class="op">-</span><span class="dv">1</span>] <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>        regime_switches[i] <span class="op">=</span> np.random.choice([<span class="dv">0</span>, <span class="dv">1</span>], p<span class="op">=</span>[<span class="fl">0.9</span>, <span class="fl">0.1</span>])</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>        regime_switches[i] <span class="op">=</span> np.random.choice([<span class="dv">0</span>, <span class="dv">1</span>], p<span class="op">=</span>[<span class="fl">0.2</span>, <span class="fl">0.8</span>])</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>series <span class="op">=</span> np.zeros(n)</span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate data with AR(1) logic based on the current regime</span></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> t <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">1</span>, n):</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> regime_switches[t] <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Regime 0: Low mean, high lag dependency</span></span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>        series[t] <span class="op">=</span> <span class="dv">5</span> <span class="op">+</span> <span class="fl">0.8</span> <span class="op">*</span> series[t<span class="op">-</span><span class="dv">1</span>] <span class="op">+</span> np.random.normal(<span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Regime 1: High mean, low lag dependency</span></span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>        series[t] <span class="op">=</span> <span class="dv">25</span> <span class="op">+</span> <span class="fl">0.2</span> <span class="op">*</span> series[t<span class="op">-</span><span class="dv">1</span>] <span class="op">+</span> np.random.normal(<span class="dv">0</span>, <span class="dv">3</span>)</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>ms_data <span class="op">=</span> pd.DataFrame({<span class="st">"sales"</span>: series}, index<span class="op">=</span>dates)</span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>train_ms <span class="op">=</span>  ms_data.iloc[:<span class="op">-</span><span class="dv">30</span>]</span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>test_ms <span class="op">=</span> ms_data.iloc[<span class="op">-</span><span class="dv">30</span>:]</span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.models <span class="im">import</span> ms_arr</span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a>ms_arr_model <span class="op">=</span> ms_arr(target_col<span class="op">=</span><span class="st">"sales"</span>, n_components<span class="op">=</span><span class="dv">2</span>, lags<span class="op">=</span><span class="dv">2</span>, add_constant<span class="op">=</span><span class="va">True</span>, n_iter<span class="op">=</span><span class="dv">50</span>, tol<span class="op">=</span><span class="fl">1e-4</span>, random_state<span class="op">=</span><span class="dv">42</span>)</span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a>ms_arr_model.fit(train_ms)</span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a>ms_arr_forecast <span class="op">=</span> ms_arr_model.forecast(H<span class="op">=</span><span class="dv">30</span>)</span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a>regime_probs <span class="op">=</span> ms_arr_model.predict_proba()</span>
+<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a><span class="co">## also  create linear regression forecasts for comparison</span></span>
+<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.linear_model <span class="im">import</span> LinearRegression</span>
+<span id="cb8-42"><a href="#cb8-42" aria-hidden="true" tabindex="-1"></a>lr_model <span class="op">=</span> ml_forecaster(target_col<span class="op">=</span><span class="st">"sales"</span>, model<span class="op">=</span>LinearRegression(), lags<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb8-43"><a href="#cb8-43" aria-hidden="true" tabindex="-1"></a>lr_model.fit(train_ms)</span>
+<span id="cb8-44"><a href="#cb8-44" aria-hidden="true" tabindex="-1"></a>lr_forecast <span class="op">=</span> lr_model.forecast(H<span class="op">=</span><span class="dv">30</span>)</span>
+<span id="cb8-45"><a href="#cb8-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb8-47"><a href="#cb8-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-48"><a href="#cb8-48" aria-hidden="true" tabindex="-1"></a>fig, ax1 <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">14</span>, <span class="dv">7</span>))</span>
+<span id="cb8-49"><a href="#cb8-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-50"><a href="#cb8-50" aria-hidden="true" tabindex="-1"></a><span class="co"># Get regime probabilities</span></span>
+<span id="cb8-51"><a href="#cb8-51" aria-hidden="true" tabindex="-1"></a>regime_probs_train <span class="op">=</span> ms_arr_model.predict_proba()</span>
+<span id="cb8-52"><a href="#cb8-52" aria-hidden="true" tabindex="-1"></a><span class="co"># `forecast_forward` is populated by the .forecast(H) call above: an (n_regimes, H) array of</span></span>
+<span id="cb8-53"><a href="#cb8-53" aria-hidden="true" tabindex="-1"></a><span class="co"># regime probabilities over the forecast horizon. Row 0 -&gt; Regime 0, row 1 -&gt; Regime 1.</span></span>
+<span id="cb8-54"><a href="#cb8-54" aria-hidden="true" tabindex="-1"></a>regime_probs_forecast <span class="op">=</span> ms_arr_model.forecast_forward</span>
+<span id="cb8-55"><a href="#cb8-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-56"><a href="#cb8-56" aria-hidden="true" tabindex="-1"></a><span class="co"># No lag offset needed - already aligned with full training data!</span></span>
+<span id="cb8-57"><a href="#cb8-57" aria-hidden="true" tabindex="-1"></a>n_train_tail <span class="op">=</span> <span class="dv">100</span></span>
+<span id="cb8-58"><a href="#cb8-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-59"><a href="#cb8-59" aria-hidden="true" tabindex="-1"></a><span class="co"># Get tail of training data and regime probs</span></span>
+<span id="cb8-60"><a href="#cb8-60" aria-hidden="true" tabindex="-1"></a>train_dates_tail <span class="op">=</span> train_ms.index[<span class="op">-</span>n_train_tail:]</span>
+<span id="cb8-61"><a href="#cb8-61" aria-hidden="true" tabindex="-1"></a>train_sales_tail <span class="op">=</span> train_ms[<span class="st">"sales"</span>].values[<span class="op">-</span>n_train_tail:]</span>
+<span id="cb8-62"><a href="#cb8-62" aria-hidden="true" tabindex="-1"></a>regime_probs_tail <span class="op">=</span> [regime_probs_train[<span class="dv">0</span>][<span class="op">-</span>n_train_tail:], </span>
+<span id="cb8-63"><a href="#cb8-63" aria-hidden="true" tabindex="-1"></a>                     regime_probs_train[<span class="dv">1</span>][<span class="op">-</span>n_train_tail:]]</span>
+<span id="cb8-64"><a href="#cb8-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-65"><a href="#cb8-65" aria-hidden="true" tabindex="-1"></a><span class="co"># Combine with forecast</span></span>
+<span id="cb8-66"><a href="#cb8-66" aria-hidden="true" tabindex="-1"></a>dates_full <span class="op">=</span> <span class="bu">list</span>(train_dates_tail) <span class="op">+</span> <span class="bu">list</span>(test_ms.index)</span>
+<span id="cb8-67"><a href="#cb8-67" aria-hidden="true" tabindex="-1"></a>regime_probs_full <span class="op">=</span> [np.concatenate([regime_probs_tail[<span class="dv">0</span>], regime_probs_forecast[<span class="dv">0</span>]]),</span>
+<span id="cb8-68"><a href="#cb8-68" aria-hidden="true" tabindex="-1"></a>                     np.concatenate([regime_probs_tail[<span class="dv">1</span>], regime_probs_forecast[<span class="dv">1</span>]])]</span>
+<span id="cb8-69"><a href="#cb8-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-70"><a href="#cb8-70" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot the time series on primary axis</span></span>
+<span id="cb8-71"><a href="#cb8-71" aria-hidden="true" tabindex="-1"></a>ax1.plot(train_dates_tail, train_sales_tail, </span>
+<span id="cb8-72"><a href="#cb8-72" aria-hidden="true" tabindex="-1"></a>         label<span class="op">=</span><span class="st">"Train"</span>, color<span class="op">=</span><span class="st">"C0"</span>, linewidth<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb8-73"><a href="#cb8-73" aria-hidden="true" tabindex="-1"></a>ax1.plot(test_ms.index, test_ms[<span class="st">"sales"</span>], </span>
+<span id="cb8-74"><a href="#cb8-74" aria-hidden="true" tabindex="-1"></a>         label<span class="op">=</span><span class="st">"Test (Actual)"</span>, color<span class="op">=</span><span class="st">"C1"</span>, linewidth<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb8-75"><a href="#cb8-75" aria-hidden="true" tabindex="-1"></a>ax1.plot(test_ms.index, ms_arr_forecast, </span>
+<span id="cb8-76"><a href="#cb8-76" aria-hidden="true" tabindex="-1"></a>         label<span class="op">=</span><span class="st">"MS-AR(2) Forecast"</span>, color<span class="op">=</span><span class="st">"C2"</span>, linestyle<span class="op">=</span><span class="st">'--'</span>, linewidth<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb8-77"><a href="#cb8-77" aria-hidden="true" tabindex="-1"></a>ax1.plot(test_ms.index, lr_forecast, </span>
+<span id="cb8-78"><a href="#cb8-78" aria-hidden="true" tabindex="-1"></a>         label<span class="op">=</span><span class="st">"Linear Regression Forecast"</span>, color<span class="op">=</span><span class="st">"C3"</span>, linestyle<span class="op">=</span><span class="st">'--'</span>, linewidth<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb8-79"><a href="#cb8-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-80"><a href="#cb8-80" aria-hidden="true" tabindex="-1"></a>ax1.set_ylabel(<span class="st">"Sales"</span>, fontsize<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb8-81"><a href="#cb8-81" aria-hidden="true" tabindex="-1"></a>ax1.set_xlabel(<span class="st">"Date"</span>, fontsize<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb8-82"><a href="#cb8-82" aria-hidden="true" tabindex="-1"></a>ax1.legend(loc<span class="op">=</span><span class="st">"upper left"</span>, fontsize<span class="op">=</span><span class="dv">10</span>)</span>
+<span id="cb8-83"><a href="#cb8-83" aria-hidden="true" tabindex="-1"></a>ax1.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
+<span id="cb8-84"><a href="#cb8-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-85"><a href="#cb8-85" aria-hidden="true" tabindex="-1"></a><span class="co"># Overlay regime probabilities as stacked area</span></span>
+<span id="cb8-86"><a href="#cb8-86" aria-hidden="true" tabindex="-1"></a>ax2 <span class="op">=</span> ax1.twinx()</span>
+<span id="cb8-87"><a href="#cb8-87" aria-hidden="true" tabindex="-1"></a>ax2.stackplot(dates_full,</span>
+<span id="cb8-88"><a href="#cb8-88" aria-hidden="true" tabindex="-1"></a>              regime_probs_full[<span class="dv">0</span>], </span>
+<span id="cb8-89"><a href="#cb8-89" aria-hidden="true" tabindex="-1"></a>              regime_probs_full[<span class="dv">1</span>],</span>
+<span id="cb8-90"><a href="#cb8-90" aria-hidden="true" tabindex="-1"></a>              labels<span class="op">=</span>[<span class="st">'Regime 0'</span>, <span class="st">'Regime 1'</span>], </span>
+<span id="cb8-91"><a href="#cb8-91" aria-hidden="true" tabindex="-1"></a>              alpha<span class="op">=</span><span class="fl">0.25</span>, </span>
+<span id="cb8-92"><a href="#cb8-92" aria-hidden="true" tabindex="-1"></a>              colors<span class="op">=</span>[<span class="st">'C2'</span>, <span class="st">'C3'</span>])</span>
+<span id="cb8-93"><a href="#cb8-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-94"><a href="#cb8-94" aria-hidden="true" tabindex="-1"></a>ax2.set_ylabel(<span class="st">"Regime Probability"</span>, fontsize<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb8-95"><a href="#cb8-95" aria-hidden="true" tabindex="-1"></a>ax2.set_ylim(<span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb8-96"><a href="#cb8-96" aria-hidden="true" tabindex="-1"></a>ax2.legend(loc<span class="op">=</span><span class="st">"upper right"</span>, fontsize<span class="op">=</span><span class="dv">10</span>)</span>
+<span id="cb8-97"><a href="#cb8-97" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-98"><a href="#cb8-98" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Markov Switching AR(2) with Regime Probabilities"</span>, fontsize<span class="op">=</span><span class="dv">14</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb8-99"><a href="#cb8-99" aria-hidden="true" tabindex="-1"></a>plt.setp(ax1.get_xticklabels(), rotation<span class="op">=</span><span class="dv">45</span>, ha<span class="op">=</span><span class="st">"right"</span>)</span>
+<span id="cb8-100"><a href="#cb8-100" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb8-101"><a href="#cb8-101" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="01_model_zoo_files/figure-html/cell-5-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="forecasting-count-data-with-a-glm-poisson" class="level4">
+<h4 class="anchored" data-anchor-id="forecasting-count-data-with-a-glm-poisson"><strong>Forecasting count data with a GLM (Poisson)</strong></h4>
+<p>For non-negative count series — hospital admissions, call volumes, demand — a Poisson (or Gamma) GLM is often a better fit than a Gaussian model. peshbeen’s <a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/glm.html#glm"><code>glm</code></a> wraps <code>statsmodels</code> and takes a <code>family</code> <strong>object</strong> (not a string), e.g.&nbsp;<code>sm.families.Poisson()</code> for counts or <code>sm.families.Gamma()</code> for strictly positive, skewed data. It supports the same <code>lags</code> / <code>difference</code> / <code>trend</code> / <code>box_cox</code> interface as the other models, and exposes information criteria (<code>.aic</code>, <code>.bic</code>, <code>.hqc</code>) for model comparison.</p>
+<div id="599d5b0b" class="cell" data-execution_count="13">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.models <span class="im">import</span> glm</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> statsmodels.api <span class="im">as</span> sm</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="co">## generate a counted series with calendar effects and lags, to demonstrate Poisson GLM</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>df_count <span class="op">=</span> pd.DataFrame({<span class="st">"count"</span>: np.random.poisson(lam<span class="op">=</span><span class="dv">10</span>, size<span class="op">=</span><span class="dv">200</span>)}, </span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>                        index<span class="op">=</span>pd.date_range(start<span class="op">=</span><span class="st">"2020-01-01"</span>, periods<span class="op">=</span><span class="dv">200</span>, freq<span class="op">=</span><span class="st">"D"</span>))</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>df_count[<span class="st">"day_of_week"</span>] <span class="op">=</span> df_count.index.dayofweek</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>df_count[<span class="st">"month"</span>] <span class="op">=</span> df_count.index.month</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>glm_cat <span class="op">=</span> [<span class="st">"day_of_week"</span>, <span class="st">"month"</span>]</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a><span class="co"># daily emergency-admission counts in Wales</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>glm_cat <span class="op">=</span> [<span class="st">"day_of_week"</span>, <span class="st">"month"</span>]</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>glm_train <span class="op">=</span> df_count.iloc[:<span class="op">-</span><span class="dv">30</span>]</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>glm_test <span class="op">=</span> df_count.iloc[<span class="op">-</span><span class="dv">30</span>:]</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.preprocessing <span class="im">import</span> OneHotEncoder</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>ohe <span class="op">=</span> OneHotEncoder(drop<span class="op">=</span><span class="st">'first'</span>, sparse_output<span class="op">=</span><span class="va">False</span>, handle_unknown<span class="op">=</span><span class="st">"ignore"</span>)</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a><span class="co"># Poisson GLM for count data, with weekly lags and calendar features</span></span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>poisson_model <span class="op">=</span> glm(family<span class="op">=</span>sm.families.Poisson(), target_col<span class="op">=</span><span class="st">"count"</span>,</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>                    lags<span class="op">=</span><span class="dv">6</span>, cat_variables<span class="op">=</span>glm_cat, categorical_encoder<span class="op">=</span>ohe)</span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>poisson_model.fit(df_count)</span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>poisson_forecast <span class="op">=</span> poisson_model.forecast(H<span class="op">=</span><span class="dv">30</span>, exog<span class="op">=</span>df_count[glm_cat])</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="dv">6</span>))</span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>plt.plot(df_count.index[<span class="op">-</span><span class="dv">90</span>:], df_count[<span class="st">"count"</span>][<span class="op">-</span><span class="dv">90</span>:], label<span class="op">=</span><span class="st">"Train"</span>)</span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>plt.plot(df_count.index[<span class="op">-</span><span class="dv">30</span>:], df_count[<span class="st">"count"</span>][<span class="op">-</span><span class="dv">30</span>:], label<span class="op">=</span><span class="st">"Test"</span>)</span>
+<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a>plt.plot(df_count.index[<span class="op">-</span><span class="dv">30</span>:], poisson_forecast, label<span class="op">=</span><span class="st">"Poisson GLM Forecast"</span>)</span>
+<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Poisson GLM forecast of daily counts"</span>)</span>
+<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"Date"</span>)</span>
+<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"Counts"</span>)</span>
+<span id="cb9-35"><a href="#cb9-35" aria-hidden="true" tabindex="-1"></a>plt.legend()</span>
+<span id="cb9-36"><a href="#cb9-36" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="01_model_zoo_files/figure-html/cell-6-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="combining-models-with-the-pesh-ensemble" class="level4">
+<h4 class="anchored" data-anchor-id="combining-models-with-the-pesh-ensemble"><strong>Combining models with the <a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/herne_pesh.html#pesh"><code>pesh</code></a> ensemble</strong></h4>
+<p><a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/herne_pesh.html#pesh"><code>pesh</code></a> combines several fitted models behind the same <code>.fit</code> / <code>.forecast</code> interface. The combination weights can be <strong>equal</strong> (<code>weighting_scheme=None</code>), <strong>user-specified</strong> (a dict that sums to 1), or <strong>optimised to minimise a chosen metric</strong>. To optimise the weights, call <code>cross_validate(..., weighting_scheme="optimize")</code> — the optimal weights are then stored in <code>self.optimal_weights_</code> and can be passed back into a new <a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/herne_pesh.html#pesh"><code>pesh</code></a> instance. <code>forecast(H)</code> returns a DataFrame with one column per member model plus a combined <code>"pesh"</code> column.</p>
+<div id="e8e7ad83" class="cell" data-execution_count="14">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.models <span class="im">import</span> ets, arima, ml_forecaster, pesh</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.datasets <span class="im">import</span> load_airline_passengers</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.metrics <span class="im">import</span> RMSE</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> lightgbm <span class="im">import</span> LGBMRegressor</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>pax <span class="op">=</span> load_airline_passengers()</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>pesh_train <span class="op">=</span> pax[:<span class="op">-</span><span class="dv">12</span>]</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>pesh_test <span class="op">=</span> pax[<span class="op">-</span><span class="dv">12</span>:]</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="co"># build the member models (note: ml_forecaster uses model=, not estimator=)</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>members <span class="op">=</span> {</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">"ets"</span>:   ets(target_col<span class="op">=</span><span class="st">"passengers"</span>, seasonal<span class="op">=</span><span class="st">"additive"</span>, trend<span class="op">=</span><span class="st">"additive"</span>,</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>                 seasonal_periods<span class="op">=</span><span class="dv">12</span>, smoothing_level<span class="op">=</span><span class="fl">0.5</span>, smoothing_trend<span class="op">=</span><span class="fl">0.5</span>, smoothing_seasonal<span class="op">=</span><span class="fl">0.5</span>),</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>    <span class="st">"arima"</span>: arima(target_col<span class="op">=</span><span class="st">"passengers"</span>, order<span class="op">=</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>), seasonal_order<span class="op">=</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>), seasonal_length<span class="op">=</span><span class="dv">12</span>),</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">"lgbm"</span>:  ml_forecaster(target_col<span class="op">=</span><span class="st">"passengers"</span>,</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>                           model<span class="op">=</span>LGBMRegressor(n_estimators<span class="op">=</span><span class="dv">100</span>, random_state<span class="op">=</span><span class="dv">42</span>, verbose<span class="op">=-</span><span class="dv">1</span>),</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>                           difference<span class="op">=</span><span class="dv">1</span>, lags<span class="op">=</span><span class="dv">12</span>),</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a><span class="co"># 1) optimise the ensemble weights via cross-validation, then read them back</span></span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>weight_finder <span class="op">=</span> pesh(models<span class="op">=</span>{k: m.copy() <span class="cf">for</span> k, m <span class="kw">in</span> members.items()})</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>cv_results <span class="op">=</span> weight_finder.cross_validate(df<span class="op">=</span>pesh_train, cv_split<span class="op">=</span><span class="dv">3</span>, test_size<span class="op">=</span><span class="dv">12</span>,</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>                                          metrics<span class="op">=</span>[RMSE], weighting_scheme<span class="op">=</span><span class="st">"optimize"</span>)</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>opt_weights <span class="op">=</span> weight_finder.optimal_weights_</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a><span class="co"># optimal_weights_ also contains a "pesh" key for the combined column; keep only member weights</span></span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>opt_weights <span class="op">=</span> {k: v <span class="cf">for</span> k, v <span class="kw">in</span> opt_weights.items() <span class="cf">if</span> k <span class="kw">in</span> members}</span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Optimised weights:"</span>, opt_weights)</span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a><span class="co"># 2) fit a fresh ensemble with the optimised weights and forecast</span></span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>ensemble <span class="op">=</span> pesh(models<span class="op">=</span>members, weighting_scheme<span class="op">=</span>opt_weights)</span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>ensemble.fit(pesh_train)</span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>ensemble_forecast <span class="op">=</span> ensemble.forecast(H<span class="op">=</span><span class="dv">12</span>)   <span class="co"># DataFrame: one column per model + 'pesh'</span></span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="dv">6</span>))</span>
+<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a>plt.plot(pesh_train.index[<span class="op">-</span><span class="dv">36</span>:], pesh_train[<span class="st">"passengers"</span>][<span class="op">-</span><span class="dv">36</span>:], label<span class="op">=</span><span class="st">"Train"</span>)</span>
+<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a>plt.plot(pesh_test.index, pesh_test[<span class="st">"passengers"</span>], label<span class="op">=</span><span class="st">"Test"</span>)</span>
+<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a>plt.plot(pesh_test.index, ensemble_forecast[<span class="st">"pesh"</span>], label<span class="op">=</span><span class="st">"pesh ensemble"</span>, linewidth<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> name <span class="kw">in</span> members:</span>
+<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a>    plt.plot(pesh_test.index, ensemble_forecast[name], linestyle<span class="op">=</span><span class="st">"--"</span>, alpha<span class="op">=</span><span class="fl">0.6</span>, label<span class="op">=</span>name)</span>
+<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Weighted ensemble (pesh) vs. its members"</span>)</span>
+<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"Date"</span>)</span>
+<span id="cb10-43"><a href="#cb10-43" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"Passengers"</span>)</span>
+<span id="cb10-44"><a href="#cb10-44" aria-hidden="true" tabindex="-1"></a>plt.legend()</span>
+<span id="cb10-45"><a href="#cb10-45" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Optimised weights: {'ets': np.float64(0.0), 'arima': np.float64(1.0), 'lgbm': np.float64(6.228351168147128e-14)}</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="01_model_zoo_files/figure-html/cell-7-output-2.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="multivariate-forecasters" class="level3">
+<h3 class="anchored" data-anchor-id="multivariate-forecasters">Multivariate forecasters</h3>
+<blockquote class="blockquote">
+<p><strong>Differentiating Forecasters Across Multiple Series:</strong></p>
+<ul>
+<li><strong>Wide Multivariate Forecasters (<a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/multi_output.html#ml_multi_output_forecaster"><code>ml_multi_output_forecaster</code></a>, <a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/var.html#var"><code>var</code></a>, <a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ms_var.html#ms_var"><code>ms_var</code></a>):</strong>
+<ul>
+<li><strong>Data format:</strong> Expect <strong>wide format</strong> data — a DataFrame where each column is an endogenous target series (<code>target_cols = ['series_1', 'series_2', ...]</code>) sharing identical timestamps on a common DatetimeIndex.</li>
+<li><strong>Mechanism:</strong> Model simultaneous feedback, cross-variable lag interactions, and joint system dynamics where past values of series A directly inform series B and vice versa.</li>
+<li><strong>Trade-offs:</strong> Highly effective for capturing rich feedback loops between a small-to-moderate set of interdependent series (e.g., price and demand, interest rate and inflation). However, because feature dimensionality scales with <span class="math inline">\(K \times L\)</span> (number of series <span class="math inline">\(\times\)</span> lags), wide models are not intended for scaling to hundreds or thousands of series.</li>
+</ul></li>
+<li><strong>Multi-Series Forecasters (<a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/panel_forecast.html#panel_forecaster"><code>panel_forecaster</code></a>, <a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ml_multi_forecast.html#ml_multi_forecaster"><code>ml_multi_forecaster</code></a>):</strong>
+<ul>
+<li><strong>Data format:</strong> Expect <strong>long (panel) format</strong> data — a DataFrame with an entity ID column (<code>id_col</code>), a target column (<code>target_col</code>), and timestamps.</li>
+<li><strong>Mechanism &amp; Scaling:</strong> Discussed in detail in the Multi-series section below.</li>
+</ul></li>
+</ul>
+</blockquote>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th><strong>Models</strong></th>
+<th><strong>Description</strong></th>
+<th><strong>Usage Example</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/multi_output.html#ml_multi_output_forecaster"><code>ml_multi_output_forecaster</code></a></td>
+<td>Wide machine learning forecaster supporting multi-output regressors (e.g.&nbsp;<code>RandomForestRegressor</code>, <code>MultiOutputRegressor(LGBMRegressor())</code>) across multiple target series with automatic lag and transformation engineering.</td>
+<td><code> from peshbeen.models import ml_multi_output_forecaster <br> model = ml_multi_output_forecaster(RandomForestRegressor(), target_cols=[‘interest’, ‘inflation’], lags=4) <br> model.fit(df) <br> fc = model.forecast(H=12) </code></td>
+</tr>
+<tr class="even">
+<td><a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/var.html#var"><code>var</code></a> (Vector AutoRegression)</td>
+<td>Vector autoregression modeling linear interdependencies across wide target series, with per-series lag structure control.</td>
+<td><code> from peshbeen.models import var <br> model = var(target_cols=[‘col1’, ‘col2’], lags={‘col1’: 2, ‘col2’: [1, 2, 7]}) <br> model.fit(df) <br> forecasts = model.forecast(H=10) </code></td>
+</tr>
+<tr class="odd">
+<td><a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ms_var.html#ms_var"><code>ms_var</code></a> (Markov-Switching VAR)</td>
+<td>Multivariate extension of MS-ARR modeling joint series dynamics across discrete hidden regimes.</td>
+<td><code> from peshbeen.models import ms_var <br> model = ms_var(target_cols=[‘col1’, ‘col2’], n_components=2, lags={‘col1’: 2, ‘col2’: [1, 2, 7]}) <br> model.fit(df) <br> forecasts = model.forecast(H=10) </code></td>
+</tr>
+</tbody>
+</table>
+<section id="forecasting-wide-interdependent-series-with-ml_multi_output_forecaster" class="level4">
+<h4 class="anchored" data-anchor-id="forecasting-wide-interdependent-series-with-ml_multi_output_forecaster"><strong>Forecasting Wide Interdependent Series with <a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/multi_output.html#ml_multi_output_forecaster"><code>ml_multi_output_forecaster</code></a></strong></h4>
+<p>When forecasting multiple interconnected economic or operational series stored in wide format (such as interest rates and inflation), <a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/multi_output.html#ml_multi_output_forecaster"><code>ml_multi_output_forecaster</code></a> uses multi-target regressors (such as <code>RandomForestRegressor</code>, <code>LinearRegression</code>, or <code>MultiOutputRegressor(LGBMRegressor())</code>) to predict all series jointly from shared cross-series lags:</p>
+<div id="ml_multi_output_example_code" class="cell" data-execution_count="15">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.datasets <span class="im">import</span> load_interest_inflation</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.models <span class="im">import</span> ml_multi_output_forecaster</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.ensemble <span class="im">import</span> RandomForestRegressor</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>macro_data <span class="op">=</span> load_interest_inflation()</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>train_macro <span class="op">=</span> macro_data.iloc[:<span class="op">-</span><span class="dv">12</span>]</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>test_macro <span class="op">=</span> macro_data.iloc[<span class="op">-</span><span class="dv">12</span>:]</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Wide multi-output model: joint forecasting of interest rate and inflation</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>mo_model <span class="op">=</span> ml_multi_output_forecaster(</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    model<span class="op">=</span>RandomForestRegressor(n_estimators<span class="op">=</span><span class="dv">50</span>, random_state<span class="op">=</span><span class="dv">42</span>),</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>    target_cols<span class="op">=</span>[<span class="st">'interest'</span>, <span class="st">'inflation'</span>],</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>    lags<span class="op">=</span><span class="dv">4</span></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>mo_model.fit(train_macro)</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>macro_forecasts <span class="op">=</span> mo_model.forecast(H<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Forecasted interest rates:"</span>, macro_forecasts[<span class="st">'interest'</span>][:<span class="dv">4</span>])</span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Forecasted inflation:"</span>, macro_forecasts[<span class="st">'inflation'</span>][:<span class="dv">4</span>])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Forecasted interest rates: [0.06214 0.06626 0.06654 0.06192]
+Forecasted inflation: [0.         0.00449505 0.00784334 0.02892471]</code></pre>
+</div>
+</div>
+<p><strong>Example for multivariate forecasting works using the <code>VAR</code> model.</strong></p>
+<p>Peshbeen’s <code>VAR</code> model allows you to specify different lag structures for each target series, enabling you to capture the unique temporal dependencies of each series while modeling their interdependencies. Different than the implementation of the standard VAR in <code>statsmodels</code>, which applies the same lag structure to all series, Peshbeen’s <code>VAR</code> can have, for example, one series with 2 lags and another with 1, 2, and 7 lags. This flexibility allows user to tailor the model to the specific characteristics of each series, improving forecasting performance.</p>
+<div id="9f5ace85" class="cell" data-execution_count="16">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="co">## Create a multivariate autoregressive sales data with 3 features: sales, marketing spend, and advertising spend to show if we can capture the relationships between past values of all three features to forecast the future values of sales. </span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>date_range <span class="op">=</span> pd.date_range(start<span class="op">=</span><span class="st">'2020-01-01'</span>, periods<span class="op">=</span><span class="dv">720</span>, freq<span class="op">=</span><span class="st">'D'</span>)</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">42</span>)</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>doy <span class="op">=</span> date_range.dayofyear.to_numpy()  <span class="co"># force NumPy, not pandas Index</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>data1 <span class="op">=</span> <span class="dv">120</span> <span class="op">+</span> <span class="fl">0.1</span> <span class="op">*</span> np.arange(<span class="dv">720</span>) <span class="op">+</span> <span class="dv">5</span> <span class="op">*</span> np.sin(<span class="dv">2</span> <span class="op">*</span> np.pi <span class="op">*</span> doy <span class="op">/</span> <span class="dv">7</span>) <span class="op">+</span> <span class="dv">6</span> <span class="op">*</span> np.sin(<span class="dv">2</span> <span class="op">*</span> np.pi <span class="op">*</span> doy <span class="op">/</span> <span class="dv">365</span>) <span class="op">+</span> np.random.normal(<span class="dv">0</span>, <span class="dv">2</span>, <span class="dv">720</span>)</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>data2 <span class="op">=</span> <span class="dv">80</span> <span class="op">+</span> <span class="fl">0.07</span> <span class="op">*</span> np.arange(<span class="dv">720</span>) <span class="op">+</span> <span class="dv">3</span> <span class="op">*</span> np.sin(<span class="dv">2</span> <span class="op">*</span> np.pi <span class="op">*</span> doy <span class="op">/</span> <span class="dv">7</span>) <span class="op">+</span> <span class="dv">4</span> <span class="op">*</span> np.sin(<span class="dv">2</span> <span class="op">*</span> np.pi <span class="op">*</span> doy <span class="op">/</span> <span class="dv">365</span>) <span class="op">+</span> np.random.normal(<span class="dv">0</span>, <span class="dv">2</span>, <span class="dv">720</span>)</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>data3 <span class="op">=</span> <span class="dv">50</span> <span class="op">+</span> <span class="fl">0.03</span> <span class="op">*</span> np.arange(<span class="dv">720</span>) <span class="op">+</span> <span class="dv">1</span> <span class="op">*</span> np.sin(<span class="dv">2</span> <span class="op">*</span> np.pi <span class="op">*</span> doy <span class="op">/</span> <span class="dv">7</span>) <span class="op">+</span> <span class="dv">2</span> <span class="op">*</span> np.sin(<span class="dv">2</span> <span class="op">*</span> np.pi <span class="op">*</span> doy <span class="op">/</span> <span class="dv">365</span>) <span class="op">+</span> np.random.normal(<span class="dv">0</span>, <span class="dv">2</span>, <span class="dv">720</span>)</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a><span class="co"># create a multivariate dataset</span></span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>multivariate_data <span class="op">=</span> pd.DataFrame({<span class="st">'sales'</span>: data1, <span class="st">'marketing'</span>: data2, <span class="st">'advertising'</span>: data3}, index<span class="op">=</span>date_range)</span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a><span class="co">## add the day of week and month as categorical variables to the multivariate dataset</span></span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>multivariate_data[<span class="st">"day_of_week"</span>] <span class="op">=</span> multivariate_data.index.dayofweek</span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>multivariate_data[<span class="st">"month"</span>] <span class="op">=</span> multivariate_data.index.month</span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a><span class="co"># plot the multivariate data</span></span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="dv">6</span>))</span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>plt.plot(multivariate_data.index, multivariate_data[<span class="st">'sales'</span>], label<span class="op">=</span><span class="st">'Sales'</span>)</span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>plt.plot(multivariate_data.index, multivariate_data[<span class="st">'marketing'</span>], label<span class="op">=</span><span class="st">'Marketing'</span>)</span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a>plt.plot(multivariate_data.index, multivariate_data[<span class="st">'advertising'</span>], label<span class="op">=</span><span class="st">'Advertising'</span>)</span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">'Multivariate Time Series Data'</span>)</span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">'Date'</span>)</span>
+<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">'Value'</span>)</span>
+<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a>plt.legend()</span>
+<span id="cb14-29"><a href="#cb14-29" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="01_model_zoo_files/figure-html/cell-9-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<div id="dcd76380" class="cell" data-execution_count="17">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.models <span class="im">import</span> var</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="co">#split the data into train and test sets </span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>mv_train_data <span class="op">=</span> multivariate_data.iloc[:<span class="op">-</span><span class="dv">60</span>]</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>mv_test_data <span class="op">=</span> multivariate_data.iloc[<span class="op">-</span><span class="dv">60</span>:]</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.preprocessing <span class="im">import</span> OneHotEncoder</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>ohe <span class="op">=</span> OneHotEncoder(drop<span class="op">=</span><span class="st">'first'</span>, sparse_output<span class="op">=</span><span class="va">False</span>, handle_unknown<span class="op">=</span><span class="st">"ignore"</span>)</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>cat_variables <span class="op">=</span> [<span class="st">"day_of_week"</span>, <span class="st">"month"</span>]</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a><span class="co"># we can specify different lag structures for each target series, enabling us to capture the unique temporal dependencies of each series while modeling their interdependencies.</span></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a><span class="co"># This flexibility allows user to tailor the model to the relationships between the series, improving forecasting performance.</span></span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>var_model <span class="op">=</span>var(target_cols<span class="op">=</span>[<span class="st">'sales'</span>, <span class="st">'marketing'</span>, <span class="st">'advertising'</span>], lags<span class="op">=</span>{<span class="st">'sales'</span>: <span class="dv">7</span>, <span class="st">'marketing'</span>: [<span class="dv">1</span>, <span class="dv">7</span>], <span class="st">'advertising'</span>: <span class="dv">5</span>},</span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>               cat_variables<span class="op">=</span>[<span class="st">'day_of_week'</span>, <span class="st">'month'</span>], categorical_encoder<span class="op">=</span>ohe)</span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>var_model.fit(mv_train_data)</span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>var_forecasts <span class="op">=</span> var_model.forecast(H<span class="op">=</span><span class="dv">60</span>, exog<span class="op">=</span>mv_test_data[[<span class="st">'day_of_week'</span>, <span class="st">'month'</span>]])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="63ed6009" class="cell" data-execution_count="18">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># plot the forecasts and the actual values for sales</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="dv">6</span>))</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>plt.plot(mv_train_data.index[<span class="op">-</span><span class="dv">120</span>:], mv_train_data[<span class="st">'sales'</span>][<span class="op">-</span><span class="dv">120</span>:], label<span class="op">=</span><span class="st">'Train'</span>)</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>plt.plot(mv_test_data.index, mv_test_data[<span class="st">'sales'</span>], label<span class="op">=</span><span class="st">'Test'</span>)</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>plt.plot(mv_test_data.index, var_forecasts[<span class="st">'sales'</span>], label<span class="op">=</span><span class="st">'VAR Forecast'</span>)</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">'VAR Forecast for Sales'</span>)</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">'Date'</span>)</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">'Sales'</span>)</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>plt.legend()</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="01_model_zoo_files/figure-html/cell-11-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<p><strong>Example for regime-switching multivariate forecasting using the <code>MS-VAR</code> model.</strong></p>
+<p><a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ms_var.html#ms_var"><code>ms_var</code></a> is the multivariate extension of <a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ms_arr.html#ms_arr"><code>ms_arr</code></a>: it models several series jointly with vector-autoregressive dynamics <em>while</em> allowing the whole system to switch between a small number of hidden regimes (e.g.&nbsp;a calm regime and a volatile one). Like <a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/var.html#var"><code>var</code></a>, it accepts a <strong>per-series lag dictionary</strong>, so each target can have its own lag structure. After fitting you can inspect the inferred regimes with <code>predict_states()</code> (most-likely regime per timestep) and <code>predict_proba()</code> (full posterior over regimes), and read off information criteria via <code>.aic</code>, <code>.bic</code>, and <code>.hqc</code>.</p>
+<p>We reuse the <code>mv_train_data</code> / <code>mv_test_data</code> split from the <code>VAR</code> example above.</p>
+<div id="1928cd9b" class="cell" data-execution_count="19">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.models <span class="im">import</span> ms_var</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Two hidden regimes; per-series lag structure as with var.</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>msvar_model <span class="op">=</span> ms_var(</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>    n_components<span class="op">=</span><span class="dv">2</span>,</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>    target_cols<span class="op">=</span>[<span class="st">'sales'</span>, <span class="st">'marketing'</span>, <span class="st">'advertising'</span>],</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>    lags<span class="op">=</span>{<span class="st">'sales'</span>: <span class="dv">7</span>, <span class="st">'marketing'</span>: [<span class="dv">1</span>, <span class="dv">7</span>], <span class="st">'advertising'</span>: <span class="dv">5</span>},</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>    cat_variables<span class="op">=</span>[<span class="st">'day_of_week'</span>, <span class="st">'month'</span>],</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>    categorical_encoder<span class="op">=</span>ohe,</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>    n_iter<span class="op">=</span><span class="dv">100</span>,</span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>    random_state<span class="op">=</span><span class="dv">123</span>,</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>msvar_model.fit(mv_train_data)</span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a><span class="co"># forecast() returns a dict keyed by target column name (each value a length-H array)</span></span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>msvar_forecasts <span class="op">=</span> msvar_model.forecast(H<span class="op">=</span><span class="dv">60</span>, exog<span class="op">=</span>mv_test_data[[<span class="st">'day_of_week'</span>, <span class="st">'month'</span>]])</span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Forecast keys:"</span>, <span class="bu">list</span>(msvar_forecasts.keys()))</span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"AIC: </span><span class="sc">{:.1f}</span><span class="st"> | BIC: </span><span class="sc">{:.1f}</span><span class="st">"</span>.<span class="bu">format</span>(msvar_model.aic, msvar_model.bic))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Forecast keys: ['sales', 'marketing', 'advertising']
+AIC: 8562.5 | BIC: 9490.2</code></pre>
+</div>
+</div>
+<div id="ec3757ae" class="cell" data-execution_count="20">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Inspect the inferred regimes over the training period.</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>states <span class="op">=</span> msvar_model.predict_states()   <span class="co"># most-likely regime at each in-sample timestep</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>proba <span class="op">=</span> msvar_model.predict_proba()      <span class="co"># full posterior, shape (n_components, T)</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="dv">6</span>))</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Plot the FULL target variable</span></span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>ax.plot(mv_train_data.index[<span class="op">-</span><span class="dv">120</span>:], mv_train_data[<span class="op">-</span><span class="dv">120</span>:][<span class="st">"sales"</span>], label<span class="op">=</span><span class="st">'sales'</span>, color<span class="op">=</span><span class="st">'black'</span>, linewidth<span class="op">=</span><span class="fl">1.5</span>)</span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>is_regime_1 <span class="op">=</span> proba[<span class="dv">0</span>][<span class="op">-</span><span class="dv">120</span>:] <span class="op">&gt;=</span> <span class="fl">0.5</span></span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>is_regime_0 <span class="op">=</span> <span class="op">~</span>is_regime_1</span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Apply background shading using fill_between</span></span>
+<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a>ax.fill_between(</span>
+<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a>    mv_train_data.index[<span class="op">-</span><span class="dv">120</span>:], </span>
+<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a>    ax.get_ylim()[<span class="dv">0</span>], </span>
+<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a>    ax.get_ylim()[<span class="dv">1</span>], </span>
+<span id="cb19-18"><a href="#cb19-18" aria-hidden="true" tabindex="-1"></a>    where<span class="op">=</span>is_regime_1, </span>
+<span id="cb19-19"><a href="#cb19-19" aria-hidden="true" tabindex="-1"></a>    color<span class="op">=</span><span class="st">'red'</span>, </span>
+<span id="cb19-20"><a href="#cb19-20" aria-hidden="true" tabindex="-1"></a>    alpha<span class="op">=</span><span class="fl">0.15</span>, </span>
+<span id="cb19-21"><a href="#cb19-21" aria-hidden="true" tabindex="-1"></a>    label<span class="op">=</span><span class="st">'Regime 1 Dominant'</span>,</span>
+<span id="cb19-22"><a href="#cb19-22" aria-hidden="true" tabindex="-1"></a>    interpolate<span class="op">=</span><span class="va">True</span></span>
+<span id="cb19-23"><a href="#cb19-23" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb19-24"><a href="#cb19-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-25"><a href="#cb19-25" aria-hidden="true" tabindex="-1"></a>ax.fill_between(</span>
+<span id="cb19-26"><a href="#cb19-26" aria-hidden="true" tabindex="-1"></a>    mv_train_data.index[<span class="op">-</span><span class="dv">120</span>:], </span>
+<span id="cb19-27"><a href="#cb19-27" aria-hidden="true" tabindex="-1"></a>    ax.get_ylim()[<span class="dv">0</span>], </span>
+<span id="cb19-28"><a href="#cb19-28" aria-hidden="true" tabindex="-1"></a>    ax.get_ylim()[<span class="dv">1</span>], </span>
+<span id="cb19-29"><a href="#cb19-29" aria-hidden="true" tabindex="-1"></a>    where<span class="op">=</span>is_regime_0, </span>
+<span id="cb19-30"><a href="#cb19-30" aria-hidden="true" tabindex="-1"></a>    color<span class="op">=</span><span class="st">'green'</span>, </span>
+<span id="cb19-31"><a href="#cb19-31" aria-hidden="true" tabindex="-1"></a>    alpha<span class="op">=</span><span class="fl">0.15</span>, </span>
+<span id="cb19-32"><a href="#cb19-32" aria-hidden="true" tabindex="-1"></a>    label<span class="op">=</span><span class="st">'Regime 0 Dominant'</span>,</span>
+<span id="cb19-33"><a href="#cb19-33" aria-hidden="true" tabindex="-1"></a>    interpolate<span class="op">=</span><span class="va">True</span></span>
+<span id="cb19-34"><a href="#cb19-34" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb19-35"><a href="#cb19-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-36"><a href="#cb19-36" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Formatting</span></span>
+<span id="cb19-37"><a href="#cb19-37" aria-hidden="true" tabindex="-1"></a>ax.set_xlabel(<span class="st">'Date'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb19-38"><a href="#cb19-38" aria-hidden="true" tabindex="-1"></a>ax.set_ylabel(<span class="st">'Target Variable'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb19-39"><a href="#cb19-39" aria-hidden="true" tabindex="-1"></a>ax.set_title(<span class="st">'Sales Pattern Segmented by HMM Regimes'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb19-40"><a href="#cb19-40" aria-hidden="true" tabindex="-1"></a>ax.legend(loc<span class="op">=</span><span class="st">'upper left'</span>, frameon<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb19-41"><a href="#cb19-41" aria-hidden="true" tabindex="-1"></a>ax.margins(x<span class="op">=</span><span class="dv">0</span>) </span>
+<span id="cb19-42"><a href="#cb19-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-43"><a href="#cb19-43" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb19-44"><a href="#cb19-44" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="01_model_zoo_files/figure-html/cell-13-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="multi-series-forecasters" class="level3">
+<h3 class="anchored" data-anchor-id="multi-series-forecasters">Multi-series forecasters</h3>
+<p><strong>Multi-series forecasters</strong> train global machine learning models across collections of many individual time series (e.g.&nbsp;sales across 100 stores, demand for 1,000 SKUs, or patient admissions across multiple hospital wards) sharing a common schema indexed by an entity ID (<code>id_col</code>).</p>
+<blockquote class="blockquote">
+<p><strong>Comparing <a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/panel_forecast.html#panel_forecaster"><code>panel_forecaster</code></a> vs.&nbsp;<a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ml_multi_forecast.html#ml_multi_forecaster"><code>ml_multi_forecaster</code></a>:</strong></p>
+<ul>
+<li><strong><a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/panel_forecast.html#panel_forecaster"><code>panel_forecaster</code></a> (Global Pooled Panel):</strong>
+<ul>
+<li><em>How it works:</em> Generates standard lag features (<code>lag_1, lag_2, \dots</code>) for each series independently, then vertically pools all samples into a single training table.</li>
+<li><em>Potential advantages:</em> Highly scalable to thousands of series; pools statistical power across related series (which helps prevent overfitting on short series); efficient memory footprint; handles cold-start series at inference time without architectural changes.</li>
+<li><em>Considerations:</em> Does not directly incorporate the historical lags of series A as input features to predict series B.</li>
+</ul></li>
+<li><strong><a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ml_multi_forecast.html#ml_multi_forecaster"><code>ml_multi_forecaster</code></a> (Multi-Series with Cross-Series Interdependencies):</strong>
+<ul>
+<li><em>How it works:</em> Extends multi-series pooling by capturing cross-series lag interdependencies across series, allowing one series’ temporal history to directly inform another’s forecast.</li>
+<li><em>Potential advantages:</em> Captures cross-series influences and substitution or complementary effects in multi-series collections.</li>
+<li><em>Considerations:</em> Requires aligning series across time, increasing feature dimensionality and training cost compared to independent panel pooling.</li>
+</ul></li>
+</ul>
+</blockquote>
+<section id="global-panel-forecasting-with-panel_forecaster" class="level4">
+<h4 class="anchored" data-anchor-id="global-panel-forecasting-with-panel_forecaster"><strong>Global Panel Forecasting with <a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/panel_forecast.html#panel_forecaster"><code>panel_forecaster</code></a></strong></h4>
+<p>In many practical settings — such as retail inventory, logistics, or healthcare operations — you need to forecast hundreds or thousands of distinct series simultaneously. Rather than fitting thousands of individual univariate models, <a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/panel_forecast.html#panel_forecaster"><code>panel_forecaster</code></a> trains a unified global regressor across all series.</p>
+<p>Here we use <a href="https://mustafaslanCoto.github.io/peshbeen/modules/datasets.html#load_sales"><code>load_sales()</code></a> to forecast multiple store-item series simultaneously:</p>
+<div id="38455f56" class="cell" data-execution_count="21">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.datasets <span class="im">import</span> load_sales</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.models <span class="im">import</span> panel_forecaster</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> lightgbm <span class="im">import</span> LGBMRegressor</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Load multi-series sales dataset</span></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> load_sales()</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Select 3 store-item series for demonstration</span></span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>stores <span class="op">=</span> [<span class="st">'store_01_item_01'</span>, <span class="st">'store_01_item_02'</span>, <span class="st">'store_01_item_03'</span>]</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>df_sub <span class="op">=</span> df[df[<span class="st">'store_item'</span>].isin(stores)].copy()</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Split train and test temporally across all series</span></span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>train <span class="op">=</span> df_sub[df_sub.index <span class="op">&lt;=</span> <span class="st">'2025-12-31'</span>]</span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>test <span class="op">=</span> df_sub[df_sub.index <span class="op">&gt;=</span> <span class="st">'2026-01-01'</span>]</span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a>H <span class="op">=</span> <span class="dv">14</span></span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a><span class="co"># Initialize global panel forecaster</span></span>
+<span id="cb20-20"><a href="#cb20-20" aria-hidden="true" tabindex="-1"></a>panel_model <span class="op">=</span> panel_forecaster(</span>
+<span id="cb20-21"><a href="#cb20-21" aria-hidden="true" tabindex="-1"></a>    model<span class="op">=</span>LGBMRegressor(n_estimators<span class="op">=</span><span class="dv">50</span>, random_state<span class="op">=</span><span class="dv">42</span>, verbose<span class="op">=-</span><span class="dv">1</span>),</span>
+<span id="cb20-22"><a href="#cb20-22" aria-hidden="true" tabindex="-1"></a>    id_col<span class="op">=</span><span class="st">'store_item'</span>,</span>
+<span id="cb20-23"><a href="#cb20-23" aria-hidden="true" tabindex="-1"></a>    target_col<span class="op">=</span><span class="st">'sales'</span>,</span>
+<span id="cb20-24"><a href="#cb20-24" aria-hidden="true" tabindex="-1"></a>    lags<span class="op">=</span>[<span class="dv">1</span>, <span class="dv">7</span>, <span class="dv">14</span>]</span>
+<span id="cb20-25"><a href="#cb20-25" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb20-26"><a href="#cb20-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-27"><a href="#cb20-27" aria-hidden="true" tabindex="-1"></a><span class="co"># Fit on historical panel data</span></span>
+<span id="cb20-28"><a href="#cb20-28" aria-hidden="true" tabindex="-1"></a>panel_model.fit(train)</span>
+<span id="cb20-29"><a href="#cb20-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-30"><a href="#cb20-30" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate forecasts for all series</span></span>
+<span id="cb20-31"><a href="#cb20-31" aria-hidden="true" tabindex="-1"></a>panel_forecasts <span class="op">=</span> panel_model.forecast(H<span class="op">=</span>H)</span>
+<span id="cb20-32"><a href="#cb20-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-33"><a href="#cb20-33" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot actuals vs. panel forecasts for each series</span></span>
+<span id="cb20-34"><a href="#cb20-34" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="bu">len</span>(stores), <span class="dv">1</span>, figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="dv">8</span>), sharex<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb20-35"><a href="#cb20-35" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, s <span class="kw">in</span> <span class="bu">enumerate</span>(stores):</span>
+<span id="cb20-36"><a href="#cb20-36" aria-hidden="true" tabindex="-1"></a>    s_train <span class="op">=</span> train[train[<span class="st">'store_item'</span>] <span class="op">==</span> s]</span>
+<span id="cb20-37"><a href="#cb20-37" aria-hidden="true" tabindex="-1"></a>    s_test <span class="op">=</span> test[test[<span class="st">'store_item'</span>] <span class="op">==</span> s].iloc[:H]</span>
+<span id="cb20-38"><a href="#cb20-38" aria-hidden="true" tabindex="-1"></a>    axes[i].plot(s_train.index[<span class="op">-</span><span class="dv">60</span>:], s_train[<span class="st">'sales'</span>][<span class="op">-</span><span class="dv">60</span>:], label<span class="op">=</span><span class="st">'Train History'</span>, color<span class="op">=</span><span class="st">'#2b5c8f'</span>)</span>
+<span id="cb20-39"><a href="#cb20-39" aria-hidden="true" tabindex="-1"></a>    axes[i].plot(s_test.index, s_test[<span class="st">'sales'</span>], label<span class="op">=</span><span class="st">'Actual'</span>, color<span class="op">=</span><span class="st">'black'</span>, linewidth<span class="op">=</span><span class="fl">1.5</span>)</span>
+<span id="cb20-40"><a href="#cb20-40" aria-hidden="true" tabindex="-1"></a>    axes[i].plot(s_test.index, panel_forecasts[s], label<span class="op">=</span><span class="st">'Panel Forecast'</span>, color<span class="op">=</span><span class="st">'crimson'</span>, linestyle<span class="op">=</span><span class="st">'--'</span>, linewidth<span class="op">=</span><span class="fl">1.8</span>)</span>
+<span id="cb20-41"><a href="#cb20-41" aria-hidden="true" tabindex="-1"></a>    axes[i].set_title(<span class="ss">f'Series: </span><span class="sc">{</span>s<span class="sc">}</span><span class="ss">'</span>, fontsize<span class="op">=</span><span class="dv">11</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb20-42"><a href="#cb20-42" aria-hidden="true" tabindex="-1"></a>    axes[i].set_ylabel(<span class="st">'Sales'</span>)</span>
+<span id="cb20-43"><a href="#cb20-43" aria-hidden="true" tabindex="-1"></a>    axes[i].legend(loc<span class="op">=</span><span class="st">'upper left'</span>)</span>
+<span id="cb20-44"><a href="#cb20-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-45"><a href="#cb20-45" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">'Date'</span>)</span>
+<span id="cb20-46"><a href="#cb20-46" aria-hidden="true" tabindex="-1"></a>plt.suptitle(<span class="st">'Global Multi-Series Forecasting with panel_forecaster'</span>, fontsize<span class="op">=</span><span class="dv">13</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb20-47"><a href="#cb20-47" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb20-48"><a href="#cb20-48" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="01_model_zoo_files/figure-html/cell-14-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="cross-series-dependencies-with-ml_multi_forecaster" class="level4">
+<h4 class="anchored" data-anchor-id="cross-series-dependencies-with-ml_multi_forecaster"><strong>Cross-Series Dependencies with <a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ml_multi_forecast.html#ml_multi_forecaster"><code>ml_multi_forecaster</code></a></strong></h4>
+<p>When individual series in a panel exhibit cross-series influence or require per-series lag specifications alongside pooled training, <a href="https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ml_multi_forecast.html#ml_multi_forecaster"><code>ml_multi_forecaster</code></a> extends panel forecasting with cross-series dependency capabilities. It shares the same <code>.fit(df)</code> and <code>.forecast(H)</code> interface:</p>
+<div id="8f89d787" class="cell" data-execution_count="22">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> peshbeen.models <span class="im">import</span> ml_multi_forecaster</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>multi_model <span class="op">=</span> ml_multi_forecaster(</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>    model<span class="op">=</span>LGBMRegressor(n_estimators<span class="op">=</span><span class="dv">50</span>, random_state<span class="op">=</span><span class="dv">42</span>, verbose<span class="op">=-</span><span class="dv">1</span>),</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>    id_col<span class="op">=</span><span class="st">'store_item'</span>,</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>    target_col<span class="op">=</span><span class="st">'sales'</span>,</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>    lags<span class="op">=</span>[<span class="dv">1</span>, <span class="dv">7</span>, <span class="dv">14</span>]</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>multi_model.fit(train)</span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>multi_forecasts <span class="op">=</span> multi_model.forecast(H<span class="op">=</span>H)</span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Forecasted series:"</span>, <span class="bu">list</span>(multi_forecasts.keys()))</span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> s <span class="kw">in</span> stores:</span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>s<span class="sc">}</span><span class="ss"> first 3 forecasts: </span><span class="sc">{</span>multi_forecasts[s][:<span class="dv">3</span>]<span class="sc">.</span><span class="bu">round</span>(<span class="dv">2</span>)<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Forecasted series: ['store_01_item_01', 'store_01_item_02', 'store_01_item_03']
+store_01_item_01 first 3 forecasts: [93.33 93.5  91.56]
+store_01_item_02 first 3 forecasts: [127.91 130.09 127.87]
+store_01_item_03 first 3 forecasts: [71.17 73.1  74.07]</code></pre>
+</div>
+</div>
+
+
+</section>
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/mustafaslanCoto\.github\.io\/peshbeen");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+          if (!link.classList.contains('no-external-icon')) {
+          }
+        }
+      }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          // Each band is positioned against its own containing block, which is
+          // not the offsetParent of the lines, so place it from client rects.
+          const placeBand = (band, firstEl, lastEl, codeBlock) => {
+            const container = band.offsetParent;
+            if (container === null) {
+              return;
+            }
+            const containerRect = container.getBoundingClientRect();
+            // Reveal.js scales slides with a transform, so convert client
+            // pixels back to the CSS pixels of the container.
+            const scale = containerRect.height / container.offsetHeight || 1;
+            const firstRect = firstEl.getBoundingClientRect();
+            const lastRect = lastEl.getBoundingClientRect();
+            const top = (firstRect.top - containerRect.top) / scale - container.clientTop + container.scrollTop;
+            const height = (lastRect.bottom - firstRect.top) / scale;
+            band.style.top = top - 2 + "px";
+            band.style.height = height + 4 + "px";
+            if (codeBlock) {
+              // Without the copy button wrapper, the containing block is wider
+              // than the code block, so span the code block explicitly.
+              const blockRect = codeBlock.getBoundingClientRect();
+              band.style.left = (blockRect.left - containerRect.left) / scale - container.clientLeft + container.scrollLeft + "px";
+              band.style.width = blockRect.width / scale + "px";
+            }
+          };
+          if (lineIds.length > 0) {
+            const el = window.document.getElementById(lineIds[0]);
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const parent = el.parentElement.parentElement;
+            // cook up a div (if necessary) and position it
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            placeBand(div, el, lastEl, parent.closest("div.sourceCode") || parent);
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            placeBand(gutterDiv, el, lastEl);
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+  <script type="application/javascript">
+  window.quartoScrollableRegionsLabels = {"code":"Scrollable code","output":"Scrollable output"};
+  </script>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+      &nbsp;
+    </div>   
+    <div class="nav-footer-center">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item">
+ About
+  </li>  
+    <li class="nav-item">
+ License
+  </li>  
+    <li class="nav-item">
+ Trademark
+  </li>  
+</ul>
+    </div>
+    <div class="nav-footer-right">
+      &nbsp;
+    </div>
+  </div>
+</footer>
+
+
+
+
+</body></html>
