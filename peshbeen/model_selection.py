@@ -701,15 +701,17 @@ def optuna_tune_multi(
     random_state: Optional[int] = 42
 ) -> Tuple[Dict[str, Any], Any, Dict[str, Any]]:
     """
-    Tune multi-series interdependent forecasting model (ml_multi_forecaster) hyperparameters
-    using panel time-series cross-validation and Optuna.
+    Tune multi-series panel (`ml_multi_forecaster`, `panel_forecaster`) or wide multivariate
+    (`ml_multi_output_forecaster`, `var`, `ms_var`) forecasting model hyperparameters
+    using time-series cross-validation and Optuna.
 
     Parameters
     ----------
     model : object
-        An instance of `ml_multi_forecaster`.
+        An instance of `ml_multi_forecaster`, `panel_forecaster`, `ml_multi_output_forecaster`, `var`, or `ms_var`.
     df : pd.DataFrame
-        Long-format panel DataFrame with time index, id_col, target_col, and optional exogenous features.
+        Long-format panel DataFrame (with time index, id_col, target_col) or wide-format DataFrame
+        (with time index and target_cols) plus optional exogenous features.
     cv_split : int
         Number of cross-validation splits.
     test_size : int
@@ -719,10 +721,10 @@ def optuna_tune_multi(
     param_space : dict
         Dictionary where each value is a callable taking an Optuna `trial`.
     target_series : str, list of str, optional
-        Specific series ID(s) to optimize the evaluation metric for.
-        - If a single string, optimizes accuracy ONLY for that series ID.
-        - If a list of strings, optimizes average accuracy across those specified series IDs.
-        - If None (default), optimizes average accuracy across ALL series IDs in the panel.
+        Specific series ID(s) or target column(s) to optimize the evaluation metric for.
+        - If a single string, optimizes accuracy ONLY for that series/target.
+        - If a list of strings, optimizes average accuracy across those specified series/targets.
+        - If None (default), optimizes average accuracy across ALL series/targets.
     step_size : int, default 1
         Step size between CV folds.
     eval_num : int, default 100
@@ -734,7 +736,7 @@ def optuna_tune_multi(
     startup_trials : int, default 5
         Number of complete trials evaluated before enabling the pruner.
     ref_series_id : str, optional
-        Series ID used for date-based time index splitting (defaults to series with shortest length).
+        Series ID used for date-based time index splitting in panel models (defaults to series with shortest length).
     verbose : bool, default False
         If True, prints progress for every Optuna trial.
     transform_back : bool, default True
@@ -751,26 +753,33 @@ def optuna_tune_multi(
         raise ImportError("optuna is required for hyperparameter optimization. Install with `pip install optuna`.")
 
     dfc = df.copy()
-    id_col = model.id_col
-    target_col = model.target_col
-    series_ids = sorted(dfc[id_col].unique().tolist())
+    is_wide = hasattr(model, "target_cols")
 
-    # Determine reference series for time index splitting
-    if ref_series_id is None:
-        ref_series_id = min(series_ids, key=lambda s: len(dfc[dfc[id_col] == s]))
-    ref_df = dfc[dfc[id_col] == ref_series_id]
+    if is_wide:
+        id_col = None
+        target_col = None
+        series_ids = list(model.target_cols)
+        ref_df = dfc
+    else:
+        id_col = model.id_col
+        target_col = model.target_col
+        series_ids = sorted(dfc[id_col].unique().tolist())
+        # Determine reference series for time index splitting
+        if ref_series_id is None:
+            ref_series_id = min(series_ids, key=lambda s: len(dfc[dfc[id_col] == s]))
+        ref_df = dfc[dfc[id_col] == ref_series_id]
 
     # Resolve target_series filter
     if target_series is None:
         eval_series_list = series_ids
     elif isinstance(target_series, str):
         if target_series not in series_ids:
-            raise ValueError(f"Target series '{target_series}' not found in DataFrame '{id_col}' column.")
+            raise ValueError(f"Target series '{target_series}' not found in {series_ids}.")
         eval_series_list = [target_series]
     elif isinstance(target_series, list):
         for s in target_series:
             if s not in series_ids:
-                raise ValueError(f"Target series '{s}' not found in DataFrame '{id_col}' column.")
+                raise ValueError(f"Target series '{s}' not found in {series_ids}.")
         eval_series_list = target_series
     else:
         raise TypeError("target_series must be None, str, or list of str.")
@@ -780,6 +789,58 @@ def optuna_tune_multi(
         "trend", "pol_degree", "ets_params", "change_points", "box_cox",
         "box_cox_biasadj", "target_scaler", "cat_variables", "categorical_encoder"
     }
+
+    def _apply_wide_forecaster_params(model_, f_params):
+        t_cols = model_.target_cols
+        for k, v in f_params.items():
+            if k == "lags":
+                if isinstance(v, int):
+                    model_.n_lag = {col: list(range(1, v + 1)) for col in t_cols}
+                elif isinstance(v, list):
+                    model_.n_lag = {col: v for col in t_cols}
+                elif isinstance(v, dict):
+                    model_.n_lag = {
+                        col: (list(range(1, val + 1)) if isinstance(val, int) else val)
+                        for col, val in v.items()
+                    }
+            elif k == "lag_transform":
+                model_.lag_transform = {col: v for col in t_cols} if isinstance(v, list) else v
+            elif k == "difference":
+                if isinstance(v, int) or v is None:
+                    model_.diffs = {col: (v if v != 0 else None) for col in t_cols}
+                elif isinstance(v, dict):
+                    model_.diffs = {col: v.get(col, None) for col in t_cols}
+            elif k == "seasonal_diff":
+                if isinstance(v, int) or v is None:
+                    model_.season_diffs = {col: (v if v != 0 else None) for col in t_cols}
+                elif isinstance(v, dict):
+                    model_.season_diffs = {col: v.get(col, None) for col in t_cols}
+            elif k == "trend":
+                model_.trend = {col: v for col in t_cols} if isinstance(v, str) else v
+            elif k == "pol_degree":
+                model_.pol = {col: v for col in t_cols} if isinstance(v, int) else {col: v.get(col, 1) for col in t_cols}
+            elif k == "change_points":
+                model_.cps = v
+            elif k == "box_cox":
+                if isinstance(v, bool):
+                    model_.box_cox = {col: v for col in t_cols}
+                    model_.lamdas = {col: None for col in t_cols}
+                elif isinstance(v, (float, int)):
+                    model_.box_cox = {col: True for col in t_cols}
+                    model_.lamdas = {col: v for col in t_cols}
+                elif isinstance(v, dict):
+                    model_.box_cox = {}
+                    model_.lamdas = {col: None for col in t_cols}
+                    for col, val in v.items():
+                        if isinstance(val, bool):
+                            model_.box_cox[col] = val
+                        else:
+                            model_.box_cox[col] = True
+                            model_.lamdas[col] = val
+            elif k == "box_cox_biasadj":
+                model_.biasadj = {col: v for col in t_cols} if isinstance(v, bool) else {col: v.get(col, False) for col in t_cols}
+            else:
+                setattr(model_, k, v)
 
     tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
 
@@ -792,42 +853,58 @@ def optuna_tune_multi(
         model_ = model.copy()
 
         # Update forecaster wrapper parameters
-        for k, v in forecaster_params.items():
-            setattr(model_, k, v)
+        if is_wide:
+            _apply_wide_forecaster_params(model_, forecaster_params)
+        else:
+            for k, v in forecaster_params.items():
+                setattr(model_, k, v)
 
         # Update base regressor parameters
-        if hasattr(model_.model, "set_params") and base_model_params:
+        if hasattr(model_, "model") and hasattr(model_.model, "set_params") and base_model_params:
             model_.model.set_params(**base_model_params)
 
         cv_scores = []
 
         for step_idx, (ref_train_idx, ref_test_idx) in enumerate(tscv.split(ref_df)):
-            cutoff_date = ref_df.index[ref_train_idx[-1]]
-            test_dates = ref_df.index[ref_test_idx]
+            if is_wide:
+                train_fold = dfc.iloc[ref_train_idx]
+                test_fold = dfc.iloc[ref_test_idx]
+                exog_cols = [c for c in dfc.columns if c not in series_ids]
+                exog_fold = test_fold[exog_cols] if len(exog_cols) > 0 else None
+                H_fold = len(ref_test_idx)
+            else:
+                cutoff_date = ref_df.index[ref_train_idx[-1]]
+                test_dates = ref_df.index[ref_test_idx]
 
-            train_fold = dfc[dfc.index <= cutoff_date]
-            test_fold = dfc[(dfc.index > cutoff_date) & (dfc.index <= test_dates[-1])]
+                train_fold = dfc[dfc.index <= cutoff_date]
+                test_fold = dfc[(dfc.index > cutoff_date) & (dfc.index <= test_dates[-1])]
 
-            exog_cols = [c for c in dfc.columns if c not in [id_col, target_col]]
-            exog_fold = test_fold.drop(columns=[target_col]) if len(exog_cols) > 0 else None
+                exog_cols = [c for c in dfc.columns if c not in [id_col, target_col]]
+                exog_fold = test_fold.drop(columns=[target_col]) if len(exog_cols) > 0 else None
+                H_fold = len(test_dates)
 
             model_.fit(train_fold)
-            H_fold = len(test_dates)
             fc_dict = model_.forecast(H=H_fold, exog=exog_fold)
 
             fold_series_scores = []
             for s in eval_series_list:
-                s_test_df = test_fold[test_fold[id_col] == s]
-                y_true_s = s_test_df[target_col].values
-                y_pred_s = fc_dict[s][:len(y_true_s)]
-                if not transform_back:
-                    scaler = model_.transform_meta.get(s, {}).get("scaler", None)
-                    if scaler is not None:
-                        y_true_s = scaler.transform(y_true_s.reshape(-1, 1)).flatten() # flatten because inverse_transform returns 2D array, we make    
-                        y_pred_s = scaler.transform(y_pred_s.reshape(-1, 1)).flatten()
-                if eval_metric.__name__ in ("MASE", "SMAE", "SRMSE", "RMSSE"):
+                if is_wide:
+                    y_true_s = test_fold[s].values
+                    y_pred_s = fc_dict[s][:len(y_true_s)]
+                    y_train_s = train_fold[s].values
+                else:
+                    s_test_df = test_fold[test_fold[id_col] == s]
+                    y_true_s = s_test_df[target_col].values
+                    y_pred_s = fc_dict[s][:len(y_true_s)]
+                    if not transform_back and hasattr(model_, "transform_meta"):
+                        scaler = model_.transform_meta.get(s, {}).get("scaler", None)
+                        if scaler is not None:
+                            y_true_s = scaler.transform(y_true_s.reshape(-1, 1)).flatten()
+                            y_pred_s = scaler.transform(y_pred_s.reshape(-1, 1)).flatten()
                     s_train_df = train_fold[train_fold[id_col] == s]
                     y_train_s = s_train_df[target_col].values
+
+                if eval_metric.__name__ in ("MASE", "SMAE", "SRMSE", "RMSSE"):
                     score_s = eval_metric(y_true_s, y_pred_s, y_train_s)
                 else:
                     score_s = eval_metric(y_true_s, y_pred_s)

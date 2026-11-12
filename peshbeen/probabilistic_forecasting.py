@@ -324,37 +324,42 @@ class prob_forecasts:
 # %% ../nbs/modules/04_prob_forecast.ipynb #188c2530
 class mv_prob_forecasts:
     """
-    Probabilistic forecasting wrapper for multivariate point-forecasting models (e.g. VAR, MS-VAR).
+    Probabilistic forecasting wrapper for multivariate point-forecasting models (e.g. VAR, MS-VAR, ml_multi_output_forecaster).
     """
     def __init__(
         self,
-        model,
-        target_col: str,
+        model: Any,
         H: int,
-        n_calibration: Union[int, None] = None,
+        n_calibration: Optional[int] = None,
         step_size: int = 1,
         random_state: int = 42,
-        n_iter: Union[int, None] = None,
+        n_iter: Optional[int] = None,
         verbose: bool = False,
     ):
         self.model = model
-        self.target_col = target_col
+        self.H = H
         self.n_calib = n_calibration
         if self.n_calib is not None and self.n_calib < 1:
             raise ValueError("n_calibration must be a positive integer or None.")
-        self.H = H
         self.step_size = step_size
         self.verbose = verbose
         self.n_iter = n_iter
+        self.random_state = random_state
         self._rng = np.random.default_rng(seed=random_state)
-        self._random_state = random_state
+        self.series_ids = list(model.target_cols)
+        self.id_col = "target"
 
     def _compute_residuals(self, df: pd.DataFrame) -> None:
+        dfc = df.copy()
+        series_ids = self.series_ids
+        N = len(series_ids)
+
         if hasattr(self.model, "N") and hasattr(self.model, "iter"):
-            if not self.model.is_fitted:
-                self.model.fit(df)
-                self.model.iter = self.n_iter
-            else:
+            if not getattr(self.model, "is_fitted", False):
+                self.model.fit(dfc)
+                if self.n_iter is not None:
+                    self.model.iter = self.n_iter
+            elif self.n_iter is not None:
                 self.model.iter = self.n_iter
 
         if self.n_calib is not None:
@@ -362,47 +367,70 @@ class mv_prob_forecasts:
                 n_splits=self.n_calib, test_size=self.H,
                 step_size=self.step_size,
             )
-            c_actuals, c_forecasts = [], []
+            fold_residuals = {s: [] for s in series_ids}
 
-            for fold, (train_idx, test_idx) in enumerate(tscv.split(df)):
-                train, test = df.iloc[train_idx], df.iloc[test_idx]
-                x_test = test.drop(columns=self.model.target_cols) if hasattr(self.model, "target_cols") else test.drop(columns=[self.target_col])
-                y_test = np.array(test[self.target_col])
+            for fold, (train_idx, test_idx) in enumerate(tscv.split(dfc)):
+                train, test = dfc.iloc[train_idx], dfc.iloc[test_idx]
+                x_test = test.drop(columns=series_ids)
+                exog_t = x_test if x_test.shape[1] > 0 else None
 
                 self.model.fit(train)
-                exog_t = x_test if x_test.shape[1] > 0 else None
-                fc = self.model.forecast(self.H, exog=exog_t)
-                y_hat = fc[self.target_col] if isinstance(fc, dict) else fc
+                fc_dict = self.model.forecast(self.H, exog=exog_t)
 
-                c_actuals.append(y_test)
-                c_forecasts.append(y_hat)
+                for s in series_ids:
+                    y_true_s = test[s].values
+                    y_pred_s = fc_dict[s][:len(y_true_s)]
+                    resid_fold_s = y_true_s - y_pred_s
+                    fold_residuals[s].append(resid_fold_s)
 
                 if self.verbose:
                     print(f"Calibration fold {fold + 1}/{self.n_calib} complete.")
 
-            self.c_actuals = np.column_stack(c_actuals)    # H x n_calib
-            self.c_forecasts = np.column_stack(c_forecasts)  # H x n_calib
-            self.resid = self.c_actuals - self.c_forecasts
+            self.resid = {s: np.column_stack(fold_residuals[s]) for s in series_ids}
+            self.non_conform = {s: np.abs(self.resid[s]) for s in series_ids}
+
+            # Vectorized construction: (n_calib, H * N) capturing both cross-series and cross-horizon error covariance
+            stacked_resids = np.stack([self.resid[s] for s in series_ids], axis=-1)  # (H, n_calib, N)
+            self.joint_error_matrix = stacked_resids.transpose(1, 0, 2).reshape(self.n_calib, self.H * N)
         else:
-            self.model.fit(df)
+            self.model.fit(dfc)
             self.model.predict_in_sample()
-            if isinstance(self.model.in_samp_resids, dict):
-                self.resid = self.model.in_samp_resids[self.target_col]
-            else:
-                self.resid = self.model.in_samp_resids
-        self.non_conform = np.abs(self.resid)
+            self.resid = self.model.in_samp_resids
+            self.non_conform = {s: np.abs(self.resid[s]) for s in series_ids}
+
+            min_len = min(len(self.resid[s]) for s in series_ids)
+            E_cols = [self.resid[s][-min_len:] for s in series_ids]
+            self.joint_error_matrix = np.column_stack(E_cols)
+
+        # Regularized Covariance & Correlation
+        cov_raw = np.cov(self.joint_error_matrix, rowvar=False)
+        if cov_raw.ndim == 0:
+            cov_raw = np.array([[float(cov_raw)]])
+
+        cov_sym = 0.5 * (cov_raw + cov_raw.T)
+        eigvals, eigvecs = np.linalg.eigh(cov_sym)
+        eigvals_clipped = np.maximum(eigvals, 1e-8)
+        cov_psd = eigvecs @ np.diag(eigvals_clipped) @ eigvecs.T
+        self.cov_matrix_ = cov_psd
+
+        stds = np.sqrt(np.diag(cov_psd))
+        stds[stds == 0] = 1e-8
+        corr_mat = cov_psd / np.outer(stds, stds)
+        corr_mat = np.clip(corr_mat, -1.0, 1.0)
+        np.fill_diagonal(corr_mat, 1.0)
+        self.corr_matrix_ = corr_mat
+
+        if self.corr_matrix_.shape[0] == len(series_ids):
+            self.cov_df = pd.DataFrame(self.cov_matrix_, index=series_ids, columns=series_ids)
+            self.corr_df = pd.DataFrame(self.corr_matrix_, index=series_ids, columns=series_ids)
+        elif self.corr_matrix_.shape[0] == self.H * len(series_ids):
+            horizon_series_ids = [f"{s}_h{h+1}" for h in range(self.H) for s in series_ids]
+            self.cov_df = pd.DataFrame(self.cov_matrix_, index=horizon_series_ids, columns=horizon_series_ids)
+            self.corr_df = pd.DataFrame(self.corr_matrix_, index=horizon_series_ids, columns=horizon_series_ids)
 
     def _require_residuals(self, df: pd.DataFrame) -> None:
-        if not hasattr(self, "resid"):
+        if not hasattr(self, "cov_matrix_"):
             self._compute_residuals(df)
-
-    def _require_calibration(self) -> None:
-        if not hasattr(self, "q_hat"):
-            raise RuntimeError("Conformal calibration has not been run yet. Call .calibrate(df, delta) first.")
-
-    def _require_sample_paths(self) -> None:
-        if not hasattr(self, "sample_paths"):
-            raise RuntimeError("No sample paths available. Call .sample(df, method=...) first.")
 
     def calibrate(
         self,
@@ -413,18 +441,19 @@ class mv_prob_forecasts:
         self._require_residuals(df)
         deltas = [delta] if isinstance(delta, (int, float)) else delta
 
-        q_hat = np.empty((self.H, len(deltas)))
-        n_res = self.n_calib if self.n_calib is not None else len(self.non_conform) if self.non_conform.ndim == 1 else self.non_conform.shape[1]
+        self.q_hat = {}
+        for s in self.series_ids:
+            q_s = np.empty((self.H, len(deltas)))
+            n_res = self.n_calib if self.n_calib is not None else len(self.non_conform[s])
+            for i in range(self.H):
+                for j, d in enumerate(deltas):
+                    q_which = np.clip(np.ceil(d * (n_res + 1)) / n_res, 0.0, 1.0)
+                    if self.n_calib is not None:
+                        q_s[i, j] = np.quantile(self.non_conform[s][i], q_which, method="higher")
+                    else:
+                        q_s[i, j] = np.quantile(self.non_conform[s], q_which, method="higher")
+            self.q_hat[s] = q_s
 
-        for i in range(self.H):
-            for j, d in enumerate(deltas):
-                q_which = np.clip(np.ceil(d * (n_res + 1)) / n_res, 0.0, 1.0)
-                if self.n_calib is not None:
-                    q_hat[i, j] = np.quantile(self.non_conform[i], q_which, method="higher")
-                else:
-                    q_hat[i, j] = np.quantile(self.non_conform, q_which, method="higher")
-
-        self.q_hat = q_hat
         return self
 
     def sample(
@@ -432,11 +461,13 @@ class mv_prob_forecasts:
         df: pd.DataFrame,
         n_samples: int = 1000,
         method: str = "empirical",
-        future_exog: Union[pd.DataFrame, None] = None,
+        future_exog: Optional[pd.DataFrame] = None,
+        target_series: Optional[Union[str, List[str]]] = None,
+        df_t_deg: float = 5.0,
         non_negative: bool = True,
     ) -> "mv_prob_forecasts":
         """
-        Draw sample paths from the predictive distribution.
+        Draw sample paths from the predictive distribution across all target variables.
 
         Parameters
         ----------
@@ -444,162 +475,306 @@ class mv_prob_forecasts:
             Training data.
         n_samples : int, default 1000
             Number of simulated trajectories.
-        method : {"empirical", "kde", "gaussian", "mvn", "copula"}, default "empirical"
-            - "empirical": Independent empirical residual resampling per horizon.
-            - "kde": Kernel Density Estimation smoothed sampling.
-            - "gaussian" or "mvn": Gaussian error sampling. If n_calibration is provided, samples from a multivariate normal fitted to cross-horizon residual covariance; if n_calibration is None, samples from a normal distribution using training residual variance.
-            - "copula": Gaussian Copula coupling cross-horizon correlation with empirical marginals.
+        method : {"mvn", "student_t", "copula", "empirical", "kde", "ind_empirical", "ind_kde"}, default "empirical"
+            - "mvn" (or "gaussian"): Multivariate Normal on cross-series residual covariance.
+            - "student_t": Multivariate Student-t on cross-series residual covariance.
+            - "copula": Gaussian Copula coupling cross-series correlation with empirical marginals.
+            - "empirical": Joint empirical residual resampling across series (preserves cross-series covariance).
+            - "kde": Multivariate Kernel Density Estimation smoothed sampling preserving cross-series covariance.
+            - "ind_empirical" (or "ind_emp"): Independent empirical residual resampling per series and horizon.
+            - "ind_kde": Independent 1D Kernel Density Estimation smoothed sampling per series and horizon.
         future_exog : pd.DataFrame, optional
             Future exogenous features.
+        target_series : str or list of str, optional
+            Specify which target variable(s) to return sample paths for. If None, returns all target variables.
+        df_t_deg : float, default 5.0
+            Degrees of freedom for the Student-t distribution (only used if method="student_t").
         non_negative : bool, default True
             Enforce non-negative sample paths.
+
+        Returns
+        -------
+        mv_prob_forecasts
+            A new instance of mv_prob_forecasts containing the simulated sample paths and point forecasts.
         """
-        valid_methods = {"empirical", "kde", "gaussian", "mvn", "copula"}
-        if method == "correlated":
-            method = "gaussian"
+        valid_methods = {"mvn", "student_t", "copula", "empirical", "kde", "ind_empirical", "ind_kde"}
+        if method == "gaussian":
+            method = "mvn"
+        elif method in {"ind_emp", "series_empirical", "independent_empirical"}:
+            method = "ind_empirical"
+        elif method in {"series_kde", "independent_kde"}:
+            method = "ind_kde"
         if method not in valid_methods:
             raise ValueError(f"method='{method}' is not recognised. Choose from: {valid_methods}")
 
         self._require_residuals(df)
-        self._rng = np.random.default_rng(seed=self._random_state)
+        rng = np.random.default_rng(seed=self.random_state)
+        series_ids = self.series_ids
+        N = len(series_ids)
 
         self.model.fit(df)
-        fc = self.model.forecast(self.H, future_exog) if future_exog is not None else self.model.forecast(self.H)
-        y_hat = np.array(fc[self.target_col] if isinstance(fc, dict) else fc)
+        fc_dict = self.model.forecast(H=self.H, exog=future_exog)
 
-        if method == "empirical":
-            if self.n_calib is not None:
-                draws = np.column_stack([
-                    self._rng.choice(self.resid[h], size=n_samples, replace=True)
-                    for h in range(self.H)
-                ])
-            else:
-                draws = np.column_stack([
-                    self._rng.choice(self.resid, size=n_samples, replace=True)
-                    for _ in range(self.H)
-                ])
+        cov_psd = self.cov_matrix_
+        corr_mat = self.corr_matrix_
 
-        elif method == "kde":
+        if method == "mvn":
             if self.n_calib is not None:
-                draws = np.column_stack([
-                    gaussian_kde(self.resid[h]).resample(size=n_samples, seed=self._random_state)[0]
-                    for h in range(self.H)
-                ])
+                innov_flat = rng.multivariate_normal(mean=np.zeros(self.H * N), cov=cov_psd, size=n_samples)
+                innovations = innov_flat.reshape(n_samples, self.H, N)
             else:
-                draws = np.column_stack([
-                    gaussian_kde(self.resid).resample(size=n_samples, seed=self._random_state)[0]
-                    for _ in range(self.H)
-                ])
+                innovations = np.zeros((n_samples, self.H, N))
+                for h in range(self.H):
+                    innovations[:, h, :] = rng.multivariate_normal(mean=np.zeros(N), cov=cov_psd, size=n_samples)
 
-        elif method in {"gaussian", "mvn"}:
+        elif method == "student_t":
             if self.n_calib is not None:
-                cov_mat = np.cov(self.resid, rowvar=True)
-                cov_sym = 0.5 * (cov_mat + cov_mat.T)
-                eigvals, eigvecs = np.linalg.eigh(cov_sym)
-                cov_psd = eigvecs @ np.diag(np.maximum(eigvals, 1e-8)) @ eigvecs.T
-                self.sigma = cov_psd
-                draws = self._rng.multivariate_normal(np.zeros(self.H), self.sigma, size=n_samples)
+                D = self.H * N
+                Z = rng.multivariate_normal(mean=np.zeros(D), cov=cov_psd, size=n_samples)
+                W = rng.chisquare(df=df_t_deg, size=(n_samples, 1))
+                scale = np.sqrt(W / df_t_deg)
+                innovations = (Z / scale).reshape(n_samples, self.H, N)
             else:
-                var_resid = np.var(self.resid)
-                std_resid = np.sqrt(max(float(var_resid), 1e-8))
-                self.sigma = std_resid ** 2
-                draws = self._rng.normal(loc=0.0, scale=std_resid, size=(n_samples, self.H))
+                innovations = np.zeros((n_samples, self.H, N))
+                for h in range(self.H):
+                    Z_h = rng.multivariate_normal(mean=np.zeros(N), cov=cov_psd, size=n_samples)
+                    W_h = rng.chisquare(df=df_t_deg, size=(n_samples, 1))
+                    scale_h = np.sqrt(W_h / df_t_deg)
+                    innovations[:, h, :] = Z_h / scale_h
 
         elif method == "copula":
             if self.n_calib is not None:
-                cov_mat = np.cov(self.resid, rowvar=True)
-                cov_sym = 0.5 * (cov_mat + cov_mat.T)
-                eigvals, eigvecs = np.linalg.eigh(cov_sym)
-                cov_psd = eigvecs @ np.diag(np.maximum(eigvals, 1e-8)) @ eigvecs.T
-                stds = np.sqrt(np.diag(cov_psd))
-                stds[stds == 0] = 1e-8
-                corr_mat = np.clip(cov_psd / np.outer(stds, stds), -1.0, 1.0)
-                np.fill_diagonal(corr_mat, 1.0)
-
-                Z = self._rng.multivariate_normal(mean=np.zeros(self.H), cov=corr_mat, size=n_samples)
-                U = np.clip(norm.cdf(Z), 1e-6, 1.0 - 1e-6)
-
-                draws = np.zeros((n_samples, self.H))
+                D = self.H * N
+                Z = rng.multivariate_normal(mean=np.zeros(D), cov=corr_mat, size=n_samples)
+                U = np.clip(norm.cdf(Z), 1e-6, 1.0 - 1.e-6)
+                innovations = np.zeros((n_samples, self.H, N))
                 for h in range(self.H):
-                    draws[:, h] = np.quantile(self.resid[h], U[:, h])
+                    for j, s in enumerate(series_ids):
+                        u_hj = U[:, h * N + j]
+                        s_res = self.resid[s][h]
+                        innovations[:, h, j] = np.quantile(s_res, u_hj)
             else:
-                U = self._rng.uniform(1e-6, 1.0 - 1e-6, size=(n_samples, self.H))
-                draws = np.zeros((n_samples, self.H))
+                innovations = np.zeros((n_samples, self.H, N))
                 for h in range(self.H):
-                    draws[:, h] = np.quantile(self.resid, U[:, h])
+                    Z_h = rng.multivariate_normal(mean=np.zeros(N), cov=corr_mat, size=n_samples)
+                    U_h = norm.cdf(Z_h)
+                    U_h = np.clip(U_h, 1e-6, 1.0 - 1e-6)
+                    for j, s in enumerate(series_ids):
+                        s_res = self.joint_error_matrix[:, j]
+                        innovations[:, h, j] = np.quantile(s_res, U_h[:, j])
+
+        elif method == "empirical":
+            if self.n_calib is not None:
+                n_rows = len(self.joint_error_matrix)
+                row_indices = rng.choice(n_rows, size=n_samples, replace=True)
+                innovations = self.joint_error_matrix[row_indices, :].reshape(n_samples, self.H, N)
+            else:
+                n_rows = len(self.joint_error_matrix)
+                innovations = np.zeros((n_samples, self.H, N))
+                for h in range(self.H):
+                    row_indices = rng.choice(n_rows, size=n_samples, replace=True)
+                    innovations[:, h, :] = self.joint_error_matrix[row_indices, :]
+
+        elif method == "kde":
+            if self.n_calib is not None:
+                D = self.H * N
+                M_rows = len(self.joint_error_matrix)
+                bw_factor = M_rows ** (-1.0 / (D + 4.0))
+                kde_cov = (bw_factor ** 2) * cov_psd
+                row_indices = rng.choice(M_rows, size=n_samples, replace=True)
+                centers = self.joint_error_matrix[row_indices, :]
+                noise = rng.multivariate_normal(mean=np.zeros(D), cov=kde_cov, size=n_samples)
+                innovations = (centers + noise).reshape(n_samples, self.H, N)
+            else:
+                M_rows = len(self.joint_error_matrix)
+                bw_factor = M_rows ** (-1.0 / (N + 4.0))
+                kde_cov = (bw_factor ** 2) * cov_psd
+                innovations = np.zeros((n_samples, self.H, N))
+                for h in range(self.H):
+                    row_indices = rng.choice(M_rows, size=n_samples, replace=True)
+                    centers = self.joint_error_matrix[row_indices, :]
+                    noise = rng.multivariate_normal(mean=np.zeros(N), cov=kde_cov, size=n_samples)
+                    innovations[:, h, :] = centers + noise
+
+        elif method == "ind_empirical":
+            innovations = np.zeros((n_samples, self.H, N))
+            for j, s in enumerate(series_ids):
+                if self.n_calib is not None:
+                    for h in range(self.H):
+                        innovations[:, h, j] = rng.choice(self.resid[s][h], size=n_samples, replace=True)
+                else:
+                    for h in range(self.H):
+                        innovations[:, h, j] = rng.choice(self.resid[s], size=n_samples, replace=True)
+
+        elif method == "ind_kde":
+            innovations = np.zeros((n_samples, self.H, N))
+            for j, s in enumerate(series_ids):
+                if self.n_calib is not None:
+                    for h in range(self.H):
+                        try:
+                            kde_h = gaussian_kde(self.resid[s][h])
+                            innovations[:, h, j] = kde_h.resample(size=n_samples, seed=rng.integers(0, 1_000_000))[0]
+                        except Exception:
+                            innovations[:, h, j] = rng.choice(self.resid[s][h], size=n_samples, replace=True)
+                else:
+                    try:
+                        kde_s = gaussian_kde(self.resid[s])
+                        for h in range(self.H):
+                            innovations[:, h, j] = kde_s.resample(size=n_samples, seed=rng.integers(0, 1_000_000))[0]
+                    except Exception:
+                        for h in range(self.H):
+                            innovations[:, h, j] = rng.choice(self.resid[s], size=n_samples, replace=True)
 
         new_instance = copy.deepcopy(self)
-        trajectories = draws + y_hat[None, :]
+        new_instance.sample_paths = {}
+        new_instance.point_forecast = {}
+        new_instance.sample_paths_df = {}
 
-        if non_negative:
-            trajectories = np.nan_to_num(trajectories, nan=0.0, posinf=0.0, neginf=0.0)
-            trajectories = np.clip(trajectories, a_min=0.0, a_max=None)
+        panel_rows = []
 
-        new_instance.sample_paths = trajectories
-        new_instance.point_forecast = y_hat
-        new_instance.sample_paths_df = pd.DataFrame(
-            new_instance.sample_paths,
-            columns=[f"h_{i + 1}" for i in range(self.H)],
-        )
+        for j, s in enumerate(series_ids):
+            y_hat_s = fc_dict[s]
+            trajectories = innovations[:, :, j] + y_hat_s[None, :]
+
+            if non_negative:
+                trajectories = np.nan_to_num(trajectories, nan=0.0, posinf=0.0, neginf=0.0)
+                trajectories = np.clip(trajectories, a_min=0.0, a_max=None)
+
+            new_instance.sample_paths[s] = trajectories
+            new_instance.point_forecast[s] = y_hat_s
+            new_instance.sample_paths_df[s] = pd.DataFrame(
+                trajectories,
+                columns=[f"h_{i + 1}" for i in range(self.H)]
+            )
+
+        if target_series is not None:
+            target_list = [target_series] if isinstance(target_series, str) else target_series
+            for req_s in target_list:
+                if req_s not in series_ids:
+                    raise ValueError(f"Target series '{req_s}' not found in target_cols.")
+
+            new_instance.sample_paths = {s: new_instance.sample_paths[s] for s in target_list}
+            new_instance.point_forecast = {s: new_instance.point_forecast[s] for s in target_list}
+            new_instance.sample_paths_df = {s: new_instance.sample_paths_df[s] for s in target_list}
+
+        for s, traj in new_instance.sample_paths.items():
+            for m in range(n_samples):
+                for h in range(self.H):
+                    panel_rows.append({
+                        "sample_id": m,
+                        "horizon": h + 1,
+                        self.id_col: s,
+                        "point_forecast": new_instance.point_forecast[s][h],
+                        "sample_path": traj[m, h]
+                    })
+        new_instance.sample_paths_panel_df = pd.DataFrame(panel_rows)
+
         return new_instance
 
     def sample_quantiles(
         self,
         quantiles: Union[float, List[float]] = [0.05, 0.5, 0.95],
-    ) -> pd.DataFrame:
-        self._require_sample_paths()
+        target_series: Optional[Union[str, List[str]]] = None,
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Compute quantiles from simulated sample paths across all or requested target variables.
+        """
+        if not hasattr(self, "sample_paths"):
+            raise RuntimeError("No sample paths available. Call .sample(df, ...) first.")
+
         q_list = [quantiles] if isinstance(quantiles, (int, float)) else quantiles
-        cols = {"point_forecast": self.point_forecast}
-        for q in q_list:
-            cols[f"q_{q:.2f}"] = np.quantile(self.sample_paths, q, axis=0)
-        return pd.DataFrame(cols, index=[f"h_{i + 1}" for i in range(self.H)])
+        series_keys = list(self.sample_paths.keys())
+
+        if target_series is not None:
+            series_keys = [target_series] if isinstance(target_series, str) else target_series
+
+        results = {}
+        for s in series_keys:
+            paths = self.sample_paths[s]
+            y_hat = self.point_forecast[s]
+            cols = {"point_forecast": y_hat}
+            for q in q_list:
+                cols[f"q_{q:.2f}"] = np.quantile(paths, q, axis=0)
+            results[s] = pd.DataFrame(cols, index=[f"h_{i + 1}" for i in range(self.H)])
+
+        return results
 
     def prediction_intervals(
         self,
         coverage: Union[float, List[float]] = 0.90,
         conformal: bool = False,
+        target_series: Optional[Union[str, List[str]]] = None,
         future_exog: Optional[pd.DataFrame] = None,
-    ) -> pd.DataFrame:
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Compute prediction intervals for all or requested target variables.
+
+        Parameters
+        ----------
+        coverage : float or list of float, default 0.90
+            Desired nominal coverage level(s) (e.g. 0.90 for 90% prediction intervals).
+        conformal : bool, default False
+            If False (default), intervals are computed from simulated sample paths.
+            If True, distribution-free conformal prediction intervals are computed using self.non_conform.
+        target_series : str or list of str, optional
+            Filter output to specific target variable(s).
+        future_exog : pd.DataFrame, optional
+            Future exogenous variables if conformal=True and .sample() was not called first.
+        """
         cov_list = [coverage] if isinstance(coverage, (int, float)) else coverage
 
+        series_keys = list(self.sample_paths.keys()) if hasattr(self, "sample_paths") else getattr(self, "series_ids", [])
+        if target_series is not None:
+            series_keys = [target_series] if isinstance(target_series, str) else target_series
+
+        results = {}
+
         if conformal:
+            fc_all = None
             if not hasattr(self, "point_forecast"):
-                fc = self.model.forecast(self.H, future_exog) if future_exog is not None else self.model.forecast(self.H)
-                y_hat = np.array(fc[self.target_col] if isinstance(fc, dict) else fc)
-            else:
-                y_hat = self.point_forecast
+                fc_all = self.model.forecast(self.H, exog=future_exog)
+            for s in series_keys:
+                y_hat_s = self.point_forecast[s] if hasattr(self, "point_forecast") else fc_all[s]
+                cols = {"point_forecast": y_hat_s}
+                nc_s = self.non_conform[s]
+                n_res = self.n_calib if self.n_calib is not None else len(nc_s)
 
-            result_cols = {"point_forecast": y_hat}
-            n_res = self.n_calib if self.n_calib is not None else len(self.non_conform) if self.non_conform.ndim == 1 else self.non_conform.shape[1]
+                for cov in cov_list:
+                    cov_pct = int(cov * 100) if cov <= 1.0 else int(cov)
+                    d = cov if cov <= 1.0 else cov / 100.0
+                    q_which = np.clip(np.ceil(d * (n_res + 1)) / n_res, 0.0, 1.0)
+                    if self.n_calib is not None:
+                        q_hat = np.array([np.quantile(nc_s[h], q_which, method="higher") for h in range(self.H)])
+                    else:
+                        q_val = np.quantile(nc_s, q_which, method="higher")
+                        q_hat = np.repeat(q_val, self.H)
 
-            for cov in cov_list:
-                cov_pct = int(cov * 100) if cov <= 1.0 else int(cov)
-                d = cov if cov <= 1.0 else cov / 100.0
-                q_which = np.clip(np.ceil(d * (n_res + 1)) / n_res, 0.0, 1.0)
-                if self.n_calib is not None:
-                    q_hat = np.array([np.quantile(self.non_conform[h], q_which, method="higher") for h in range(self.H)])
-                else:
-                    q_val = np.quantile(self.non_conform, q_which, method="higher")
-                    q_hat = np.repeat(q_val, self.H)
+                    cols[f"lower_{cov_pct}"] = y_hat_s - q_hat
+                    cols[f"upper_{cov_pct}"] = y_hat_s + q_hat
 
-                result_cols[f"lower_{cov_pct}"] = y_hat - q_hat
-                result_cols[f"upper_{cov_pct}"] = y_hat + q_hat
-
-            return pd.DataFrame(result_cols, index=[f"h_{i + 1}" for i in range(self.H)])
+                results[s] = pd.DataFrame(cols, index=[f"h_{i + 1}" for i in range(self.H)])
 
         else:
-            self._require_sample_paths()
-            result_cols = {"point_forecast": self.point_forecast}
-            for cov in cov_list:
-                cov_pct = int(cov * 100) if cov <= 1.0 else int(cov)
-                d = cov if cov <= 1.0 else cov / 100.0
-                alpha = 1.0 - d
-                lower_q = alpha / 2.0
-                upper_q = 1.0 - (alpha / 2.0)
-                result_cols[f"lower_{cov_pct}"] = np.quantile(self.sample_paths, lower_q, axis=0)
-                result_cols[f"upper_{cov_pct}"] = np.quantile(self.sample_paths, upper_q, axis=0)
+            if not hasattr(self, "sample_paths"):
+                raise RuntimeError("No sample paths available. Call .sample(df, ...) first or set conformal=True.")
 
-            return pd.DataFrame(result_cols, index=[f"h_{i + 1}" for i in range(self.H)])
+            for s in series_keys:
+                paths = self.sample_paths[s]
+                y_hat_s = self.point_forecast[s]
+                cols = {"point_forecast": y_hat_s}
+
+                for cov in cov_list:
+                    cov_pct = int(cov * 100) if cov <= 1.0 else int(cov)
+                    d = cov if cov <= 1.0 else cov / 100.0
+                    alpha = 1.0 - d
+                    lower_q = alpha / 2.0
+                    upper_q = 1.0 - (alpha / 2.0)
+                    cols[f"lower_{cov_pct}"] = np.quantile(paths, lower_q, axis=0)
+                    cols[f"upper_{cov_pct}"] = np.quantile(paths, upper_q, axis=0)
+
+                results[s] = pd.DataFrame(cols, index=[f"h_{i + 1}" for i in range(self.H)])
+
+        return results
 
     def copy(self):
         return copy.deepcopy(self)

@@ -104,9 +104,14 @@ class var:
         self.cps = change_points
 
         # ── lags ──────────────────────────────────────────────────────────────
-        if not isinstance(lags, dict):
-            raise TypeError("lags must be a dict keyed by target column name.")
-        self.n_lag = lags   # VARModel accepts int or list per key; resolved at use time
+        if isinstance(lags, int):
+            self.n_lag = {col: lags for col in target_cols}
+        elif isinstance(lags, list):
+            self.n_lag = {col: lags for col in target_cols}
+        elif isinstance(lags, dict):
+            self.n_lag = lags
+        else:
+            raise TypeError("lags must be an int, list, or a dict keyed by target column name.")
 
         # ── lag_transform ─────────────────────────────────────────────────────
         self.lag_transform = lag_transform
@@ -114,21 +119,32 @@ class var:
         # ── differencing ──────────────────────────────────────────────────────
         self.diffs = {col: None for col in target_cols}
         if difference is not None:
-            if not isinstance(difference, dict):
-                raise TypeError("difference must be a dict keyed by target column name.")
-            self.diffs.update(difference)
+            if isinstance(difference, int):
+                self.diffs = {col: (difference if difference != 0 else None) for col in target_cols}
+            elif isinstance(difference, dict):
+                self.diffs.update(difference)
+            else:
+                raise TypeError("difference must be an int or a dict keyed by target column name.")
 
         # ── seasonal differencing ─────────────────────────────────────────────
         self.season_diffs = {col: None for col in target_cols}
         if seasonal_diff is not None:
-            if not isinstance(seasonal_diff, dict):
-                raise TypeError("seasonal_diff must be a dict keyed by target column name.")
-            self.season_diffs.update(seasonal_diff)
+            if isinstance(seasonal_diff, int):
+                self.season_diffs = {col: (seasonal_diff if seasonal_diff != 0 else None) for col in target_cols}
+            elif isinstance(seasonal_diff, dict):
+                self.season_diffs.update(seasonal_diff)
+            else:
+                raise TypeError("seasonal_diff must be an int or a dict keyed by target column name.")
 
         # ── trend ─────────────────────────────────────────────────────────────
-        self.trend = trend
-        if trend is not None and not isinstance(trend, dict):
-            raise TypeError("trend must be a dict keyed by target column name.")
+        if isinstance(trend, str):
+            self.trend = {col: trend for col in target_cols}
+        elif isinstance(trend, dict):
+            self.trend = trend
+        elif trend is None:
+            self.trend = None
+        else:
+            raise TypeError("trend must be a str or a dict keyed by target column name.")
         
 
         if self.trend is not None and "ets" in trend.values():
@@ -577,102 +593,116 @@ class var:
 
         return forecasts
     
-    def cross_validate(self,
-                       df: pd.DataFrame,
-                       target_col: str,
-                       cv_split: int,
-                       test_size: int,
-                       metrics: List[Callable],
-                       step_size: int = 1,
-                       h_split_point: Optional[int] = None,
-                       ) -> Union[pd.DataFrame, Tuple[pd.DataFrame, pd.DataFrame]]:
+    def cross_validate(
+        self,
+        df: pd.DataFrame,
+        cv_split: int,
+        test_size: int,
+        metrics: List[Callable],
+        step_size: Optional[int] = None,
+        h_split_point: Optional[int] = None,
+    ) -> pd.DataFrame:
         """
-        Perform cross-validation.
+        Expanding-window cross-validation evaluated across all target variables.
 
         Parameters
         ----------
         df : pd.DataFrame
-            Input dataframe.
-        target_col : str
-            Target variable for evaluation.
+            Input DataFrame containing all target variables and any feature columns.
         cv_split : int
             Number of cross-validation folds.
         test_size : int
-            Test size per fold.
-        metrics : list of callable
-            Metric functions (e.g. ``[MAE, RMSE]``) used to evaluate forecast accuracy across folds. Call ``.cv_summary()`` after cross-validation to retrieve the aggregated scores.
+            Test size (forecast horizon) per fold.
+        metrics : List[Callable]
+            Metric functions (e.g. ``[WMAPE, MAE, RMSE, MASE]``) used to evaluate forecast accuracy across folds.
+            Access ``.cv_summary`` after cross-validation to retrieve the aggregated scores across all target variables.
         step_size : int, optional
-            Step size for rolling window. Default is 1.
+            Step size for expanding window. If None, defaults to test_size.
         h_split_point : int, optional
             Point to split the test set for separate evaluation. Default is None.
-    
+
         Returns
         -------
         pd.DataFrame
-            DataFrame with averaged cross-validation metric scores.
+            DataFrame containing detailed cross-validation results with columns: fold, target, cutoff_date, horizon, y_true, y_pred.
         """
-
-        cv_df_ = pd.DataFrame()
         tscv = SplitTimeSeries(n_splits=cv_split, test_size=test_size, step_size=step_size)
-        metrics_dict = {m.__name__: [] for m in metrics}
-        if h_split_point is not None:
-            metrics_dict1 = {m.__name__: [] for m in metrics}
-            metrics_dict2 = {m.__name__: [] for m in metrics}
-
-        for idx, (train_index, test_index) in enumerate(tscv.split(df)):
-            train, test = df.iloc[train_index], df.iloc[test_index]
-            x_test, y_test = test.drop(columns=self.target_cols), np.array(test[target_col])
-            self.fit(train)
-            exog_t = x_test if x_test.shape[1] > 0 else None
-            forecasts = self.forecast(test_size, exog_t)[target_col]
-
-            for m in metrics:
-                if m.__name__ in ["MASE", "SMAE", "SRMSE", "RMSSE"]:
-                    eval_val = m(y_test, forecasts, train[target_col])
-                else:
-                    eval_val = m(y_test, forecasts)
-                metrics_dict[m.__name__].append(eval_val)
-            if h_split_point is not None and isinstance(h_split_point, int):
-                y_test_1, y_test_2 = y_test[:h_split_point], y_test[h_split_point:]
-                bb_forecast_1, bb_forecast_2 = forecasts[:h_split_point], forecasts[h_split_point:]
-                for m in metrics:
-                    if m.__name__ in ['MASE', 'SMAE', 'SRMSE', 'RMSSE']:
-                        eval_val1 = m(y_test_1, bb_forecast_1, np.array(train[self.target_cols]))
-                        eval_val2 = m(y_test_2, bb_forecast_2, np.array(train[self.target_cols]))
-                    else:
-                        eval_val1 = m(y_test_1, bb_forecast_1)
-                        eval_val2 = m(y_test_2, bb_forecast_2)
-                    metrics_dict1[m.__name__].append(eval_val1)
-                    metrics_dict2[m.__name__].append(eval_val2)
-
-            ## store results for this split
-            all_forecasts = self.forecast(test_size, exog_t)
-            actuals = {f"actual_{col}": test[col].values for col in self.target_cols}
-            all_forecasts_dict = {f"forecast_{col}": all_forecasts[col] for col in self.target_cols}
-            split_results = {"cutoff": np.repeat(train.index[-1], len(test)), "fold_index": test.index,
-                             "horizon": np.arange(1, len(test) + 1),
-                            "split": np.repeat(f"fold_{idx+1}", len(test))}
-            
-            split_results.update(actuals)
-            split_results.update(all_forecasts_dict)
-
-            cv_df_ = pd.concat([cv_df_, pd.DataFrame(split_results)], ignore_index=True)
-                
-        overall_performance = [[m.__name__, np.mean(metrics_dict[m.__name__])] for m in metrics]
-        overall_performance = pd.DataFrame(overall_performance).rename(columns={0: "eval_metric", 1: "overall_score"})
+        if not isinstance(metrics, (list, tuple)):
+            metrics = [metrics]
+        metric_names = [getattr(m, "__name__", m.__class__.__name__) for m in metrics]
+        rows = []
+        fold_scores = {mname: {col: [] for col in self.target_cols} for mname in metric_names}
         if h_split_point is not None and isinstance(h_split_point, int):
-            performance_1 = [[m.__name__, np.mean(metrics_dict1[m.__name__])] for m in metrics]
-            performance_2 = [[m.__name__, np.mean(metrics_dict2[m.__name__])] for m in metrics]
-            overall_performance = pd.DataFrame(overall_performance).rename(columns={0: "eval_metric", 1: "overall_score"})
-            perf_1_df = pd.DataFrame(performance_1).rename(columns={0: "eval_metric", 1: f"1-{h_split_point}"})
-            perf_2_df = pd.DataFrame(performance_2).rename(columns={0: "eval_metric", 1: f"{h_split_point+1}-{test_size}"})
-            # merge all three dataframes
-            overall_performance = overall_performance.merge(perf_1_df, on="eval_metric").merge(perf_2_df, on="eval_metric")
-        
-        self.cv_summary = overall_performance
-        return cv_df_
+            fold_scores_p1 = {mname: {col: [] for col in self.target_cols} for mname in metric_names}
+            fold_scores_p2 = {mname: {col: [] for col in self.target_cols} for mname in metric_names}
 
-    # a name for the class that is more descriptive of its purpose
+        for fold, (train_index, test_index) in enumerate(tscv.split(df)):
+            train, test = df.iloc[train_index], df.iloc[test_index]
+            cutoff = train.index[-1]
+            x_test = test.drop(columns=self.target_cols)
+            exog_t = x_test if x_test.shape[1] > 0 else None
+
+            forecaster = copy.deepcopy(self)
+            forecaster.fit(train)
+            all_forecasts = forecaster.forecast(test_size, exog_t)
+
+            for col in self.target_cols:
+                y_true = np.asarray(test[col].values)
+                y_pred = np.asarray(all_forecasts[col][:len(y_true)])
+                y_train = np.asarray(train[col].values)
+
+                for h_idx, (yt, yp) in enumerate(zip(y_true, y_pred)):
+                    rows.append({
+                        "fold": fold + 1,
+                        "target": col,
+                        "cutoff_date": cutoff,
+                        "horizon": h_idx + 1,
+                        "y_true": yt,
+                        "y_pred": yp,
+                    })
+
+                for mfunc, mname in zip(metrics, metric_names):
+                    if mname in ["MASE", "SMAE", "SRMSE", "RMSSE"]:
+                        score = mfunc(y_true, y_pred, y_train)
+                    else:
+                        score = mfunc(y_true, y_pred)
+                    fold_scores[mname][col].append(score)
+
+                    if h_split_point is not None and isinstance(h_split_point, int):
+                        y_t1, y_t2 = y_true[:h_split_point], y_true[h_split_point:]
+                        y_p1, y_p2 = y_pred[:h_split_point], y_pred[h_split_point:]
+                        if mname in ["MASE", "SMAE", "SRMSE", "RMSSE"]:
+                            s1 = mfunc(y_t1, y_p1, y_train)
+                            s2 = mfunc(y_t2, y_p2, y_train)
+                        else:
+                            s1 = mfunc(y_t1, y_p1)
+                            s2 = mfunc(y_t2, y_p2)
+                        fold_scores_p1[mname][col].append(s1)
+                        fold_scores_p2[mname][col].append(s2)
+
+        df_detailed = pd.DataFrame(rows)
+
+        summary_dict = {}
+        for col in self.target_cols:
+            summary_dict[col] = {mname: np.mean(fold_scores[mname][col]) for mname in metric_names}
+        summary_dict["overall"] = {
+            mname: np.mean([np.mean(fold_scores[mname][col]) for col in self.target_cols])
+            for mname in metric_names
+        }
+        self.cv_summary = pd.DataFrame(summary_dict)
+
+        if h_split_point is not None and isinstance(h_split_point, int):
+            p1_dict = {col: {mname: np.mean(fold_scores_p1[mname][col]) for mname in metric_names} for col in self.target_cols}
+            p1_dict["overall"] = {mname: np.mean([np.mean(fold_scores_p1[mname][col]) for col in self.target_cols]) for mname in metric_names}
+            p2_dict = {col: {mname: np.mean(fold_scores_p2[mname][col]) for mname in metric_names} for col in self.target_cols}
+            p2_dict["overall"] = {mname: np.mean([np.mean(fold_scores_p2[mname][col]) for col in self.target_cols]) for mname in metric_names}
+            self.cv_summary_split = {
+                f"1-{h_split_point}": pd.DataFrame(p1_dict),
+                f"{h_split_point+1}-{test_size}": pd.DataFrame(p2_dict),
+            }
+
+        return df_detailed
+
     def get_name(self):
         return "var"
 

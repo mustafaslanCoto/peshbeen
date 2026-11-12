@@ -27,6 +27,7 @@ website:
             contents:
               - modules/models/01_ml_forecast.ipynb
               - modules/models/02_ms_arr.ipynb
+              - modules/models/03_multi_output.ipynb
               - modules/models/04_var.ipynb
               - modules/models/05_ms_var.ipynb
               - modules/models/06_arima.ipynb

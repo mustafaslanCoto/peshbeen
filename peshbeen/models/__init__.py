@@ -9,6 +9,7 @@ __all__ = []
 import warnings
 warnings.filterwarnings("ignore")
 from .ml_forecaster import ml_forecaster
+from .ml_multi_output_forecaster import ml_multi_output_forecaster
 from .var import var
 from .ms_arr import ms_arr
 from .ms_var import ms_var
