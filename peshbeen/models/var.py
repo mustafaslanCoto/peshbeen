@@ -147,7 +147,7 @@ class var:
             raise TypeError("trend must be a str or a dict keyed by target column name.")
         
 
-        if self.trend is not None and "ets" in trend.values():
+        if self.trend is not None and "ets" in self.trend.values():
             # ── ets params ────────────────────────────────────────────────────────────
             CONSTRUCTOR_PARAMS = {
                 "trend", "damped_trend", "seasonal", "seasonal_periods",
@@ -165,7 +165,7 @@ class var:
             if ets_params is not None:
                 if not isinstance(ets_params, dict):
                     raise TypeError("ets_params must be a dict keyed by target column name.")
-                for col, ttype in trend.items():
+                for col, ttype in self.trend.items():
                     if ttype == "ets":
                         col_params = ets_params.get(col, {})  # flat dict per target, same as univariate
                         if not isinstance(col_params, dict):
@@ -174,7 +174,7 @@ class var:
                         self.ets_fit[col]   = {k: v for k, v in col_params.items() if k in FIT_PARAMS}
             else:
                 # default empty dicts for all ETS targets
-                for col, ttype in trend.items():
+                for col, ttype in self.trend.items():
                     if ttype == "ets":
                         self.ets_model[col] = {}
                         self.ets_fit[col]   = {}

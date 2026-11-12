@@ -554,7 +554,16 @@ def optuna_tune_multi(
 
         # Update base regressor parameters
         if hasattr(model_, "model") and hasattr(model_.model, "set_params") and base_model_params:
-            model_.model.set_params(**base_model_params)
+            if model_.model.__class__.__name__ == "MultiOutputRegressor":
+                wrapped_params = {}
+                for k, v in base_model_params.items():
+                    if k.startswith("estimator__"):
+                        wrapped_params[k] = v
+                    else:
+                        wrapped_params[f"estimator__{k}"] = v
+                model_.model.set_params(**wrapped_params)
+            else:
+                model_.model.set_params(**base_model_params)
 
         cv_scores = []
 

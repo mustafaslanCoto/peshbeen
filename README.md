@@ -98,9 +98,8 @@ feed into a decision. Its advantages:
   reported.
 
 - **🧰 Batteries included.** Automatic lag and rolling/expanding feature
-  generation, Box-Cox stabilisation, Optuna tuning,
-  forward/backward feature selection, a built-in metric-optimised
-  ensemble
+  generation, Box-Cox stabilisation, Optuna tuning, forward/backward
+  feature selection, a built-in metric-optimised ensemble
   ([`pesh`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/herne_pesh.html#pesh)),
   and ready-to-use datasets (including real healthcare operations
   series).
@@ -124,12 +123,40 @@ The advantages above, in detail:
   `.forecast(H)` workflow, eliminating the need for manual
   feature/target splitting.
 
-- **Model Agnostic:** Supports a wide range of forecasting models behind
-  one interface — naive baselines, ETS, ARIMA, Auto ARIMA, Vector
-  Autoregressions, scikit-learn regressors, gradient-boosted trees
-  (XGBoost, LightGBM, CatBoost), TabPFN foundation models, Generalized
-  Linear Models (GLM) for count data, and **Markov-switching regime
-  models (MS-ARR, MS-VAR)**.
+- **Model Agnostic Across 14 Specialized Forecasters:** Supports a
+  comprehensive spectrum of forecasting architectures under one unified
+  `.fit` / `.forecast` API:
+
+  - **Univariate Statistical & ML:**
+    [`naive`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/naive.html#naive),
+    [`ets`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ets.html#ets),
+    [`arima`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/arima.html#arima),
+    `auto_arima` (stepwise automated order selection),
+    [`ml_forecaster`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ml_forecast.html#ml_forecaster)
+    (recursive),
+    [`ml_direct_forecaster`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/direct_ml.html#ml_direct_forecaster)
+    (horizon-specific direct multi-step),
+    [`glm`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/glm.html#glm)
+    (Poisson/Gamma count data), and
+    [`ms_arr`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ms_arr.html#ms_arr)
+    (Markov-switching autoregressive regime changes).
+  - **Wide Multivariate Models:**
+    [`ml_multi_output_forecaster`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/multi_output.html#ml_multi_output_forecaster),
+    [`var`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/var.html#var),
+    and
+    [`ms_var`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ms_var.html#ms_var)
+    for modeling simultaneous dynamical feedback and cross-series lag
+    interactions across wide DataFrames with multiple target columns.
+  - **Multi-Series Panel Models:**
+    [`panel_forecaster`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/panel_forecast.html#panel_forecaster)
+    (scalable pooled global ML models across long panel series) and
+    [`ml_multi_forecaster`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ml_multi_forecast.html#ml_multi_forecaster)
+    (pooled multi-series models with cross-series lag
+    interdependencies).
+  - **Ensemble:**
+    [`pesh`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/herne_pesh.html#pesh)
+    (combines arbitrary member models with metric-optimized weights via
+    cross-validation).
 
 - **Automatic Feature Engineering:** User can specify the key following
   parameters to automatically generate features:
@@ -147,10 +174,25 @@ The advantages above, in detail:
   - `boxcox`: Option to apply Box-Cox transformation to target variable
     to stabilize variance.
 
-- **Multivariate Forecasting:** Supports forecasting with multiple
-  target variables and exogenous regressors, making it suitable for
-  multivariate forecasting tasks where relationships between variables
-  can be leveraged for improved accuracy.
+- **Multivariate & Multi-Series Forecasting:** Built-in support for both
+  wide multivariate systems and pooled multi-series panels:
+
+  - *Wide Multivariate
+    ([`ml_multi_output_forecaster`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/multi_output.html#ml_multi_output_forecaster),
+    [`var`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/var.html#var),
+    [`ms_var`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ms_var.html#ms_var)):*
+    Expects wide DataFrames where columns share synchronous timestamps.
+    Directly models contemporaneous feedback and cross-variable lag
+    interactions between interacting series.
+  - *Pooled Multi-Series Panel
+    ([`panel_forecaster`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/panel_forecast.html#panel_forecaster),
+    [`ml_multi_forecaster`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ml_multi_forecast.html#ml_multi_forecaster)):*
+    Expects long panel DataFrames (`id_col`, `target_col`).
+    [`panel_forecaster`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/panel_forecast.html#panel_forecaster)
+    pools data across hundreds or thousands of series to learn shared
+    dynamics without cross-series lag bloat;
+    [`ml_multi_forecaster`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/ml_multi_forecast.html#ml_multi_forecaster)
+    allows explicit cross-series lag dependencies.
 
 - **Probabilistic Forecasting:** Enables probabilistic forecasting
   through a simple two-step workflow. First, call `calibrate` with a
@@ -183,9 +225,9 @@ The advantages above, in detail:
     paths), and is accessed via `calibrate()` + `conformal_quantiles()`.
 
 - **Hyperparameter Tuning & Feature Selection:** Built-in hyperparameter
-  tuning with Optuna, plus forward/backward feature
-  selection, so you can optimise both model configuration and the
-  feature set with minimal effort.
+  tuning with Optuna, plus forward/backward feature selection, so you
+  can optimise both model configuration and the feature set with minimal
+  effort.
 
 - **Built-in Ensemble
   ([`pesh`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/herne_pesh.html#pesh)):**
@@ -224,50 +266,52 @@ pip install peshbeen
 ## Quick Start Example
 
 ``` python
-from peshbeen.datasets import load_wales_admissions # addmissions to E&A hospitals in Wales
+from peshbeen.datasets import load_airline_passengers
 from peshbeen.models import ml_forecaster
-from peshbeen.transformations import rolling_mean, rolling_std, expanding_mean
-from xgboost import XGBRegressor
+from peshbeen.transformations import rolling_mean, rolling_std
+from lightgbm import LGBMRegressor
 
-wales_admissions = load_wales_admissions()
-wales_admissions["day_of_week"] = wales_admissions.index.dayofweek # add day of week as a feature
-wales_admissions["month"] = wales_admissions.index.month # add month as a feature to capture seasonality
-wales_admissions["day_of_month"] = wales_admissions.index.day # add day of month as a feature to capture seasonality
-# split the data into train and test sets
-train = wales_admissions[:-30]
-test = wales_admissions[-30:]
-cat_variables = ["day_of_week", "month", "day_of_month"]
-from sklearn.preprocessing import OneHotEncoder
-ohe = OneHotEncoder(drop='first', sparse_output=False, handle_unknown="ignore")
-transforms = [rolling_mean(window_size= 28, shift=7), rolling_std(window_size=28), expanding_mean()] 
-# import linear regression from sklearn
-from sklearn.linear_model import LinearRegression
-ml_linear = ml_forecaster(model=XGBRegressor(),
-              target_col='admissions', lags = 6,
-              cat_variables=cat_variables, categorical_encoder=ohe,
-              lag_transform=transforms)
-ml_linear.fit(train)
-forecasts = ml_linear.forecast(H=30, exog=test[cat_variables])
+# Load clean monthly airline passenger data (1949 - 1960)
+pax = load_airline_passengers()
+train = pax[:-12]
+test = pax[-12:]
+
+# Automatic feature engineering: rolling statistics and seasonal lag structure
+transforms = [rolling_mean(window_size=12, shift=1), rolling_std(window_size=12)]
+
+# Machine learning forecaster with automated Box-Cox stabilization and linear detrending
+model = ml_forecaster(
+    model=LGBMRegressor(verbose=-1, random_state=42),
+    target_col='passengers',
+    lags=12,
+    trend='linear',
+    box_cox=True,
+    lag_transform=transforms
+)
+model.fit(train)
+forecasts = model.forecast(H=12)
 ```
 
 ``` python
-## Plot the historical data
 import matplotlib.pyplot as plt
-wales_admissions["admissions"].plot(figsize=(10, 6), label='Admissions')
-plt.title("Daily Admissions to E&A Hospitals in Wales")
+pax["passengers"].plot(figsize=(10, 5), label="Monthly Passengers", color="#1f77b4")
+plt.title("Monthly International Airline Passengers (1949 - 1960)")
 plt.xlabel("Date")
-plt.ylabel("Number of Admissions")
+plt.ylabel("Thousands of Passengers")
+plt.legend()
 plt.show()
 ```
 
 ![](index_files/figure-commonmark/cell-3-output-1.png)
 
 ``` python
-# plot the forecast against the actual values
-plt.figure(figsize=(10, 6))
-plt.plot(train.index[-90:], train['admissions'][-90:], label='Train')
-plt.plot(test.index, test['admissions'], label='Test')
-plt.plot(test.index, forecasts, label='Forecast')
+plt.figure(figsize=(10, 5))
+plt.plot(train.index[-36:], train['passengers'][-36:], label='Train', color='#1f77b4')
+plt.plot(test.index, test['passengers'], label='Test Actuals', color='black', linewidth=2)
+plt.plot(test.index, forecasts, label='ML Forecast', color='#2ca02c', linestyle='--')
+plt.title("Airline Passengers: 12-Month Out-of-Sample Forecast")
+plt.xlabel("Date")
+plt.ylabel("Thousands of Passengers")
 plt.legend()
 plt.show()
 ```
