@@ -98,7 +98,7 @@ feed into a decision. Its advantages:
   reported.
 
 - **🧰 Batteries included.** Automatic lag and rolling/expanding feature
-  generation, Box-Cox stabilisation, Hyperopt/Optuna tuning,
+  generation, Box-Cox stabilisation, Optuna tuning,
   forward/backward feature selection, a built-in metric-optimised
   ensemble
   ([`pesh`](https://mustafaslanCoto.github.io/peshbeen/modules/02_models/herne_pesh.html#pesh)),
@@ -183,7 +183,7 @@ The advantages above, in detail:
     paths), and is accessed via `calibrate()` + `conformal_quantiles()`.
 
 - **Hyperparameter Tuning & Feature Selection:** Built-in hyperparameter
-  tuning with Hyperopt and Optuna, plus forward/backward feature
+  tuning with Optuna, plus forward/backward feature
   selection, so you can optimise both model configuration and the
   feature set with minimal effort.
 

@@ -26,7 +26,6 @@ dependencies = [
     "scipy",
     "scikit-learn",
     "statsmodels",
-    "setuptools>=68,<82",
 ]
 
 [project.optional-dependencies]
@@ -39,7 +38,6 @@ dev = [
     "xgboost",
     "lightgbm",
     "catboost",
-    "hyperopt",
     "optuna",
     "ruptures",
 ]

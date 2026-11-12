@@ -38,7 +38,7 @@ Direct Bootstrap forecasting: Preserves dependency structure across forecast hor
 
 Conformal Prediction: Generates statistically valid prediction intervals using nonconformity scores
 
-Hyperparameter Tuning: Integrated support for optimization using Hyperopt and Optuna for efficient model selection.
+Hyperparameter Tuning: Integrated support for optimization using Optuna for efficient model selection.
 
 Your task is to:
 
